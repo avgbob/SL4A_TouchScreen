@@ -132,18 +132,23 @@
 #define HEATMAP_CLOSE_BIRTH_MIN_SEP             3
 
 /*
- * Late close-birth relaxation.
+ * Sequential close-birth relaxation.
  *
  * Real panel captures show that two fingers placed together can become
  * detector-resolvable sequentially rather than in the same frame. Keep the
- * conservative 3-cell guard during the early ambiguous part of the contact,
- * then permit a slightly tighter 2.75-cell centroid separation once the first
- * track has been stable for at least ~60 ms. The normal 3-frame new-contact
- * debounce still applies, so a two-frame transient cannot publish a new MT
- * contact. Coordinates are fixed-point grid units ×100.
+ * conservative 3-cell guard normally. Only after the detector has seen one
+ * blob alone for at least ~60 ms, followed by a transition to exactly two
+ * blobs, arm a short relaxation window that permits a 2.75-cell centroid
+ * separation. The window lasts just long enough for the normal 3-frame
+ * new-contact debounce to complete.
+ *
+ * This is intentionally based on pre-coalescing detector history: a second
+ * candidate that was present from frame 0 but repeatedly suppressed can never
+ * manufacture the required solo history.
  */
-#define HEATMAP_CLOSE_BIRTH_LATE_AGE_FRAMES      6
-#define HEATMAP_CLOSE_BIRTH_LATE_MIN_SEP100    275
+#define HEATMAP_CLOSE_BIRTH_SOLO_FRAMES           6
+#define HEATMAP_CLOSE_BIRTH_RELAX_FRAMES          3
+#define HEATMAP_CLOSE_BIRTH_LATE_MIN_SEP100     275
 
 /* Missed frame timeout (ms) */
 #define HEATMAP_MISSED_FRAME_TIMEOUT_MS  60
