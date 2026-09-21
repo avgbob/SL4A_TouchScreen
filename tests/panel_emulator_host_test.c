@@ -36,6 +36,17 @@
 #include <linux/slab.h>
 #include "mt_record.h"
 
+/*
+ * Host-only policy experiments can override the close-birth minimum separation
+ * at compile time without editing driver/ or the production constants header.
+ * Normal panel_emulator_host_test builds do not define this macro and therefore
+ * exercise the production value unchanged.
+ */
+#ifdef SL4A_TEST_CLOSE_BIRTH_MIN_SEP
+#undef HEATMAP_CLOSE_BIRTH_MIN_SEP
+#define HEATMAP_CLOSE_BIRTH_MIN_SEP SL4A_TEST_CLOSE_BIRTH_MIN_SEP
+#endif
+
 /* Include the staged real driver so this test can also pin the module params
  * and inspect the detector's pre-tracker blob arrays. */
 #include "raw-pipeline-stage/mshw0231-raw.c"
