@@ -69,6 +69,31 @@ if [ "$?" -ne 0 ]; then
     FAIL=1
 fi
 
+section "ROOTLESS TEST SHIMS"
+# tests/hunt_sandbox_test.sh deliberately exercises code paths that normally
+# re-exec through sudo. GitHub-hosted runners allow passwordless sudo, but a
+# developer laptop should never need credentials (or real root) for this
+# synthetic test. Put a no-elevation sudo shim in PATH: commands still resolve
+# against the sandbox's own modprobe/dkms/etc stubs, and any accidental write
+# outside the sandbox remains unprivileged and therefore fails safely.
+SHIM_DIR="$(mktemp -d "${TMPDIR:-/tmp}/sl4a-pr4-shim.XXXXXX")"
+trap 'rm -rf "$SHIM_DIR"' EXIT
+cat > "$SHIM_DIR/sudo" <<'EOS'
+#!/usr/bin/env bash
+set -u
+while [ "$#" -gt 0 ]; do
+    case "$1" in
+        -n|-E|-H|-S) shift ;;
+        --) shift; break ;;
+        *) break ;;
+    esac
+done
+exec "$@"
+EOS
+chmod +x "$SHIM_DIR/sudo"
+export PATH="$SHIM_DIR:$PATH"
+echo "PASS: host tests will use a rootless sudo shim (no password prompt)"
+
 section "HOST TESTS"
 run make -C "$ROOT/tests" clean
 run make -C "$ROOT/tests" test
