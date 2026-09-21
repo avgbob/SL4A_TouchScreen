@@ -961,8 +961,12 @@ static void raw_ghost_merge(struct spi_hid *shid, struct blob_entry *sorted,
 	 * Windows associates candidates to tracks before report coalescing,
 	 * while Linux currently destructively drops a close blob here before
 	 * Hungarian assignment. Preserve a close pair when the two blobs can
-	 * still be mapped to two different currently-active (state 2) slots
-	 * within the same association radius Hungarian will use this frame.
+	 * still be mapped to two different established slots: normal active
+	 * (state 2) or lift-pending (state 3). State 3 is intentionally
+	 * accepted because a single-frame detector/split hiccup can put a real
+	 * contact there while the retained position is still valid continuity
+	 * evidence. Use the same association radius Hungarian will use this
+	 * frame.
 	 *
 	 * This is intentionally narrower than disabling ghost rejection: a
 	 * duplicate blob with no distinct active-track explanation still goes
@@ -1006,7 +1010,8 @@ static void raw_ghost_merge(struct spi_hid *shid, struct blob_entry *sorted,
 					s32 adx, ady;
 					u32 ad2;
 
-					if (shid->blob_slot_state[sa] != 2)
+					if (shid->blob_slot_state[sa] != 2 &&
+					    shid->blob_slot_state[sa] != 3)
 						continue;
 					adx = (s32)sorted[a].gx -
 					      (s32)shid->blob_slot_gx[sa];
@@ -1028,7 +1033,8 @@ static void raw_ghost_merge(struct spi_hid *shid, struct blob_entry *sorted,
 						u64 pair_cost;
 
 						if (sb == sa ||
-						    shid->blob_slot_state[sb] != 2)
+						    (shid->blob_slot_state[sb] != 2 &&
+						     shid->blob_slot_state[sb] != 3))
 							continue;
 						bdx = (s32)sorted[b].gx -
 						      (s32)shid->blob_slot_gx[sb];
@@ -1054,8 +1060,11 @@ static void raw_ghost_merge(struct spi_hid *shid, struct blob_entry *sorted,
 
 				if (slot_a != 0xff) {
 					seq_dbg(shid, 2,
-						 "TRACKDBG: ghost preserve blobs=%u,%u slots=%u,%u gd=%u bmd=%u\n",
-						 a, b, slot_a, slot_b, gd, assoc_bmd);
+						 "TRACKDBG: ghost preserve blobs=%u,%u slots=%u,%u states=%u,%u gd=%u bmd=%u\n",
+						 a, b, slot_a, slot_b,
+						 shid->blob_slot_state[slot_a],
+						 shid->blob_slot_state[slot_b],
+						 gd, assoc_bmd);
 					continue;
 				}
 
