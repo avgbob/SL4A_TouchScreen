@@ -128,8 +128,22 @@
  * These bounds deliberately do not make two same-frame state-0 candidates
  * authoritative; that classification remains conservative.
  */
-#define HEATMAP_CLOSE_BIRTH_GRACE_FRAMES  12
-#define HEATMAP_CLOSE_BIRTH_MIN_SEP         3
+#define HEATMAP_CLOSE_BIRTH_GRACE_FRAMES      12
+#define HEATMAP_CLOSE_BIRTH_MIN_SEP             3
+
+/*
+ * Late close-birth relaxation.
+ *
+ * Real panel captures show that two fingers placed together can become
+ * detector-resolvable sequentially rather than in the same frame. Keep the
+ * conservative 3-cell guard during the early ambiguous part of the contact,
+ * then permit a slightly tighter 2.75-cell centroid separation once the first
+ * track has been stable for at least ~60 ms. The normal 3-frame new-contact
+ * debounce still applies, so a two-frame transient cannot publish a new MT
+ * contact. Coordinates are fixed-point grid units ×100.
+ */
+#define HEATMAP_CLOSE_BIRTH_LATE_AGE_FRAMES      6
+#define HEATMAP_CLOSE_BIRTH_LATE_MIN_SEP100    275
 
 /* Missed frame timeout (ms) */
 #define HEATMAP_MISSED_FRAME_TIMEOUT_MS  60
