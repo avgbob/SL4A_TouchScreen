@@ -200,9 +200,9 @@ tracker_coalescing_host_test: tracker_coalescing_host_test.c \
 # the staged REAL driver source. Unlike the direct tracker-coalescing unit test,
 # this exercises baseline/signal, peak detection, CCL/splitting, association,
 # coalescing, slot lifecycle and MT emission as one end-to-end host pipeline.
-# It is kept behind an explicit target until its first hardware-development
-# calibration run is reviewed; once the synthetic sensor model is pinned, it
-# can join the default CI test target.
+# The first hardware-development calibration run was reviewed and its two
+# deliberately different regimes are now pinned by assertions, so this belongs
+# in the default host-test gate as a deterministic detector/tracker regression.
 panel_emulator_host_test: panel_emulator_host_test.c \
 		$(RAW_STAGE_DIR)/mshw0231-raw.c \
 		../driver/spi-hid-capimg.c \
@@ -265,7 +265,7 @@ heatmap_pure_test: heatmap_pure_test.c \
 		$(RAW_STAGE_DIR)/heatmap_pure_test.o $(RAW_STAGE_DIR)/heatmap_pure_stubs.o \
 		$(RAW_STAGE_DIR)/heatmap_pure_raw.o $(RAW_STAGE_DIR)/heatmap_pure_capimg.o -lm
 
-test: protocol_test capimg_decoder_host_test c590_atan2_host_test wire_frames_test raw_pipeline_math_test raw_pipeline_replay_test replay_fixture_test plateau_host_test tracker_coalescing_host_test heatmap_pure_test
+test: protocol_test capimg_decoder_host_test c590_atan2_host_test wire_frames_test raw_pipeline_math_test raw_pipeline_replay_test replay_fixture_test plateau_host_test tracker_coalescing_host_test panel_emulator_host_test heatmap_pure_test
 	./protocol_test
 	./wire_frames_test
 	./capimg_decoder_host_test
@@ -275,6 +275,7 @@ test: protocol_test capimg_decoder_host_test c590_atan2_host_test wire_frames_te
 	./heatmap_pure_test
 	./plateau_host_test
 	./tracker_coalescing_host_test
+	./panel_emulator_host_test
 	$(PYTHON) boot_binding_safety_test.py
 	$(PYTHON) spi_amd_ownership_safety_test.py
 	$(PYTHON) raw_capture_export_test.py
