@@ -80,19 +80,14 @@ SHIM_DIR="$(mktemp -d "${TMPDIR:-/tmp}/sl4a-pr4-shim.XXXXXX")"
 trap 'rm -rf "$SHIM_DIR"' EXIT
 cat > "$SHIM_DIR/sudo" <<'EOS'
 #!/usr/bin/env bash
-set -u
-while [ "$#" -gt 0 ]; do
-    case "$1" in
-        -n|-E|-H|-S) shift ;;
-        --) shift; break ;;
-        *) break ;;
-    esac
-done
-exec "$@"
+# Synthetic host tests must never elevate.  Return failure immediately.
+# In hunt's final restore path this is intentionally caught by
+# '( cmd_activate ... ) || true', which is exactly what we want in a sandbox.
+exit 1
 EOS
 chmod +x "$SHIM_DIR/sudo"
 export PATH="$SHIM_DIR:$PATH"
-echo "PASS: host tests will use a rootless sudo shim (no password prompt)"
+echo "PASS: host tests will refuse sudo immediately (no password prompt, no recursion)"
 
 section "HOST TESTS"
 run make -C "$ROOT/tests" clean
