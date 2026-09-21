@@ -109,15 +109,21 @@ Parsing the tracking-ID lifecycle showed a maximum of **2 simultaneous active
 contacts**. Firefox on Wayland successfully performed touchscreen pinch-to-zoom
 with the same loaded module.
 
-## Known issue
+## Tracker status
 
-Two-finger tracking is functional but not yet fully stable when contacts move
-close together. In the field capture, one slot was dropped and reacquired
-several times while the other slot remained stable. This looks like
-blob/contact tracking tuning rather than a transport failure.
+The original close-contact failure has now been localized to tracker ordering,
+not transport. A captured two-finger spacing run showed two valid candidates
+being destructively collapsed by the old pre-Hungarian ghost merge whenever
+their centroids crossed below the six-cell threshold.
 
-Do not tune the tracker until the transport path has been checkpointed and
-tested across cold boot and suspend/resume.
+The follow-on tracker branch moves close-contact suppression after Hungarian
+association and preserves candidates backed by two distinct established tracks.
+That ordering has deterministic host coverage in
+`tests/tracker_coalescing_host_test.c`.
+
+This is still not full Windows-equivalent classification: two contacts first
+created already very close remain an unresolved candidate-classification case.
+See `docs/TRACKER-REORDER.md`.
 
 ## Next validation
 
