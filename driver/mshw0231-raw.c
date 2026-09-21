@@ -143,6 +143,7 @@ void mshw0231_raw_reset(struct spi_hid *shid)
 	memset(shid->heatmap_baseline, 0, sizeof(shid->heatmap_baseline));
 	memset(shid->blob_slot_state, 0, sizeof(shid->blob_slot_state));
 	memset(shid->blob_slot_duration, 0, sizeof(shid->blob_slot_duration));
+	memset(shid->blob_slot_birth_age, 0, sizeof(shid->blob_slot_birth_age));
 	memset(shid->blob_slot_gx, 0, sizeof(shid->blob_slot_gx));
 	memset(shid->blob_slot_gy, 0, sizeof(shid->blob_slot_gy));
 	memset(shid->blob_slot_weight, 0, sizeof(shid->blob_slot_weight));
@@ -941,10 +942,13 @@ static void raw_post_assoc_coalesce(struct spi_hid *shid,
 {
 	u8 a, b;
 	u32 gdsq;
+	u32 birth_min_sq;
 
 	if (ghost_dist < 1)
 		ghost_dist = 1;
 	gdsq = ghost_dist * ghost_dist * 10000; /* fixed-point grid ×100 */
+	birth_min_sq = HEATMAP_CLOSE_BIRTH_MIN_SEP *
+			HEATMAP_CLOSE_BIRTH_MIN_SEP * 10000;
 
 	for (a = 0; a < sorted_count; a++) {
 		if (assigned_slot[a] == 0xff || sorted[a].w == 0)
@@ -954,6 +958,7 @@ static void raw_post_assoc_coalesce(struct spi_hid *shid,
 			u8 sa, sb, state_a, state_b;
 			bool established_a, established_b;
 			u8 loser;
+			u32 distsq;
 			s32 dx, dy;
 
 			if (assigned_slot[b] == 0xff || sorted[b].w == 0)
@@ -961,7 +966,8 @@ static void raw_post_assoc_coalesce(struct spi_hid *shid,
 
 			dx = (s32)sorted[a].gx - (s32)sorted[b].gx;
 			dy = (s32)sorted[a].gy - (s32)sorted[b].gy;
-			if ((u32)(dx * dx) + (u32)(dy * dy) >= gdsq)
+			distsq = (u32)(dx * dx) + (u32)(dy * dy);
+			if (distsq >= gdsq)
 				continue;
 
 			sa = assigned_slot[a];
@@ -984,12 +990,42 @@ static void raw_post_assoc_coalesce(struct spi_hid *shid,
 				continue;
 			}
 
-			if (established_a != established_b)
+			if (established_a != established_b) {
+				u8 established_slot = established_a ? sa : sb;
+				u8 new_slot = established_a ? sb : sa;
+				u32 age = shid->blob_slot_birth_age[established_slot];
+
+				/*
+				 * Hardware can resolve a near-simultaneous close placement
+				 * sequentially: the first contact may finish debounce before
+				 * the second blob becomes visible. Do not mistake that second
+				 * finger for a duplicate while the first track is still inside
+				 * the tightly-bounded birth window. The minimum-separation
+				 * guard keeps the much tighter (~2-cell) duplicate candidates
+				 * on the normal suppression path.
+				 *
+				 * State 3 does not qualify here: recovery must not reset an old
+				 * contact into a fresh birth window. blob_slot_birth_age is
+				 * therefore preserved across lift/hold recovery.
+				 */
+				if (established_slot != new_slot &&
+				    shid->blob_slot_state[established_slot] == 2 &&
+				    age > 0 &&
+				    age <= HEATMAP_CLOSE_BIRTH_GRACE_FRAMES &&
+				    distsq >= birth_min_sq) {
+					seq_dbg(shid, 2,
+						"TRACKDBG: postassoc birth-grace preserve blobs=%u,%u slots=%u,%u states=%u,%u age=%u dist100=%u gd=%u\n",
+						a, b, sa, sb, state_a, state_b, age,
+						(u32)int_sqrt((u64)distsq), ghost_dist);
+					continue;
+				}
+
 				loser = established_a ? b : a;
-			else if (sorted[b].raw_w > sorted[a].raw_w)
+			} else if (sorted[b].raw_w > sorted[a].raw_w) {
 				loser = a;
-			else
+			} else {
 				loser = b;
+			}
 
 			seq_dbg(shid, 2,
 				"TRACKDBG: postassoc suppress blob=%u peer=%u slots=%u,%u states=%u,%u raw=%u,%u gd=%u\n",
@@ -1243,6 +1279,12 @@ static void raw_update_slots(struct spi_hid *shid,
 		u8 bi = 0xFF;
 		u8 trace_old_state = shid->blob_slot_state[s];
 
+		/* Birth age is contact lifetime, not current-state duration. Keep
+		 * counting through hold/lift so a recovered old contact cannot gain
+		 * a fresh close-born qualification window. */
+		if (trace_old_state != 0)
+			shid->blob_slot_birth_age[s]++;
+
 		for (i = 0; i < sorted_count; i++) {
 			if (assigned_slot[i] == s) {
 				bi = i;
@@ -1286,6 +1328,7 @@ static void raw_update_slots(struct spi_hid *shid,
 				slot_history_clear(shid, s);
 				shid->blob_slot_state[s] = 1;
 				shid->blob_slot_duration[s] = 1;
+				shid->blob_slot_birth_age[s] = 1;
 				shid->blob_slot_stationary[s] = 0;
 				break;
 			case 1:
@@ -1418,6 +1461,7 @@ slot_unassigned:
 				slot_history_clear(shid, s);
 				shid->blob_slot_state[s] = 0;
 				shid->blob_slot_duration[s] = 0;
+				shid->blob_slot_birth_age[s] = 0;
 				break;
 			case 2:
 				if (hold_frames < 1) {
@@ -1460,9 +1504,11 @@ slot_unassigned:
 					slot_history_clear(shid, s);
 					shid->blob_slot_state[s] = 0;
 					shid->blob_slot_missed[s] = 0;
+					shid->blob_slot_birth_age[s] = 0;
 				}
 				break;
 			case 0:
+				shid->blob_slot_birth_age[s] = 0;
 				break;
 			}
 
@@ -1724,6 +1770,7 @@ static void mshw0231_raw_process_samples(struct spi_hid *shid, const u8 *data,
 				  HEATMAP_MAX_SLOTS);
 		memset(shid->blob_slot_state, 0, sizeof(shid->blob_slot_state));
 		memset(shid->blob_slot_duration, 0, sizeof(shid->blob_slot_duration));
+		memset(shid->blob_slot_birth_age, 0, sizeof(shid->blob_slot_birth_age));
 		memset(shid->blob_slot_gx, 0, sizeof(shid->blob_slot_gx));
 		memset(shid->blob_slot_gy, 0, sizeof(shid->blob_slot_gy));
 		memset(shid->blob_slot_weight, 0, sizeof(shid->blob_slot_weight));
