@@ -755,6 +755,11 @@ static u16 raw_ccl_flood_fill(struct spi_hid *shid, u32 cell_count,
 						if (shid->heatmap_label[pix] == label)
 							split_peaks[split_count++] = p;
 					}
+					seq_dbg(shid, 2,
+						"SPLITDBG: label=%u pixels=%u frame_peaks=%u component_peaks=%u bbox=[r%d..%d c%d..%d]\n",
+						label, pixel_count, npeaks, split_count,
+						min_r, max_r, min_c, max_c);
+
 					if (split_count >= HEATMAP_SPLIT_MIN_PEAKS && split_count <= 4) {
 						bool too_close = true;
 						for (p = 1; p < split_count && too_close; p++) {
@@ -774,6 +779,11 @@ static u16 raw_ccl_flood_fill(struct spi_hid *shid, u32 cell_count,
 								}
 							}
 						}
+						seq_dbg(shid, 2,
+							"SPLITDBG: label=%u component_peaks=%u too_close=%u min_dist=%u\n",
+							label, split_count, too_close,
+							HEATMAP_SPLIT_MIN_DIST);
+
 						if (!too_close) {
 							/* The current blob has not been committed yet: append
 							 * split blobs without decrementing the prior count. */
@@ -1750,6 +1760,8 @@ static void mshw0231_raw_process_samples(struct spi_hid *shid, const u8 *data,
 
 		npeaks = raw_detect_peaks(shid, cell_count, ncols, nrows,
 				   peaks_col, peaks_row);
+
+		seq_dbg(shid, 2, "SPLITDBG: frame npeaks=%u\n", npeaks);
 
 		if (npeaks > 0)
 			raw_ccl_flood_fill(shid, cell_count, ncols, nrows,
