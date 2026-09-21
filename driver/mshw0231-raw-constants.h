@@ -150,6 +150,25 @@
 #define HEATMAP_CLOSE_BIRTH_RELAX_FRAMES          3
 #define HEATMAP_CLOSE_BIRTH_LATE_MIN_SEP100     275
 
+/*
+ * Established-pair weak/occlusion hysteresis.
+ *
+ * The 2026-09-21 physical pinch trace showed a characteristic sequence that
+ * the ordinary 3-frame lift debounce cannot represent: while the fingers were
+ * converging, the weaker established contact was repeatedly rescued below the
+ * normal blob birth weight, then its detector peak disappeared entirely for
+ * 37 consecutive frames (~360 ms) before becoming resolvable again.  That is
+ * an occlusion/merge continuity event, not a new-contact birth.
+ *
+ * Do not lengthen lift debounce globally.  Arm the longer window only after
+ * several weak established assignments have actually moved toward another
+ * established slot.  A weak-but-stationary contact therefore still uses the
+ * ordinary lift path.
+ */
+#define HEATMAP_WEAK_OCCLUSION_ARM_SCORE          5
+#define HEATMAP_WEAK_OCCLUSION_GRACE_FRAMES      48
+#define HEATMAP_WEAK_CONVERGE_DELTA100            20
+
 /* Missed frame timeout (ms) */
 #define HEATMAP_MISSED_FRAME_TIMEOUT_MS  60
 
