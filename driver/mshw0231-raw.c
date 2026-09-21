@@ -922,12 +922,14 @@ static u16 raw_ccl_flood_fill(struct spi_hid *shid, u32 cell_count,
  *
  * Modifies sorted[] in-place; updates *sorted_count. */
 static void raw_ghost_merge(struct spi_hid *shid, struct blob_entry *sorted,
-			    u8 *sorted_count, u32 ghost_dist)
+			    u8 *sorted_count, u32 ghost_dist,
+			    u32 blob_max_distance)
 {
 	u8 a, b, j, col;
 	u8 active_slots = 0;
 	u32 gd;
 	u32 gdsq;
+	u32 assoc_bmd;
 
 	/* Count claimed slots, same definition raw_hungarian_match() uses. */
 	for (col = 0; col < HEATMAP_MAX_SLOTS; col++)
@@ -954,6 +956,28 @@ static void raw_ghost_merge(struct spi_hid *shid, struct blob_entry *sorted,
 
 	gdsq = gd * gd * 10000; /* ×100 scale */
 
+	/*
+	 * Diagnostic bridge toward the recovered Windows ordering:
+	 * Windows associates candidates to tracks before report coalescing,
+	 * while Linux currently destructively drops a close blob here before
+	 * Hungarian assignment. Preserve a close pair when the two blobs can
+	 * still be mapped to two different currently-active (state 2) slots
+	 * within the same association radius Hungarian will use this frame.
+	 *
+	 * This is intentionally narrower than disabling ghost rejection: a
+	 * duplicate blob with no distinct active-track explanation still goes
+	 * through the existing raw_w winner/loser merge below.
+	 */
+	assoc_bmd = blob_max_distance * HUNGARIAN_COST_SCALE;
+	if (active_slots == 1)
+		assoc_bmd = assoc_bmd * ASSOC_RADIUS_1_FINGER / 10;
+	else if (active_slots == 3)
+		assoc_bmd = assoc_bmd * ASSOC_RADIUS_3_FINGERS / 10;
+	else if (active_slots == 4)
+		assoc_bmd = assoc_bmd * ASSOC_RADIUS_4_FINGERS / 10;
+	else if (active_slots >= 5)
+		assoc_bmd = assoc_bmd * ASSOC_RADIUS_5_FINGERS / 10;
+
 	for (a = 0; a < *sorted_count; a++) {
 		if (sorted[a].w == 0)
 			continue;
@@ -967,6 +991,74 @@ static void raw_ghost_merge(struct spi_hid *shid, struct blob_entry *sorted,
 			/* Strict, as in Windows and the in-tree oracle test: a
 			 * distance of exactly ghost_dist does not merge. */
 			if ((u32)(dx * dx) + (u32)(dy * dy) < gdsq) {
+				u8 slot_a = 0xff, slot_b = 0xff;
+				u64 best_pair_cost = U64_MAX;
+				u8 sa, sb;
+
+				/*
+				 * If both close blobs have a plausible one-to-one mapping
+				 * to two different active tracks, keep both for Hungarian.
+				 * Search the pair jointly rather than comparing each blob's
+				 * nearest slot independently, so a valid second-best pairing
+				 * is not hidden by both blobs sharing the same nearest slot.
+				 */
+				for (sa = 0; sa < HEATMAP_MAX_SLOTS; sa++) {
+					s32 adx, ady;
+					u32 ad2;
+
+					if (shid->blob_slot_state[sa] != 2)
+						continue;
+					adx = (s32)sorted[a].gx -
+					      (s32)shid->blob_slot_gx[sa];
+					ady = (s32)sorted[a].gy -
+					      (s32)shid->blob_slot_gy[sa];
+					if (adx < 0)
+						adx = -adx;
+					if (ady < 0)
+						ady = -ady;
+					if ((u32)adx > assoc_bmd ||
+					    (u32)ady > assoc_bmd)
+						continue;
+					ad2 = (u32)adx * (u32)adx +
+					      (u32)ady * (u32)ady;
+
+					for (sb = 0; sb < HEATMAP_MAX_SLOTS; sb++) {
+						s32 bdx, bdy;
+						u32 bd2;
+						u64 pair_cost;
+
+						if (sb == sa ||
+						    shid->blob_slot_state[sb] != 2)
+							continue;
+						bdx = (s32)sorted[b].gx -
+						      (s32)shid->blob_slot_gx[sb];
+						bdy = (s32)sorted[b].gy -
+						      (s32)shid->blob_slot_gy[sb];
+						if (bdx < 0)
+							bdx = -bdx;
+						if (bdy < 0)
+							bdy = -bdy;
+						if ((u32)bdx > assoc_bmd ||
+						    (u32)bdy > assoc_bmd)
+							continue;
+						bd2 = (u32)bdx * (u32)bdx +
+						      (u32)bdy * (u32)bdy;
+						pair_cost = (u64)ad2 + (u64)bd2;
+						if (pair_cost < best_pair_cost) {
+							best_pair_cost = pair_cost;
+							slot_a = sa;
+							slot_b = sb;
+						}
+					}
+				}
+
+				if (slot_a != 0xff) {
+					seq_dbg(shid, 2,
+						 "TRACKDBG: ghost preserve blobs=%u,%u slots=%u,%u gd=%u bmd=%u\n",
+						 a, b, slot_a, slot_b, gd, assoc_bmd);
+					continue;
+				}
+
 				if (sorted[b].raw_w > sorted[a].raw_w) {
 					sorted[a].w = 0;
 					break;
@@ -1860,7 +1952,8 @@ static void mshw0231_raw_process_samples(struct spi_hid *shid, const u8 *data,
 
 		/* ── Stage 6: ghost merge ── */
 		raw_ghost_merge(shid, sorted, &sorted_count,
-				(u32)READ_ONCE(ghost_dist));
+				(u32)READ_ONCE(ghost_dist),
+				(u32)READ_ONCE(blob_max_distance));
 
 		/* Behavior-neutral field diagnostics: CALIB: blobs= above is
 		 * intentionally pre-ghost. Log what actually survives coalescence
