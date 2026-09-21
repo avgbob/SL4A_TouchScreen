@@ -207,6 +207,17 @@ static struct vcontact finger(double x, double y)
 	return c;
 }
 
+static unsigned long long active_slot_mask(void)
+{
+	unsigned long long mask = 0;
+	int i;
+
+	for (i = 0; i < MT_RECORD_MAX_SLOTS && i < 64; i++)
+		if (mt_slots[i].active)
+			mask |= 1ULL << i;
+	return mask;
+}
+
 static int hold_pair(double spacing, int frames, int *max_blobs)
 {
 	struct spi_hid shid;
@@ -246,6 +257,21 @@ static void spacing_sweep(void)
 		int mt = hold_pair(spacing[i], 12, &max_blobs);
 
 		printf("%.2f,%d,%d\n", spacing[i], max_blobs, mt);
+	}
+}
+
+static void fine_spacing_sweep(void)
+{
+	int tenth;
+
+	printf("\n-- fine detector boundary sweep (3.40..4.20 cells) --\n");
+	printf("spacing_cells,max_detector_blobs,final_linux_contacts\n");
+	for (tenth = 34; tenth <= 42; tenth++) {
+		double spacing = (double)tenth / 10.0;
+		int max_blobs = 0;
+		int mt = hold_pair(spacing, 12, &max_blobs);
+
+		printf("%.2f,%d,%d\n", spacing, max_blobs, mt);
 	}
 }
 
@@ -294,6 +320,21 @@ static void delay_sweep(void)
 	}
 }
 
+static void fine_delay_sweep(void)
+{
+	int frames;
+
+	printf("\n-- fine birth-window sweep at 4.27 cells (70..130 ms) --\n");
+	printf("delay_frames,delay_ms,max_detector_blobs,final_linux_contacts\n");
+	for (frames = 7; frames <= 13; frames++) {
+		int max_blobs = 0;
+		int mt = staggered_result(frames, 4.27, &max_blobs);
+
+		printf("%d,%d,%d,%d\n",
+		       frames, frames * 10, max_blobs, mt);
+	}
+}
+
 static void test_established_pinch(void)
 {
 	struct spi_hid shid;
@@ -326,6 +367,165 @@ static void test_established_pinch(void)
 	CHECK(obs.mt_contacts == 2,
 	      "established 4.27-cell hold keeps two contacts, got %d",
 	      obs.mt_contacts);
+
+	teardown_device(&shid);
+}
+
+static void test_established_motion_slot_stability(void)
+{
+	struct spi_hid shid;
+	struct spi_device spidev;
+	struct vcontact c[2];
+	struct frame_obs obs = { 0, 0 };
+	unsigned long long slot_mask;
+	int i;
+
+	setup_device(&shid, &spidev);
+	c[0] = finger(28.0, 20.0);
+	c[1] = finger(32.27, 20.0);
+
+	for (i = 0; i < 6; i++)
+		obs = feed_virtual(&shid, c, 2);
+	CHECK(obs.mt_contacts == 2,
+	      "motion setup publishes two close established contacts, got %d",
+	      obs.mt_contacts);
+	slot_mask = active_slot_mask();
+	CHECK(slot_mask != 0,
+	      "motion setup records a non-empty Linux slot mask");
+
+	/* Translate the close pair together. Association should follow both
+	 * contacts without reallocating Linux slots. */
+	for (i = 0; i < 12; i++) {
+		c[0].x += 0.25;
+		c[1].x += 0.25;
+		c[0].y += 0.10;
+		c[1].y += 0.10;
+		obs = feed_virtual(&shid, c, 2);
+		CHECK(obs.mt_contacts == 2,
+		      "translated close pair frame %d keeps two contacts, got %d",
+		      i, obs.mt_contacts);
+		CHECK(active_slot_mask() == slot_mask,
+		      "translated close pair frame %d keeps the same Linux slots",
+		      i);
+	}
+
+	/* Spread from the barely-resolvable regime to a comfortable 8 cells,
+	 * then pinch back to 4.27 without crossing the detector-merged band. */
+	for (i = 1; i <= 16; i++) {
+		double spacing = 4.27 + (8.0 - 4.27) * ((double)i / 16.0);
+
+		c[1].x = c[0].x + spacing;
+		obs = feed_virtual(&shid, c, 2);
+		CHECK(obs.mt_contacts == 2,
+		      "spread frame %d keeps two contacts at %.2f cells, got %d",
+		      i, spacing, obs.mt_contacts);
+		CHECK(active_slot_mask() == slot_mask,
+		      "spread frame %d keeps the same Linux slots", i);
+	}
+
+	for (i = 1; i <= 16; i++) {
+		double spacing = 8.0 - (8.0 - 4.27) * ((double)i / 16.0);
+
+		c[1].x = c[0].x + spacing;
+		obs = feed_virtual(&shid, c, 2);
+		CHECK(obs.mt_contacts == 2,
+		      "repinch frame %d keeps two contacts at %.2f cells, got %d",
+		      i, spacing, obs.mt_contacts);
+		CHECK(active_slot_mask() == slot_mask,
+		      "repinch frame %d keeps the same Linux slots", i);
+	}
+
+	teardown_device(&shid);
+}
+
+static void test_short_dropout_recovery(int missing_frames)
+{
+	struct spi_hid shid;
+	struct spi_device spidev;
+	struct vcontact pair[2], one[1];
+	struct frame_obs obs = { 0, 0 };
+	unsigned long long slot_mask;
+	int i;
+
+	setup_device(&shid, &spidev);
+	pair[0] = finger(26.0, 24.0);
+	pair[1] = finger(30.27, 24.0);
+	one[0] = pair[0];
+
+	for (i = 0; i < 6; i++)
+		obs = feed_virtual(&shid, pair, 2);
+	CHECK(obs.mt_contacts == 2,
+	      "%d-frame dropout setup publishes two contacts, got %d",
+	      missing_frames, obs.mt_contacts);
+	slot_mask = active_slot_mask();
+
+	for (i = 0; i < missing_frames; i++) {
+		obs = feed_virtual(&shid, one, 1);
+		CHECK(obs.mt_contacts == 2,
+		      "%d-frame dropout miss %d remains published through lift grace, got %d",
+		      missing_frames, i + 1, obs.mt_contacts);
+		CHECK(active_slot_mask() == slot_mask,
+		      "%d-frame dropout miss %d preserves the original Linux slots",
+		      missing_frames, i + 1);
+	}
+
+	for (i = 0; i < 5; i++) {
+		obs = feed_virtual(&shid, pair, 2);
+		CHECK(obs.mt_contacts == 2,
+		      "%d-frame dropout recovery frame %d returns/keeps two contacts, got %d",
+		      missing_frames, i, obs.mt_contacts);
+		CHECK(active_slot_mask() == slot_mask,
+		      "%d-frame dropout recovery frame %d keeps the same Linux slots",
+		      missing_frames, i);
+	}
+
+	teardown_device(&shid);
+}
+
+static void test_capture_shaped_close_birth(void)
+{
+	struct spi_hid shid;
+	struct spi_device spidev;
+	struct vcontact first[1], pair[2];
+	struct frame_obs obs = { 0, 0 };
+	unsigned long long slot_mask;
+	int i;
+
+	setup_device(&shid, &spidev);
+	first[0] = finger(30.0, 22.0);
+	pair[0] = first[0];
+	pair[1] = finger(34.27, 22.0);
+
+	/* Mirrors the measured close-born capture shape: A leads by about
+	 * 80 ms, B resolves 4.27 cells away, then the pair spreads apart. */
+	for (i = 0; i < 8; i++)
+		obs = feed_virtual(&shid, first, 1);
+	CHECK(obs.mt_contacts == 1,
+	      "capture-shaped lead contact is established before peer, got %d",
+	      obs.mt_contacts);
+
+	for (i = 0; i < 4; i++)
+		obs = feed_virtual(&shid, pair, 2);
+	CHECK(obs.detector_blobs >= 2,
+	      "capture-shaped 4.27-cell peer is detector-resolvable, got %d blobs",
+	      obs.detector_blobs);
+	CHECK(obs.mt_contacts == 2,
+	      "capture-shaped 80 ms close birth publishes two contacts, got %d",
+	      obs.mt_contacts);
+	slot_mask = active_slot_mask();
+
+	for (i = 1; i <= 16; i++) {
+		double spacing = 4.27 + (8.0 - 4.27) * ((double)i / 16.0);
+
+		pair[1].x = pair[0].x + spacing;
+		obs = feed_virtual(&shid, pair, 2);
+		CHECK(obs.mt_contacts == 2,
+		      "capture-shaped spread frame %d keeps two contacts at %.2f cells, got %d",
+		      i, spacing, obs.mt_contacts);
+		CHECK(active_slot_mask() == slot_mask,
+		      "capture-shaped spread frame %d preserves Linux slot identity",
+		      i);
+	}
 
 	teardown_device(&shid);
 }
@@ -431,6 +631,44 @@ static void test_accidental_third_finger(void)
 	teardown_device(&shid);
 }
 
+static int transient_third_max_contacts(int duration_frames)
+{
+	struct spi_hid shid;
+	struct spi_device spidev;
+	struct vcontact two[2], three[3];
+	struct frame_obs obs = { 0, 0 };
+	int i, max_contacts = 0;
+
+	setup_device(&shid, &spidev);
+	two[0] = finger(18.0, 18.0);
+	two[1] = finger(52.0, 18.0);
+	three[0] = two[0];
+	three[1] = two[1];
+	three[2] = finger(35.0, 36.0);
+
+	for (i = 0; i < 6; i++)
+		feed_virtual(&shid, two, 2);
+	for (i = 0; i < duration_frames; i++) {
+		obs = feed_virtual(&shid, three, 3);
+		if (obs.mt_contacts > max_contacts)
+			max_contacts = obs.mt_contacts;
+	}
+
+	teardown_device(&shid);
+	return max_contacts;
+}
+
+static void third_duration_sweep(void)
+{
+	int frames;
+
+	printf("\n-- transient third-contact debounce sweep --\n");
+	printf("third_frames,third_ms,max_linux_contacts\n");
+	for (frames = 1; frames <= 5; frames++)
+		printf("%d,%d,%d\n", frames, frames * 10,
+		       transient_third_max_contacts(frames));
+}
+
 static void test_far_sanity(void)
 {
 	int max_blobs = 0;
@@ -453,13 +691,20 @@ int main(void)
 	test_far_sanity();
 	test_detector_resolution_regimes();
 	test_established_pinch();
+	test_established_motion_slot_stability();
 	test_staggered_birth_window();
+	test_short_dropout_recovery(1);
+	test_short_dropout_recovery(2);
+	test_capture_shaped_close_birth();
 	test_accidental_third_finger();
 
 	/* Diagnostic matrices are intentionally printed even when assertions pass:
 	 * they let us compare algorithm changes without another physical gesture. */
 	spacing_sweep();
+	fine_spacing_sweep();
 	delay_sweep();
+	fine_delay_sweep();
+	third_duration_sweep();
 
 	printf("\npanel_emulator_host_test: %d assertions, %d failures\n",
 	       passed, failed);
