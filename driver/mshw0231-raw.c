@@ -1355,13 +1355,23 @@ static void raw_update_slots(struct spi_hid *shid,
 				shid->blob_slot_duration[s]++;
 				break;
 			case 3:
-				/* Re-acquisition while the lift is still pending:
-				 * same guard as hold recovery. Restarting the
-				 * debounce here turned a single dropped frame
-				 * into a release plus re-press for blob_debounce
-				 * frames, which aborts multi-finger gestures. */
-				if (guard_w < HEATMAP_HOLD_RECOVERY_WEIGHT)
-					goto slot_unassigned;
+				/*
+				 * Re-acquisition while lift is still pending is a
+				 * continuity decision, not a fresh-contact decision.
+				 * The candidate has already passed the normal blob
+				 * threshold and Hungarian has associated it back to
+				 * this still-owned slot. Requiring the much stronger
+				 * HEATMAP_HOLD_RECOVERY_WEIGHT here breaks pinch
+				 * continuity: the real panel can emit one merged frame,
+				 * then immediately re-split the second finger at only
+				 * ~1.3-1.6k raw weight. Rejecting those valid split
+				 * candidates exhausts the state-3 miss budget and turns
+				 * the same physical finger into a new tracking ID.
+				 *
+				 * State 4 (longer hold recovery) keeps the stronger
+				 * guard below; state 3 is deliberately permissive only
+				 * during the short lift-pending continuity window.
+				 */
 				shid->blob_slot_state[s] = 2;
 				shid->blob_slot_duration[s] = 1;
 				shid->blob_slot_stationary[s] = 0;
