@@ -158,6 +158,8 @@ void mshw0231_raw_reset(struct spi_hid *shid)
 	memset(shid->blob_slot_hpos, 0, sizeof(shid->blob_slot_hpos));
 	memset(shid->blob_slot_hcount, 0, sizeof(shid->blob_slot_hcount));
 	memset(shid->blob_slot_stationary, 0, sizeof(shid->blob_slot_stationary));
+	shid->close_birth_solo_frames = 0;
+	shid->close_birth_relax_frames = 0;
 	memset(shid->blob_x, 0, sizeof(shid->blob_x));
 	memset(shid->blob_y, 0, sizeof(shid->blob_y));
 	memset(shid->blob_wsum, 0, sizeof(shid->blob_wsum));
@@ -997,7 +999,7 @@ static void raw_post_assoc_coalesce(struct spi_hid *shid,
 				u8 established_slot = established_a ? sa : sb;
 				u8 new_slot = established_a ? sb : sa;
 				u32 age = shid->blob_slot_birth_age[established_slot];
-				bool late_birth_relax;
+				bool sequential_relax;
 
 				/*
 				 * Hardware can resolve a near-simultaneous close placement
@@ -1006,31 +1008,30 @@ static void raw_post_assoc_coalesce(struct spi_hid *shid,
 				 * finger for a duplicate while the first track is still inside
 				 * the tightly-bounded birth window.
 				 *
-				 * Keep the original 3-cell minimum during the early ambiguous
-				 * part of the contact. Once the first track has been stable for
-				 * HEATMAP_CLOSE_BIRTH_LATE_AGE_FRAMES, allow the measured
-				 * sequential-birth case down to 2.75 cells. This is deliberately
-				 * age-gated rather than a global threshold reduction: same-frame
-				 * state-0 candidates remain conservative, and the normal slot
-				 * debounce still prevents a two-frame transient from publishing.
+				 * The tighter 2.75-cell path is not age-only. It requires a
+				 * pre-coalescing detector transition from one blob to two, with
+				 * at least HEATMAP_CLOSE_BIRTH_SOLO_FRAMES of genuine one-blob
+				 * history. That prevents a same-frame two-blob pair from being
+				 * repeatedly suppressed until it eventually "ages into" the
+				 * relaxed threshold.
 				 *
 				 * State 3 does not qualify here: recovery must not reset an old
 				 * contact into a fresh birth window. blob_slot_birth_age is
 				 * therefore preserved across lift/hold recovery.
 				 */
-				late_birth_relax =
-					age >= HEATMAP_CLOSE_BIRTH_LATE_AGE_FRAMES &&
+				sequential_relax =
+					shid->close_birth_relax_frames > 0 &&
 					distsq >= birth_late_min_sq;
 				if (established_slot != new_slot &&
 				    shid->blob_slot_state[established_slot] == 2 &&
 				    age > 0 &&
 				    age <= HEATMAP_CLOSE_BIRTH_GRACE_FRAMES &&
-				    (distsq >= birth_min_sq || late_birth_relax)) {
+				    (distsq >= birth_min_sq || sequential_relax)) {
 					seq_dbg(shid, 2,
-						"TRACKDBG: postassoc birth-grace preserve blobs=%u,%u slots=%u,%u states=%u,%u age=%u dist100=%u late=%u gd=%u\n",
+						"TRACKDBG: postassoc birth-grace preserve blobs=%u,%u slots=%u,%u states=%u,%u age=%u dist100=%u relax=%u gd=%u\n",
 						a, b, sa, sb, state_a, state_b, age,
 						(u32)int_sqrt((u64)distsq),
-						late_birth_relax, ghost_dist);
+						shid->close_birth_relax_frames, ghost_dist);
 					continue;
 				}
 
@@ -1919,6 +1920,31 @@ static void mshw0231_raw_process_samples(struct spi_hid *shid, const u8 *data,
 			sorted_count = keep;
 		}
 
+		/*
+		 * Pre-coalescing detector history for sequential close births.
+		 *
+		 * A genuine sequential placement must first present as one detector
+		 * blob for several frames, then transition to exactly two. Arm a
+		 * short relaxation latch only on that transition. A pair that was
+		 * detector-resolved from frame 0 never accumulates solo history and
+		 * therefore can never reach the tighter threshold merely by waiting.
+		 */
+		if (sorted_count == 1) {
+			if (shid->close_birth_solo_frames < U8_MAX)
+				shid->close_birth_solo_frames++;
+			shid->close_birth_relax_frames = 0;
+		} else if (sorted_count == 2) {
+			if (shid->close_birth_relax_frames == 0 &&
+			    shid->close_birth_solo_frames >=
+				HEATMAP_CLOSE_BIRTH_SOLO_FRAMES)
+				shid->close_birth_relax_frames =
+					HEATMAP_CLOSE_BIRTH_RELAX_FRAMES;
+			shid->close_birth_solo_frames = 0;
+		} else {
+			shid->close_birth_solo_frames = 0;
+			shid->close_birth_relax_frames = 0;
+		}
+
 		for (i = 0; i < sorted_count; i++) {
 			u32 screen_gx = swap_xy ? sorted[i].gy : sorted[i].gx;
 			u32 screen_gy = swap_xy ? sorted[i].gx : sorted[i].gy;
@@ -1967,6 +1993,9 @@ static void mshw0231_raw_process_samples(struct spi_hid *shid, const u8 *data,
 			raw_post_assoc_coalesce(shid, sorted, sorted_count,
 						assigned_slot,
 						(u32)READ_ONCE(ghost_dist));
+
+			if (shid->close_birth_relax_frames > 0)
+				shid->close_birth_relax_frames--;
 
 			for (i = 0; i < sorted_count; i++) {
 				if (assigned_slot[i] != 0xff)
