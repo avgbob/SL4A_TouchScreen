@@ -548,7 +548,6 @@ static void analyse_frame(void)
 	static struct spi_hid ccl_state;
 	static struct spi_hid merge_state;
 	u16 nlabels = 0;
-	u8 post_count;
 	int i, j;
 
 	ff.touched_cells = count_touched();
