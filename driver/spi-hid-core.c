@@ -3729,7 +3729,11 @@ static void seq_handle_data(struct spi_hid *shid, int type, u16 blen)
 				body[7]);
 		}
 
-		if (shid->raw_mode_active && body[7] == 0x0C && shid->touch_input) {
+		if ((shid->raw_mode_active ||
+		     (!shid->raw_mode_active &&
+		      std_raw_transition == 3 &&
+		      raw_input_beta)) &&
+		    body[7] == 0x0C && shid->touch_input) {
 			int cret;
 
 			if (stream_watchdog_ms > 0 && !shid->stream_watchdog_active) {
@@ -4683,19 +4687,22 @@ static int spi_hid_probe(struct spi_device *spi)
 
 	dev_info(dev, "SEQ: device powered by ACPI _INI, arming IRQ\n");
 
-	/* Create multitouch input device for heatmap-to-touch pipeline.
-	 * Bug fix: this was created unconditionally,
-	 * even in the default raw_mode=0 configuration where it never receives
-	 * a single event (only heatmap_process_frame() feeds it, and that's
-	 * only called when raw_mode is set) — exposing a second, permanently
-	 * dead "MSHW0231 Touchscreen" input device alongside the real
-	 * hid-core one and risking userspace picking the wrong one. Switching
-	 * raw_mode 0->1 always goes through a fresh probe (module
-	 * reload/rebind), so gating creation on raw_mode here loses no
-	 * capability. */
-	ret = mshw0231_raw_input_register(shid);
-	if (ret)
-		goto err1_touch;
+	/* Create the heatmap-backed MT input device only when it can receive
+	 * frames: native raw mode, or the opt-in standard-transport SET5
+	 * bridge. The latter keeps normal HID-over-SPI discovery/transport
+	 * while switching the panel to CapImg reports after enumeration. */
+	if (shid->raw_mode_active ||
+	    (!shid->raw_mode_active &&
+	     std_raw_transition == 3 &&
+	     raw_input_beta)) {
+		ret = mshw0231_raw_input_register(shid);
+		if (ret)
+			goto err1_touch;
+
+		if (!shid->raw_mode_active)
+			dev_info(dev,
+				 "HEATMAP: standard-transport MT bridge registered\n");
+	}
 
 	/* The descriptor's own input register stands everywhere now: e541dd0
 	 * (last working raw) never forced it — the parse fills it in, and raw
