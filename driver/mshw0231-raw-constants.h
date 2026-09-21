@@ -116,8 +116,12 @@
  * tight duplicate candidates seen in the earlier PR4 field capture.
  *
  * FIRST-PASS HARDWARE-BOUNDED VALUES, not recovered Windows constants:
- *   - 12 frames ~= 120 ms at the observed ~100 Hz CapImg rate, covering the
- *     measured ~85 ms detector skew with modest margin;
+ *   - the established peer may be at most 12 frames old when each candidate
+ *     frame is considered. Because the new peer still needs the normal
+ *     3-frame debounce, the deterministic panel emulator shows an effective
+ *     latest-arrival cutoff of about 100 ms at the observed ~100 Hz CapImg
+ *     rate (10-frame skew passes, 12-frame skew does not). The measured
+ *     hardware skew was ~85 ms, so it is inside the qualified window;
  *   - 3 cells sits above observed duplicate candidates (~1.72-2.00 cells)
  *     and below the legitimate close-born pair (~4.27 cells initially).
  *
