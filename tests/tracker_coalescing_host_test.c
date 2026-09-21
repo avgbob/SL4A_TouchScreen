@@ -134,6 +134,65 @@ static void test_two_new_candidates_use_raw_weight(void)
 	      "weaker ambiguous new candidate is suppressed");
 }
 
+static void run_tracker_frame(struct spi_hid *shid,
+			      struct blob_entry *blobs, u8 count,
+			      bool *new_active)
+{
+	u8 assigned[HEATMAP_MAX_BLOBS];
+	u32 new_gx[HEATMAP_MAX_SLOTS];
+	u32 new_gy[HEATMAP_MAX_SLOTS];
+	u32 bmd;
+
+	bmd = raw_hungarian_match(shid, blobs, count, assigned, 3);
+	raw_post_assoc_coalesce(shid, blobs, count, assigned, 6);
+	raw_update_slots(shid, blobs, count, assigned, bmd,
+			 new_gx, new_gy, new_active,
+			 2, 3, 3, 0);
+}
+
+static void test_one_frame_dropout_recovers_same_slots(void)
+{
+	struct spi_hid shid;
+	struct blob_entry one[1];
+	struct blob_entry two[2];
+	bool active[HEATMAP_MAX_SLOTS];
+
+	memset(&shid, 0, sizeof(shid));
+	shid.blob_slot_state[0] = 2;
+	shid.blob_slot_state[1] = 2;
+	shid.blob_slot_gx[0] = 1000;
+	shid.blob_slot_gy[0] = 1000;
+	shid.blob_slot_gx[1] = 1500;
+	shid.blob_slot_gy[1] = 1000;
+	shid.blob_slot_weight[0] = 5000;
+	shid.blob_slot_weight[1] = 5000;
+
+	/* The detector/split stage transiently emits one candidate even though
+	 * both physical contacts remain down. The unmatched track enters state 3
+	 * but is still published active during the lift grace window. */
+	one[0] = blob(1000, 1000, 5000);
+	run_tracker_frame(&shid, one, 1, active);
+
+	CHECK(shid.blob_slot_state[0] == 2,
+	      "surviving track remains active through one-candidate frame");
+	CHECK(shid.blob_slot_state[1] == 3,
+	      "missing established track enters lift-pending state 3");
+	CHECK(active[0] && active[1],
+	      "both slots remain published during one-frame dropout");
+
+	/* On the next frame both close candidates return. Association runs before
+	 * coalescing, so state 2 + state 3 is recognized as two established
+	 * tracks and the pending slot recovers in place. */
+	two[0] = blob(1000, 1000, 5000);
+	two[1] = blob(1500, 1000, 5000);
+	run_tracker_frame(&shid, two, 2, active);
+
+	CHECK(shid.blob_slot_state[0] == 2 && shid.blob_slot_state[1] == 2,
+	      "state-3 contact recovers to active without slot reallocation");
+	CHECK(active[0] && active[1],
+	      "both original slots remain published after recovery");
+}
+
 static void test_exact_boundary_is_not_coalesced(void)
 {
 	struct spi_hid shid;
@@ -158,6 +217,7 @@ int main(void)
 	test_lift_pending_continuity_survives();
 	test_established_beats_new_duplicate();
 	test_two_new_candidates_use_raw_weight();
+	test_one_frame_dropout_recovers_same_slots();
 	test_exact_boundary_is_not_coalesced();
 
 	fprintf(stderr, "tracker_coalescing_host_test: %d assertions, %d failures\n",
