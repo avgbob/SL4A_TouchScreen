@@ -218,6 +218,58 @@ static unsigned long long active_slot_mask(void)
 	return mask;
 }
 
+static int single_active_tracking_id(void)
+{
+	int i, found = -1;
+
+	for (i = 0; i < MT_RECORD_MAX_SLOTS; i++) {
+		if (!mt_slots[i].active)
+			continue;
+		if (found >= 0)
+			return -1;
+		found = mt_slots[i].tracking_id;
+	}
+	return found;
+}
+
+/*
+ * The motion scenarios below never cross the two logical fingers. Sorting
+ * active reports by X therefore binds tracking identity to the logical
+ * left/right finger, not merely to a Linux slot number.
+ */
+static int pair_tracking_ids_by_x(int *left_id, int *right_id)
+{
+	int i, count = 0;
+	int left_slot = -1, right_slot = -1;
+
+	for (i = 0; i < MT_RECORD_MAX_SLOTS; i++) {
+		if (!mt_slots[i].active)
+			continue;
+		count++;
+		if (left_slot < 0 || mt_slots[i].x < mt_slots[left_slot].x)
+			left_slot = i;
+		if (right_slot < 0 || mt_slots[i].x > mt_slots[right_slot].x)
+			right_slot = i;
+	}
+
+	if (count != 2 || left_slot < 0 || right_slot < 0 ||
+	    left_slot == right_slot)
+		return 0;
+
+	*left_id = mt_slots[left_slot].tracking_id;
+	*right_id = mt_slots[right_slot].tracking_id;
+	return *left_id >= 0 && *right_id >= 0 && *left_id != *right_id;
+}
+
+static int pair_tracking_ids_match(int left_id, int right_id)
+{
+	int now_left, now_right;
+
+	if (!pair_tracking_ids_by_x(&now_left, &now_right))
+		return 0;
+	return now_left == left_id && now_right == right_id;
+}
+
 static int hold_pair(double spacing, int frames, int *max_blobs)
 {
 	struct spi_hid shid;
@@ -378,6 +430,7 @@ static void test_established_motion_slot_stability(void)
 	struct vcontact c[2];
 	struct frame_obs obs = { 0, 0 };
 	unsigned long long slot_mask;
+	int left_tid = -1, right_tid = -1;
 	int i;
 
 	setup_device(&shid, &spidev);
@@ -392,6 +445,8 @@ static void test_established_motion_slot_stability(void)
 	slot_mask = active_slot_mask();
 	CHECK(slot_mask != 0,
 	      "motion setup records a non-empty Linux slot mask");
+	CHECK(pair_tracking_ids_by_x(&left_tid, &right_tid),
+	      "motion setup assigns distinct tracking IDs to logical left/right fingers");
 
 	/* Translate the close pair together. Association should follow both
 	 * contacts without reallocating Linux slots. */
@@ -407,6 +462,9 @@ static void test_established_motion_slot_stability(void)
 		CHECK(active_slot_mask() == slot_mask,
 		      "translated close pair frame %d keeps the same Linux slots",
 		      i);
+		CHECK(pair_tracking_ids_match(left_tid, right_tid),
+		      "translated close pair frame %d keeps tracking IDs bound to left/right fingers",
+		      i);
 	}
 
 	/* Spread from the barely-resolvable regime to a comfortable 8 cells,
@@ -421,6 +479,8 @@ static void test_established_motion_slot_stability(void)
 		      i, spacing, obs.mt_contacts);
 		CHECK(active_slot_mask() == slot_mask,
 		      "spread frame %d keeps the same Linux slots", i);
+		CHECK(pair_tracking_ids_match(left_tid, right_tid),
+		      "spread frame %d keeps tracking IDs bound to left/right fingers", i);
 	}
 
 	for (i = 1; i <= 16; i++) {
@@ -433,6 +493,8 @@ static void test_established_motion_slot_stability(void)
 		      i, spacing, obs.mt_contacts);
 		CHECK(active_slot_mask() == slot_mask,
 		      "repinch frame %d keeps the same Linux slots", i);
+		CHECK(pair_tracking_ids_match(left_tid, right_tid),
+		      "repinch frame %d keeps tracking IDs bound to left/right fingers", i);
 	}
 
 	teardown_device(&shid);
@@ -445,6 +507,7 @@ static void test_short_dropout_recovery(int missing_frames)
 	struct vcontact pair[2], one[1];
 	struct frame_obs obs = { 0, 0 };
 	unsigned long long slot_mask;
+	int left_tid = -1, right_tid = -1;
 	int i;
 
 	setup_device(&shid, &spidev);
@@ -458,6 +521,9 @@ static void test_short_dropout_recovery(int missing_frames)
 	      "%d-frame dropout setup publishes two contacts, got %d",
 	      missing_frames, obs.mt_contacts);
 	slot_mask = active_slot_mask();
+	CHECK(pair_tracking_ids_by_x(&left_tid, &right_tid),
+	      "%d-frame dropout setup assigns distinct logical tracking IDs",
+	      missing_frames);
 
 	for (i = 0; i < missing_frames; i++) {
 		obs = feed_virtual(&shid, one, 1);
@@ -466,6 +532,9 @@ static void test_short_dropout_recovery(int missing_frames)
 		      missing_frames, i + 1, obs.mt_contacts);
 		CHECK(active_slot_mask() == slot_mask,
 		      "%d-frame dropout miss %d preserves the original Linux slots",
+		      missing_frames, i + 1);
+		CHECK(pair_tracking_ids_match(left_tid, right_tid),
+		      "%d-frame dropout miss %d preserves logical tracking IDs",
 		      missing_frames, i + 1);
 	}
 
@@ -476,6 +545,9 @@ static void test_short_dropout_recovery(int missing_frames)
 		      missing_frames, i, obs.mt_contacts);
 		CHECK(active_slot_mask() == slot_mask,
 		      "%d-frame dropout recovery frame %d keeps the same Linux slots",
+		      missing_frames, i);
+		CHECK(pair_tracking_ids_match(left_tid, right_tid),
+		      "%d-frame dropout recovery frame %d preserves logical tracking IDs",
 		      missing_frames, i);
 	}
 
@@ -489,6 +561,7 @@ static void test_capture_shaped_close_birth(void)
 	struct vcontact first[1], pair[2];
 	struct frame_obs obs = { 0, 0 };
 	unsigned long long slot_mask;
+	int left_tid = -1, right_tid = -1;
 	int i;
 
 	setup_device(&shid, &spidev);
@@ -513,6 +586,8 @@ static void test_capture_shaped_close_birth(void)
 	      "capture-shaped 80 ms close birth publishes two contacts, got %d",
 	      obs.mt_contacts);
 	slot_mask = active_slot_mask();
+	CHECK(pair_tracking_ids_by_x(&left_tid, &right_tid),
+	      "capture-shaped close birth assigns distinct logical tracking IDs");
 
 	for (i = 1; i <= 16; i++) {
 		double spacing = 4.27 + (8.0 - 4.27) * ((double)i / 16.0);
@@ -525,7 +600,50 @@ static void test_capture_shaped_close_birth(void)
 		CHECK(active_slot_mask() == slot_mask,
 		      "capture-shaped spread frame %d preserves Linux slot identity",
 		      i);
+		CHECK(pair_tracking_ids_match(left_tid, right_tid),
+		      "capture-shaped spread frame %d preserves logical tracking IDs",
+		      i);
 	}
+
+	teardown_device(&shid);
+}
+
+static void test_tracking_id_lifecycle(void)
+{
+	struct spi_hid shid;
+	struct spi_device spidev;
+	struct vcontact one[1];
+	struct frame_obs obs = { 0, 0 };
+	int first_tid, second_tid;
+	int i;
+
+	setup_device(&shid, &spidev);
+	one[0] = finger(30.0, 22.0);
+
+	for (i = 0; i < 5; i++)
+		obs = feed_virtual(&shid, one, 1);
+	CHECK(obs.mt_contacts == 1,
+	      "tracking-ID lifecycle setup publishes one contact, got %d",
+	      obs.mt_contacts);
+	first_tid = single_active_tracking_id();
+	CHECK(first_tid >= 0,
+	      "first contact receives a synthetic tracking ID");
+
+	for (i = 0; i < 5; i++)
+		obs = feed_virtual(&shid, NULL, 0);
+	CHECK(obs.mt_contacts == 0,
+	      "true lift clears the contact before rebirth, got %d",
+	      obs.mt_contacts);
+
+	for (i = 0; i < 5; i++)
+		obs = feed_virtual(&shid, one, 1);
+	CHECK(obs.mt_contacts == 1,
+	      "reborn contact publishes again, got %d",
+	      obs.mt_contacts);
+	second_tid = single_active_tracking_id();
+	CHECK(second_tid >= 0 && second_tid != first_tid,
+	      "reborn contact gets a fresh tracking ID (%d -> %d)",
+	      first_tid, second_tid);
 
 	teardown_device(&shid);
 }
@@ -690,6 +808,7 @@ int main(void)
 
 	test_far_sanity();
 	test_detector_resolution_regimes();
+	test_tracking_id_lifecycle();
 	test_established_pinch();
 	test_established_motion_slot_stability();
 	test_staggered_birth_window();
