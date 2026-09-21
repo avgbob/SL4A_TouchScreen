@@ -330,6 +330,28 @@ static void test_established_pinch(void)
 	teardown_device(&shid);
 }
 
+static void test_detector_resolution_regimes(void)
+{
+	int max_blobs = 0;
+	int mt;
+
+	mt = hold_pair(2.40, 12, &max_blobs);
+	CHECK(max_blobs == 1,
+	      "2.40-cell virtual pair stays one detector blob in the tight/merged regime, got %d",
+	      max_blobs);
+	CHECK(mt == 1,
+	      "2.40-cell virtual pair therefore publishes one Linux contact, got %d",
+	      mt);
+
+	mt = hold_pair(4.27, 12, &max_blobs);
+	CHECK(max_blobs >= 2,
+	      "4.27-cell virtual pair reaches two detector blobs, max %d",
+	      max_blobs);
+	CHECK(mt == 2,
+	      "4.27-cell virtual pair publishes two Linux contacts, got %d",
+	      mt);
+}
+
 static void test_staggered_birth_window(void)
 {
 	int max_blobs = 0;
@@ -341,6 +363,16 @@ static void test_staggered_birth_window(void)
 	      max_blobs);
 	CHECK(mt == 2,
 	      "80 ms staggered 4.27-cell pair becomes two Linux contacts, got %d",
+	      mt);
+
+	mt = staggered_result(10, 4.27, &max_blobs);
+	CHECK(mt == 2,
+	      "100 ms staggered 4.27-cell pair still qualifies, got %d",
+	      mt);
+
+	mt = staggered_result(12, 4.27, &max_blobs);
+	CHECK(mt == 1,
+	      "120 ms staggered 4.27-cell pair is outside the effective birth window, got %d",
 	      mt);
 
 	mt = staggered_result(14, 4.27, &max_blobs);
@@ -419,6 +451,7 @@ int main(void)
 	       REST_RAW);
 
 	test_far_sanity();
+	test_detector_resolution_regimes();
 	test_established_pinch();
 	test_staggered_birth_window();
 	test_accidental_third_finger();
