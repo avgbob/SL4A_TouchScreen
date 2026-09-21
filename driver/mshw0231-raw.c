@@ -1223,6 +1223,7 @@ static void raw_update_slots(struct spi_hid *shid,
 
 	for (s = 0; s < HEATMAP_MAX_SLOTS; s++) {
 		u8 bi = 0xFF;
+		u8 trace_old_state = shid->blob_slot_state[s];
 
 		for (i = 0; i < sorted_count; i++) {
 			if (assigned_slot[i] == s) {
@@ -1458,6 +1459,12 @@ slot_unassigned:
 				new_active[s] = false;
 			}
 		}
+
+		if (trace_old_state != shid->blob_slot_state[s])
+			seq_dbg(shid, 2,
+				 "TRACKDBG: slot=%u state=%u->%u candidate=%u missed=%u\n",
+				 s, trace_old_state, shid->blob_slot_state[s],
+				 bi != 0xFF, shid->blob_slot_missed[s]);
 	}
 }
 
@@ -1855,6 +1862,17 @@ static void mshw0231_raw_process_samples(struct spi_hid *shid, const u8 *data,
 		raw_ghost_merge(shid, sorted, &sorted_count,
 				(u32)READ_ONCE(ghost_dist));
 
+		/* Behavior-neutral field diagnostics: CALIB: blobs= above is
+		 * intentionally pre-ghost. Log what actually survives coalescence
+		 * so close-contact losses can be localized without changing any
+		 * detector/tracker thresholds. */
+		seq_dbg(shid, 2, "TRACKDBG: postghost blobs=%u\n", sorted_count);
+		for (i = 0; i < sorted_count; i++)
+			seq_dbg(shid, 2,
+				 "TRACKDBG: postghost blob=%u grid=(%u,%u) weight=%u raw=%u\n",
+				 i, sorted[i].gx, sorted[i].gy,
+				 sorted[i].w, sorted[i].raw_w);
+
 		/* ── Stage 7: Hungarian global assignment ── */
 		{
 			u8 assigned_slot[HEATMAP_MAX_BLOBS];
@@ -1865,6 +1883,20 @@ static void mshw0231_raw_process_samples(struct spi_hid *shid, const u8 *data,
 			bmd = raw_hungarian_match(shid, sorted, sorted_count,
 						 assigned_slot,
 						 (u32)READ_ONCE(blob_max_distance));
+
+			for (i = 0; i < sorted_count; i++) {
+				if (assigned_slot[i] == 0xFF) {
+					seq_dbg(shid, 2,
+						 "TRACKDBG: assign blob=%u grid=(%u,%u) slot=NONE bmd=%u\n",
+						 i, sorted[i].gx, sorted[i].gy, bmd);
+				} else {
+					u8 as = assigned_slot[i];
+					seq_dbg(shid, 2,
+						 "TRACKDBG: assign blob=%u grid=(%u,%u) slot=%u slot_state=%u bmd=%u\n",
+						 i, sorted[i].gx, sorted[i].gy, as,
+						 shid->blob_slot_state[as], bmd);
+				}
+			}
 
 			/* ── Stage 8: slot state machine ── */
 			raw_update_slots(shid, sorted, sorted_count,
