@@ -12,8 +12,11 @@
  *   - close candidates assigned to two established tracks survive;
  *   - state-3 (lift-pending) counts as established continuity so a one-frame
  *     detector/split hiccup can recover without an ID drop;
- *   - an established track beats a close candidate assigned to a new slot;
- *   - two ambiguous new candidates retain only the stronger raw-weight blob;
+ *   - an established track normally beats a close candidate assigned to a
+ *     new slot, except for a tightly bounded recent-birth window matching the
+ *     staggered close-born hardware capture;
+ *   - two ambiguous same-frame new candidates retain only the stronger
+ *     raw-weight blob;
  *   - the six-cell threshold is strict: exactly six cells is not coalesced.
  */
 #include <stdio.h>
@@ -114,6 +117,42 @@ static void test_established_beats_new_duplicate(void)
 	      "close new candidate is suppressed instead of stealing continuity");
 }
 
+static void test_recent_track_still_suppresses_tight_duplicate(void)
+{
+	struct spi_hid shid;
+	struct blob_entry blobs[2];
+	u8 assigned[2] = { 0, 1 };
+
+	memset(&shid, 0, sizeof(shid));
+	shid.blob_slot_state[0] = 2;
+	shid.blob_slot_birth_age[0] = 8;
+	blobs[0] = blob(1000, 1000, 5000);
+	blobs[1] = blob(1200, 1000, 9000); /* 2 cells: observed duplicate band */
+
+	raw_post_assoc_coalesce(&shid, blobs, 2, assigned, 6);
+
+	CHECK(assigned[0] == 0 && assigned[1] == 0xff,
+	      "recent track still suppresses a tight two-cell duplicate");
+}
+
+static void test_aged_track_suppresses_close_new_candidate(void)
+{
+	struct spi_hid shid;
+	struct blob_entry blobs[2];
+	u8 assigned[2] = { 0, 1 };
+
+	memset(&shid, 0, sizeof(shid));
+	shid.blob_slot_state[0] = 2;
+	shid.blob_slot_birth_age[0] = HEATMAP_CLOSE_BIRTH_GRACE_FRAMES + 1;
+	blobs[0] = blob(1000, 1000, 5000);
+	blobs[1] = blob(1427, 1000, 9000); /* 4.27 cells, but peer is no longer young */
+
+	raw_post_assoc_coalesce(&shid, blobs, 2, assigned, 6);
+
+	CHECK(assigned[0] == 0 && assigned[1] == 0xff,
+	      "aged established track keeps conservative close-new suppression");
+}
+
 static void test_two_new_candidates_use_raw_weight(void)
 {
 	struct spi_hid shid;
@@ -148,6 +187,53 @@ static void run_tracker_frame(struct spi_hid *shid,
 	raw_update_slots(shid, blobs, count, assigned, bmd,
 			 new_gx, new_gy, new_active,
 			 2, 3, 3, 0);
+}
+
+static void test_recent_established_allows_staggered_close_birth(void)
+{
+	struct spi_hid shid;
+	struct blob_entry first[1];
+	struct blob_entry pair[2];
+	bool active[HEATMAP_MAX_SLOTS];
+	int i, claimed;
+
+	memset(&shid, 0, sizeof(shid));
+
+	/*
+	 * Model the field capture: contact A is visible first and has about
+	 * eight 100 Hz frames of lifetime before contact B resolves 4.27 cells
+	 * away. A is already state 2 by then, but still inside the bounded
+	 * birth grace window.
+	 */
+	for (i = 0; i < 8; i++) {
+		first[0] = blob(1000, 1000, 5000);
+		run_tracker_frame(&shid, first, 1, active);
+	}
+
+	CHECK(shid.blob_slot_state[0] == 2,
+	      "first staggered contact is established before peer appears");
+	CHECK(shid.blob_slot_birth_age[0] == 8,
+	      "first contact retains eight-frame birth age");
+
+	/*
+	 * B must survive all three debounce frames, not merely one coalescing
+	 * decision, before it becomes a published state-2 contact.
+	 */
+	for (i = 0; i < 3; i++) {
+		pair[0] = blob(1000, 1000, 5000);
+		pair[1] = blob(1427, 1000, 4800); /* 4.27 cells */
+		run_tracker_frame(&shid, pair, 2, active);
+	}
+
+	claimed = 0;
+	for (i = 0; i < HEATMAP_MAX_SLOTS; i++)
+		if (shid.blob_slot_state[i] == 2)
+			claimed++;
+
+	CHECK(claimed == 2,
+	      "staggered close-born peer reaches state 2 inside grace window");
+	CHECK(active[0] && active[1],
+	      "both staggered close-born contacts are published after debounce");
 }
 
 static void test_one_frame_dropout_recovers_same_slots(void)
@@ -216,7 +302,10 @@ int main(void)
 	test_two_established_close_survive();
 	test_lift_pending_continuity_survives();
 	test_established_beats_new_duplicate();
+	test_recent_track_still_suppresses_tight_duplicate();
+	test_aged_track_suppresses_close_new_candidate();
 	test_two_new_candidates_use_raw_weight();
+	test_recent_established_allows_staggered_close_birth();
 	test_one_frame_dropout_recovers_same_slots();
 	test_exact_boundary_is_not_coalesced();
 
