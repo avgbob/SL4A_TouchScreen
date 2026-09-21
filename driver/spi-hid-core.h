@@ -317,6 +317,8 @@ struct spi_hid {
 	u32 blob_slot_weight[HEATMAP_MAX_SLOTS];    /* last blob weight */
 	u32 blob_slot_missed[HEATMAP_MAX_SLOTS];    /* consecutive frames missed */
 	u8 blob_slot_stationary[HEATMAP_MAX_SLOTS]; /* stationary frame counter */
+	u8 blob_slot_weak_score[HEATMAP_MAX_SLOTS]; /* converging weak-continuity evidence */
+	u8 blob_slot_occlusion_grace[HEATMAP_MAX_SLOTS]; /* armed merge/occlusion miss budget */
 
 	/* Pre-coalescing detector history for sequential close-born qualification. */
 	u8 close_birth_solo_frames;   /* consecutive frames with exactly one detector blob */
