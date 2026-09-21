@@ -59,7 +59,7 @@ activation guide.
 │   ├─ IRQ-driven input (IRQ → SPI read → input_report)        │
 │   └─ Raw heatmap pipeline:                                   │
 │        baseline → peak gate → CCL → velocity → edge →        │
-│        split → centroid → pre-merge → Hungarian →            │
+│        split → centroid → Hungarian → post-assoc suppression →│
 │        EMA + deadband + stationary lock → MT emission         │
 ├──────────────────────────────────────────────────────────────┤
 │ sl4a-spi-amd.ko (spi-amd.c, explicit opt-in only)            │
@@ -88,8 +88,8 @@ unresolved frame-layout assumptions are recorded in `docs/EVIDENCE.md`.
 | **Blob splitting** | Multi-peak blobs (≥4 cells apart) split into sub-blobs |
 | **Centroid** | Signal-weighted ×100 fixed-point on full blob extent |
 | **Eigenvalues** | Second moments → touch major/minor/orientation |
-| **Pre-merge** | Merge blobs within ghost_dist=6 (distance² < 36) |
-| **Hungarian** | Assignment with multi-finger radii (1×2.2, 2×1.0, 3×2.8, 4×3.4, 5+×4.0) |
+| **Hungarian** | Associate the complete candidate set to persistent slots with multi-finger radii (1×2.2, 2×1.0, 3×2.8, 4×3.4, 5+×4.0) |
+| **Post-association suppression** | Apply the strict ghost_dist=6 proximity rule only after assignment; candidates backed by two distinct established tracks are preserved |
 | **EMA + deadband** | Alpha=2 smoothing, ±0.2 cell deadband, 2-frame stationary lock |
 | **Lift lookback** | Emit lift at position from 2 frames ago |
 
