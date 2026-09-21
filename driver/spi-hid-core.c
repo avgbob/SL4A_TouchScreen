@@ -2559,7 +2559,7 @@ MODULE_PARM_DESC(skip_getfeat,
 static int std_raw_transition;
 module_param(std_raw_transition, int, 0444);
 MODULE_PARM_DESC(std_raw_transition,
-	"Run the GET ID6 + SET ID5 heatmap transition in standard mode (0=off)");
+	"Standard-mode heat transition: 0=off, 1=GET6+SET5, 2=GET6-only, 3=SET5-only");
 
 module_param(skip_std_getfeat, bool, 0444);
 MODULE_PARM_DESC(skip_std_getfeat,
@@ -3495,20 +3495,28 @@ static void seq_handle_rpt(struct spi_hid *shid, int type, u16 blen)
 				}
 			}
 		} else {
-			/* July one-shot transition, opt-in: GET ID6 + SET ID5=1,
-			 * then DONE reads reg 0 as usual. raw_mode=N captured
-			 * 1616 valid 4304B bodies this way; the transition sends
-			 * no vendor init, no power frames, and never delays the
-			 * handshake (best-effort, failures fall through). */
+			/* Standard-mode heat transition, opt-in.  Mode 1 preserves
+			 * the July GET6+SET5 sequence; modes 2 and 3 isolate each
+			 * command for hardware A/B testing without changing raw_mode. */
 			if (std_raw_transition && !shid->transition_done) {
-				seq_dbg(shid, 1, "SEQ: standard-mode raw transition: GET ID6 + SET ID5\n");
-				spi_hid_getfeat6_read(shid);
-				if (spi_hid_seq_write_setfeat(shid))
+				bool do_get6 = std_raw_transition == 1 ||
+					       std_raw_transition == 2;
+				bool do_set5 = std_raw_transition == 1 ||
+					       std_raw_transition == 3;
+
+				seq_dbg(shid, 1,
+					"SEQ: standard-mode raw transition: mode=%d GET6=%d SET5=%d\n",
+					std_raw_transition, do_get6, do_set5);
+
+				if (do_get6)
+					spi_hid_getfeat6_read(shid);
+
+				if (do_set5 && spi_hid_seq_write_setfeat(shid))
 					dev_warn(&shid->spi->dev,
 						 "SEQ: transition SET_FEATURE ID5 failed, continuing\n");
+
 				shid->transition_done = true;
-				/* Back to unnamed reads: the GET exception shapes
-				 * only the transition's own reads. */
+
 				shid->read_resp_type = 0;
 				shid->read_resp_content_id = 0;
 			}
