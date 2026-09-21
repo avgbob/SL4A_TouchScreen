@@ -121,6 +121,7 @@ struct spi_hid {
 	/* Slot state, duration, and coordinate history. */
 	u8 blob_slot_state[HEATMAP_MAX_SLOTS];
 	u32 blob_slot_duration[HEATMAP_MAX_SLOTS];
+	u32 blob_slot_birth_age[HEATMAP_MAX_SLOTS];
 	u32 blob_slot_gx[HEATMAP_MAX_SLOTS];
 	u32 blob_slot_gy[HEATMAP_MAX_SLOTS];
 	u32 blob_slot_weight[HEATMAP_MAX_SLOTS];
