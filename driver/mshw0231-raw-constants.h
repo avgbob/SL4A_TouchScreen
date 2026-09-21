@@ -103,6 +103,30 @@
 #define HEATMAP_DEADBAND_THRESHOLD      20
 #define HEATMAP_STATIONARY_FRAMES         2
 
+/*
+ * Close-born qualification guard.
+ *
+ * Field capture sl4a-close-born-pr4-20260921-160102 showed a legitimate
+ * second finger resolving about 85 ms after the first. By then the first
+ * slot was already state 2, so conservative established-vs-new coalescing
+ * suppressed the second contact until the pair separated past six cells.
+ *
+ * Permit a nearby new candidate only while the established peer is still
+ * very young, and only when the pair is separated enough to differ from the
+ * tight duplicate candidates seen in the earlier PR4 field capture.
+ *
+ * FIRST-PASS HARDWARE-BOUNDED VALUES, not recovered Windows constants:
+ *   - 12 frames ~= 120 ms at the observed ~100 Hz CapImg rate, covering the
+ *     measured ~85 ms detector skew with modest margin;
+ *   - 3 cells sits above observed duplicate candidates (~1.72-2.00 cells)
+ *     and below the legitimate close-born pair (~4.27 cells initially).
+ *
+ * These bounds deliberately do not make two same-frame state-0 candidates
+ * authoritative; that classification remains conservative.
+ */
+#define HEATMAP_CLOSE_BIRTH_GRACE_FRAMES  12
+#define HEATMAP_CLOSE_BIRTH_MIN_SEP         3
+
 /* Missed frame timeout (ms) */
 #define HEATMAP_MISSED_FRAME_TIMEOUT_MS  60
 
