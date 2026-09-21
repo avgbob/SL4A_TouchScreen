@@ -127,6 +127,8 @@ struct spi_hid {
 	u32 blob_slot_weight[HEATMAP_MAX_SLOTS];
 	u32 blob_slot_missed[HEATMAP_MAX_SLOTS];
 	u8 blob_slot_stationary[HEATMAP_MAX_SLOTS];
+	u8 blob_slot_weak_score[HEATMAP_MAX_SLOTS];
+	u8 blob_slot_occlusion_grace[HEATMAP_MAX_SLOTS];
 
 	/* Mirror production sequential close-birth detector history. */
 	u8 close_birth_solo_frames;
