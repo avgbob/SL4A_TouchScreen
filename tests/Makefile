@@ -231,6 +231,50 @@ panel_emulator_host_test: panel_emulator_host_test.c \
 panel-emulator: panel_emulator_host_test
 	./panel_emulator_host_test
 
+# Host-only A/B builds for the close-birth minimum-separation policy.
+# These never change driver/; panel_emulator_host_test.c undefines the
+# production macro only when SL4A_TEST_CLOSE_BIRTH_MIN_SEP is supplied.
+panel_policy_ab_250: panel_policy_ab_test.c \
+		$(RAW_STAGE_DIR)/mshw0231-raw.c \
+		../driver/spi-hid-capimg.c \
+		$(RAW_STUB_DIR)/stubs.c \
+		$(RAW_STUB_DIR)/spi-hid-core.h \
+		$(RAW_STUB_DIR)/mt_record.h \
+		../driver/mshw0231-raw.h ../driver/mshw0231-raw-constants.h ../driver/spi-hid-capimg.h
+	$(CC) -std=gnu11 -Wall -Wextra -Werror -Wno-sign-compare \
+		-DSL4A_TEST_CLOSE_BIRTH_MIN_SEP=2.50 \
+		-I$(RAW_STUB_DIR) -Ilinux-compat -I../driver \
+		-o $@ panel_policy_ab_test.c $(RAW_STUB_DIR)/stubs.c ../driver/spi-hid-capimg.c -lm
+
+panel_policy_ab_275: panel_policy_ab_test.c \
+		$(RAW_STAGE_DIR)/mshw0231-raw.c \
+		../driver/spi-hid-capimg.c \
+		$(RAW_STUB_DIR)/stubs.c \
+		$(RAW_STUB_DIR)/spi-hid-core.h \
+		$(RAW_STUB_DIR)/mt_record.h \
+		../driver/mshw0231-raw.h ../driver/mshw0231-raw-constants.h ../driver/spi-hid-capimg.h
+	$(CC) -std=gnu11 -Wall -Wextra -Werror -Wno-sign-compare \
+		-DSL4A_TEST_CLOSE_BIRTH_MIN_SEP=2.75 \
+		-I$(RAW_STUB_DIR) -Ilinux-compat -I../driver \
+		-o $@ panel_policy_ab_test.c $(RAW_STUB_DIR)/stubs.c ../driver/spi-hid-capimg.c -lm
+
+panel_policy_ab_300: panel_policy_ab_test.c \
+		$(RAW_STAGE_DIR)/mshw0231-raw.c \
+		../driver/spi-hid-capimg.c \
+		$(RAW_STUB_DIR)/stubs.c \
+		$(RAW_STUB_DIR)/spi-hid-core.h \
+		$(RAW_STUB_DIR)/mt_record.h \
+		../driver/mshw0231-raw.h ../driver/mshw0231-raw-constants.h ../driver/spi-hid-capimg.h
+	$(CC) -std=gnu11 -Wall -Wextra -Werror -Wno-sign-compare \
+		-DSL4A_TEST_CLOSE_BIRTH_MIN_SEP=3.00 \
+		-I$(RAW_STUB_DIR) -Ilinux-compat -I../driver \
+		-o $@ panel_policy_ab_test.c $(RAW_STUB_DIR)/stubs.c ../driver/spi-hid-capimg.c -lm
+
+panel-policy-ab: panel_policy_ab_250 panel_policy_ab_275 panel_policy_ab_300
+	./panel_policy_ab_250
+	./panel_policy_ab_275
+	./panel_policy_ab_300
+
 # ── heatmap_pure_test: synthetic + capture-shape regression ──
 #
 # Same host-build shape as raw_pipeline_replay_test (stage the driver
@@ -308,7 +352,7 @@ local-checks: raw_pipeline_replay_test real_frame_replay_test
 replay_fixture_test: fixtures/replay/v1/manifest.json ../tools/decode_v0_capimg.py
 
 clean:
-	rm -f protocol_test capimg_decoder_host_test c590_atan2_host_test wire_frames_test raw_pipeline_math_test raw_pipeline_replay_test real_frame_replay_test plateau_host_test tracker_coalescing_host_test panel_emulator_host_test heatmap_pure_test
+	rm -f protocol_test capimg_decoder_host_test c590_atan2_host_test wire_frames_test raw_pipeline_math_test raw_pipeline_replay_test real_frame_replay_test plateau_host_test tracker_coalescing_host_test panel_emulator_host_test panel_policy_ab_250 panel_policy_ab_275 panel_policy_ab_300 heatmap_pure_test
 	rm -rf $(RAW_STAGE_DIR)
 
-.PHONY: all test local-checks panel-emulator replay_fixture_test clean
+.PHONY: all test local-checks panel-emulator panel-policy-ab replay_fixture_test clean
