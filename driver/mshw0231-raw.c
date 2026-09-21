@@ -158,6 +158,8 @@ void mshw0231_raw_reset(struct spi_hid *shid)
 	memset(shid->blob_slot_hpos, 0, sizeof(shid->blob_slot_hpos));
 	memset(shid->blob_slot_hcount, 0, sizeof(shid->blob_slot_hcount));
 	memset(shid->blob_slot_stationary, 0, sizeof(shid->blob_slot_stationary));
+	memset(shid->blob_slot_weak_score, 0, sizeof(shid->blob_slot_weak_score));
+	memset(shid->blob_slot_occlusion_grace, 0, sizeof(shid->blob_slot_occlusion_grace));
 	shid->close_birth_solo_frames = 0;
 	shid->close_birth_relax_frames = 0;
 	memset(shid->blob_x, 0, sizeof(shid->blob_x));
@@ -1364,6 +1366,53 @@ static void slot_history_clear(struct spi_hid *shid, u32 s)
 	shid->blob_slot_hpos[s] = 0;
 }
 
+/*
+ * Return true when a weak candidate for an established slot moved toward
+ * another established/lift-pending slot by at least 0.2 grid cells this frame.
+ *
+ * This is intentionally directional evidence. A stationary contact that merely
+ * fades during a real lift must not arm the long occlusion window.
+ */
+static bool raw_weak_candidate_converging(struct spi_hid *shid, u8 slot,
+						 u32 gx, u32 gy)
+{
+	u8 other;
+
+	for (other = 0; other < HEATMAP_MAX_SLOTS; other++) {
+		u8 state;
+		s32 odx, ody, ndx, ndy;
+		u32 old_dist, new_dist;
+
+		if (other == slot)
+			continue;
+		state = shid->blob_slot_state[other];
+		if (state != 2 && state != 3)
+			continue;
+
+		odx = (s32)shid->blob_slot_gx[slot] -
+		      (s32)shid->blob_slot_gx[other];
+		ody = (s32)shid->blob_slot_gy[slot] -
+		      (s32)shid->blob_slot_gy[other];
+		ndx = (s32)gx - (s32)shid->blob_slot_gx[other];
+		ndy = (s32)gy - (s32)shid->blob_slot_gy[other];
+		if (odx < 0)
+			odx = -odx;
+		if (ody < 0)
+			ody = -ody;
+		if (ndx < 0)
+			ndx = -ndx;
+		if (ndy < 0)
+			ndy = -ndy;
+
+		old_dist = (u32)odx + (u32)ody;
+		new_dist = (u32)ndx + (u32)ndy;
+		if (old_dist >= new_dist + HEATMAP_WEAK_CONVERGE_DELTA100)
+			return true;
+	}
+
+	return false;
+}
+
 static void raw_update_slots(struct spi_hid *shid,
 			     const struct blob_entry *sorted, u8 sorted_count,
 			     const u8 *assigned_slot, u32 bmd,
@@ -1477,6 +1526,38 @@ static void raw_update_slots(struct spi_hid *shid,
 				break;
 			}
 
+			/*
+			 * Long occlusion continuity is earned, not global.  A weak
+			 * established candidate (< normal birth weight) only builds
+			 * evidence when it actually moves toward another established
+			 * contact.  Once enough such frames have been observed, any
+			 * subsequent weak re-acquisition refreshes a bounded occlusion
+			 * window.  Healthy strong frames decay both the evidence and
+			 * the armed window.
+			 */
+			if (old_state < 2) {
+				shid->blob_slot_weak_score[s] = 0;
+				shid->blob_slot_occlusion_grace[s] = 0;
+			} else if (guard_w < (u32)READ_ONCE(blob_min_weight)) {
+				if (raw_weak_candidate_converging(shid, s, gx, gy) &&
+				    shid->blob_slot_weak_score[s] < 0xff)
+					shid->blob_slot_weak_score[s]++;
+				if (shid->blob_slot_weak_score[s] >=
+				    HEATMAP_WEAK_OCCLUSION_ARM_SCORE) {
+					if (shid->blob_slot_occlusion_grace[s] == 0)
+						seq_dbg(shid, 2,
+							 "TRACKDBG: slot=%u weak-occlusion armed score=%u\n",
+							 s, shid->blob_slot_weak_score[s]);
+					shid->blob_slot_occlusion_grace[s] =
+						HEATMAP_WEAK_OCCLUSION_GRACE_FRAMES;
+				}
+			} else {
+				if (shid->blob_slot_weak_score[s] > 0)
+					shid->blob_slot_weak_score[s]--;
+				if (shid->blob_slot_occlusion_grace[s] > 0)
+					shid->blob_slot_occlusion_grace[s]--;
+			}
+
 			/* Copy per-blob eigenvalues to the assigned slot.
 			 * Must run only after the state-machine switch above
 			 * has accepted this match — case 4 (hold) can still
@@ -1575,6 +1656,8 @@ slot_unassigned:
 				shid->blob_slot_state[s] = 0;
 				shid->blob_slot_duration[s] = 0;
 				shid->blob_slot_birth_age[s] = 0;
+				shid->blob_slot_weak_score[s] = 0;
+				shid->blob_slot_occlusion_grace[s] = 0;
 				break;
 			case 2:
 				if (hold_frames < 1) {
@@ -1589,6 +1672,8 @@ slot_unassigned:
 					}
 					shid->blob_slot_state[s] = 3;
 					shid->blob_slot_missed[s] = 0;
+					if (shid->blob_slot_occlusion_grace[s] > 0)
+						shid->blob_slot_occlusion_grace[s]--;
 				} else {
 					shid->blob_slot_state[s] = 4;
 					shid->blob_slot_missed[s] = 1;
@@ -1612,16 +1697,29 @@ slot_unassigned:
 				break;
 			case 3:
 				shid->blob_slot_missed[s]++;
+				if (shid->blob_slot_occlusion_grace[s] > 0)
+					shid->blob_slot_occlusion_grace[s]--;
 				if (shid->blob_slot_missed[s] >=
-				    (u32)blob_lift_frames) {
+				    (u32)blob_lift_frames &&
+				    shid->blob_slot_occlusion_grace[s] == 0) {
 					slot_history_clear(shid, s);
 					shid->blob_slot_state[s] = 0;
 					shid->blob_slot_missed[s] = 0;
 					shid->blob_slot_birth_age[s] = 0;
+					shid->blob_slot_weak_score[s] = 0;
+				} else if (shid->blob_slot_missed[s] >=
+					   (u32)blob_lift_frames) {
+					seq_dbg(shid, 2,
+						 "TRACKDBG: slot=%u occlusion hold missed=%u grace=%u score=%u\n",
+						 s, shid->blob_slot_missed[s],
+						 shid->blob_slot_occlusion_grace[s],
+						 shid->blob_slot_weak_score[s]);
 				}
 				break;
 			case 0:
 				shid->blob_slot_birth_age[s] = 0;
+				shid->blob_slot_weak_score[s] = 0;
+				shid->blob_slot_occlusion_grace[s] = 0;
 				break;
 			}
 
@@ -1639,9 +1737,11 @@ slot_unassigned:
 
 		if (trace_old_state != shid->blob_slot_state[s])
 			seq_dbg(shid, 2,
-				 "TRACKDBG: slot=%u state=%u->%u candidate=%u missed=%u\n",
+				 "TRACKDBG: slot=%u state=%u->%u candidate=%u missed=%u weak_score=%u occlusion=%u\n",
 				 s, trace_old_state, shid->blob_slot_state[s],
-				 bi != 0xFF, shid->blob_slot_missed[s]);
+				 bi != 0xFF, shid->blob_slot_missed[s],
+				 shid->blob_slot_weak_score[s],
+				 shid->blob_slot_occlusion_grace[s]);
 	}
 }
 
