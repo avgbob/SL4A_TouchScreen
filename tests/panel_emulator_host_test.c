@@ -774,6 +774,65 @@ static void test_short_dropout_recovery(int missing_frames)
 	teardown_device(&shid);
 }
 
+static void test_weak_established_peak_hysteresis(void)
+{
+	struct spi_hid shid;
+	struct spi_device spidev;
+	struct vcontact pair[2];
+	struct frame_obs obs = { 0, 0 };
+	unsigned long long slot_mask;
+	int left_tid = -1, right_tid = -1;
+	int i;
+
+	setup_device(&shid, &spidev);
+	pair[0] = finger(24.0, 24.0);
+	pair[1] = finger(40.0, 24.0);
+
+	/* Establish two ordinary contacts first: the weak path must never create
+	 * a new contact from scratch. */
+	for (i = 0; i < 6; i++)
+		obs = feed_virtual(&shid, pair, 2);
+	CHECK(obs.mt_contacts == 2,
+	      "weak-peak setup publishes two established contacts, got %d",
+	      obs.mt_contacts);
+	slot_mask = active_slot_mask();
+	CHECK(pair_tracking_ids_by_x(&left_tid, &right_tid),
+	      "weak-peak setup assigns distinct tracking IDs");
+
+	/* Collapse B to an isolated but still real local maximum. A ~15 raw-count
+	 * drop is above the 200-rise peak floor but intentionally too small/narrow
+	 * for the normal >=2-pixel, >=1000-weight *birth* gate.  Continuity should
+	 * keep the already-established slot instead of churning its tracking ID. */
+	pair[1].amplitude = 15.0;
+	pair[1].sigma = 0.18;
+	for (i = 0; i < 8; i++) {
+		obs = feed_virtual(&shid, pair, 2);
+		CHECK(obs.detector_blobs == 1,
+		      "weak established peak frame %d stays below normal blob birth gate, got %d normal blobs",
+		      i + 1, obs.detector_blobs);
+		CHECK(obs.mt_contacts == 2,
+		      "weak established peak frame %d preserves two Linux contacts, got %d",
+		      i + 1, obs.mt_contacts);
+		CHECK(active_slot_mask() == slot_mask,
+		      "weak established peak frame %d preserves original Linux slots",
+		      i + 1);
+		CHECK(pair_tracking_ids_match(left_tid, right_tid),
+		      "weak established peak frame %d preserves tracking IDs",
+		      i + 1);
+	}
+
+	/* Once B really disappears, there is no second peak and normal lift grace
+	 * must still release it. */
+	pair[1].active = 0;
+	for (i = 0; i < 4; i++)
+		obs = feed_virtual(&shid, pair, 2);
+	CHECK(obs.mt_contacts == 1,
+	      "real lift after weak-peak continuity still releases second contact, got %d",
+	      obs.mt_contacts);
+
+	teardown_device(&shid);
+}
+
 static void test_capture_shaped_close_birth(void)
 {
 	struct spi_hid shid;
@@ -1036,6 +1095,7 @@ int main(void)
 	test_staggered_birth_window();
 	test_short_dropout_recovery(1);
 	test_short_dropout_recovery(2);
+	test_weak_established_peak_hysteresis();
 	test_capture_shaped_close_birth();
 	test_accidental_third_finger();
 
