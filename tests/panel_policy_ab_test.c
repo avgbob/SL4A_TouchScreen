@@ -12,8 +12,9 @@
  *   1. legitimate two-finger shape/strength sensitivity; and
  *   2. an adversarial established-finger + weaker nearby secondary-lobe
  *      scenario, including both transient (2-frame) and sustained (5-frame)
- *      lobes.  The latter approximates a persistent detector split/ghost that
- *      could become a false second contact if the guard is relaxed too far.
+ *      lobes.  This is a synthetic policy stress test, not a claim that the
+ *      physical panel produces this exact artifact.  Cases only become useful
+ *      once the detector actually resolves two candidates.
  */
 
 #ifndef SL4A_TEST_CLOSE_BIRTH_MIN_SEP
@@ -56,7 +57,12 @@ static struct lobe_result run_secondary_lobe(double offset,
 	pair[0] = base[0];
 	pair[1] = finger(30.0 + offset, 22.0);
 	pair[1].amplitude = lobe_amp;
-	pair[1].sigma = 0.80;
+	/*
+	 * Match the established contact's width.  The earlier 0.80-cell lobe
+	 * merged into one detector blob in every case, so it never exercised
+	 * post-association policy at all.
+	 */
+	pair[1].sigma = 1.20;
 
 	for (i = 0; i < lobe_frames; i++) {
 		obs = feed_virtual(&shid, pair, 2);
@@ -73,11 +79,16 @@ static struct lobe_result run_secondary_lobe(double offset,
 
 static void secondary_lobe_sweep(void)
 {
-	static const double amp[] = { 35.0, 50.0, 70.0, 90.0 };
-	static const double offset[] = { 2.40, 2.60, 2.80, 3.00, 3.20, 3.40 };
+	static const double amp[] = { 55.0, 70.0, 85.0, 100.0 };
+	static const double offset[] = {
+		3.45, 3.55, 3.60, 3.65, 3.70, 3.80,
+	};
 	size_t a, o;
+	int resolved = 0;
+	int transient_second = 0;
+	int sustained_second = 0;
 
-	printf("\n-- adversarial established-finger + secondary-lobe sweep --\n");
+	printf("\n-- detector-resolved secondary-lobe policy stress sweep --\n");
 	printf("guard,offset,lobe_amp,max_blobs,centroid_sep,max_contacts_2f,max_contacts_5f\n");
 
 	for (a = 0; a < sizeof(amp) / sizeof(amp[0]); a++) {
@@ -86,14 +97,23 @@ static void secondary_lobe_sweep(void)
 				run_secondary_lobe(offset[o], amp[a], 2);
 			struct lobe_result long_r =
 				run_secondary_lobe(offset[o], amp[a], 5);
+			int max_blobs =
+				long_r.max_detector_blobs > short_r.max_detector_blobs ?
+				long_r.max_detector_blobs : short_r.max_detector_blobs;
 			int sep100 = long_r.centroid_sep100 >= 0 ?
 				     long_r.centroid_sep100 : short_r.centroid_sep100;
 
+			if (max_blobs >= 2) {
+				resolved++;
+				if (short_r.max_linux_contacts >= 2)
+					transient_second++;
+				if (long_r.max_linux_contacts >= 2)
+					sustained_second++;
+			}
+
 			printf("%.2f,%.2f,%.0f,%d,",
 			       (double)SL4A_TEST_CLOSE_BIRTH_MIN_SEP,
-			       offset[o], amp[a],
-			       long_r.max_detector_blobs > short_r.max_detector_blobs ?
-			       long_r.max_detector_blobs : short_r.max_detector_blobs);
+			       offset[o], amp[a], max_blobs);
 			if (sep100 >= 0)
 				printf("%.2f,", (double)sep100 / 100.0);
 			else
@@ -103,6 +123,10 @@ static void secondary_lobe_sweep(void)
 			       long_r.max_linux_contacts);
 		}
 	}
+
+	printf("SUMMARY guard=%.2f resolved=%d transient_second=%d sustained_second=%d\n",
+	       (double)SL4A_TEST_CLOSE_BIRTH_MIN_SEP,
+	       resolved, transient_second, sustained_second);
 }
 
 int main(void)
