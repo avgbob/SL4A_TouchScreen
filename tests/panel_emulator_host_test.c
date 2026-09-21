@@ -294,6 +294,144 @@ static int hold_pair(double spacing, int frames, int *max_blobs)
 	return i;
 }
 
+struct shape_result {
+	int max_blobs;
+	int final_contacts;
+	int centroid_sep100;
+};
+
+static int detector_pair_sep100(const struct spi_hid *shid)
+{
+	int idx[2] = { -1, -1 };
+	int i, n = 0;
+	double dx, dy;
+
+	for (i = 0; i < HEATMAP_MAX_BLOBS && n < 2; i++) {
+		if (!shid->blob_active[i] ||
+		    shid->blob_raw_wsum[i] < (u32)blob_min_weight)
+			continue;
+		idx[n++] = i;
+	}
+	if (n != 2)
+		return -1;
+
+	dx = (double)((s32)shid->blob_x[idx[0]] -
+		      (s32)shid->blob_x[idx[1]]);
+	dy = (double)((s32)shid->blob_y[idx[0]] -
+		      (s32)shid->blob_y[idx[1]]);
+	return (int)(sqrt(dx * dx + dy * dy) + 0.5);
+}
+
+static struct shape_result hold_pair_shape(double spacing, int frames,
+					   double amp_a, double amp_b,
+					   double sigma)
+{
+	struct spi_hid shid;
+	struct spi_device spidev;
+	struct vcontact c[2];
+	struct frame_obs obs = { 0, 0 };
+	struct shape_result out = { 0, 0, -1 };
+	int i;
+
+	setup_device(&shid, &spidev);
+	c[0] = finger(30.0, 22.0);
+	c[1] = finger(30.0 + spacing, 22.0);
+	c[0].amplitude = amp_a;
+	c[1].amplitude = amp_b;
+	c[0].sigma = sigma;
+	c[1].sigma = sigma;
+
+	for (i = 0; i < frames; i++) {
+		obs = feed_virtual(&shid, c, 2);
+		if (obs.detector_blobs > out.max_blobs)
+			out.max_blobs = obs.detector_blobs;
+	}
+
+	out.final_contacts = obs.mt_contacts;
+	out.centroid_sep100 = detector_pair_sep100(&shid);
+	teardown_device(&shid);
+	return out;
+}
+
+static void print_shape_threshold(const char *kind, double shape_value,
+				  double amp_a, double amp_b, double sigma)
+{
+	int hundredths;
+	int det_nominal = -1, det_sep100 = -1;
+	int linux_nominal = -1, linux_sep100 = -1;
+
+	/*
+	 * Sweep in 0.05-cell increments. We record both transitions separately:
+	 * detector-resolvable and finally publishable after coalescing/debounce.
+	 */
+	for (hundredths = 300; hundredths <= 450; hundredths += 5) {
+		double spacing = (double)hundredths / 100.0;
+		struct shape_result r =
+			hold_pair_shape(spacing, 12, amp_a, amp_b, sigma);
+
+		if (det_nominal < 0 && r.max_blobs >= 2) {
+			det_nominal = hundredths;
+			det_sep100 = r.centroid_sep100;
+		}
+		if (linux_nominal < 0 && r.final_contacts >= 2) {
+			linux_nominal = hundredths;
+			linux_sep100 = r.centroid_sep100;
+			break;
+		}
+	}
+
+	printf("%s,%.2f,%.0f,%.0f,%.2f,",
+	       kind, shape_value, amp_a, amp_b, sigma);
+	if (det_nominal >= 0)
+		printf("%.2f,%.2f,", (double)det_nominal / 100.0,
+		       (double)det_sep100 / 100.0);
+	else
+		printf("NA,NA,");
+	if (linux_nominal >= 0)
+		printf("%.2f,%.2f\n", (double)linux_nominal / 100.0,
+		       (double)linux_sep100 / 100.0);
+	else
+		printf("NA,NA\n");
+}
+
+static void shape_sensitivity_sweep(void)
+{
+	static const double sigmas[] = { 0.90, 1.05, 1.20, 1.35, 1.50 };
+	static const double amplitudes[] = { 70.0, 90.0, 110.0, 130.0, 150.0 };
+	size_t i;
+
+	printf("\n-- close-birth shape sensitivity thresholds --\n");
+	printf("kind,value,amp_a,amp_b,sigma,detector_nominal,detector_centroid_sep,linux_nominal,linux_centroid_sep\n");
+
+	for (i = 0; i < sizeof(sigmas) / sizeof(sigmas[0]); i++)
+		print_shape_threshold("sigma", sigmas[i],
+				      110.0, 110.0, sigmas[i]);
+
+	for (i = 0; i < sizeof(amplitudes) / sizeof(amplitudes[0]); i++)
+		print_shape_threshold("amplitude", amplitudes[i],
+				      amplitudes[i], amplitudes[i], 1.20);
+}
+
+static void unequal_strength_sweep(void)
+{
+	static const double weak_amp[] = { 55.0, 70.0, 85.0, 100.0, 110.0 };
+	size_t i;
+
+	printf("\n-- unequal-strength pair at nominal 3.65 cells --\n");
+	printf("amp_a,amp_b,sigma,max_detector_blobs,centroid_sep,final_linux_contacts\n");
+	for (i = 0; i < sizeof(weak_amp) / sizeof(weak_amp[0]); i++) {
+		struct shape_result r =
+			hold_pair_shape(3.65, 12, 110.0, weak_amp[i], 1.20);
+
+		printf("110,%.0f,1.20,%d,", weak_amp[i], r.max_blobs);
+		if (r.centroid_sep100 >= 0)
+			printf("%.2f,", (double)r.centroid_sep100 / 100.0);
+		else
+			printf("NA,");
+		printf("%d\n", r.final_contacts);
+	}
+}
+
 static void spacing_sweep(void)
 {
 	static const double spacing[] = {
@@ -855,6 +993,8 @@ int main(void)
 	 * they let us compare algorithm changes without another physical gesture. */
 	spacing_sweep();
 	fine_spacing_sweep();
+	shape_sensitivity_sweep();
+	unequal_strength_sweep();
 	delay_sweep();
 	fine_delay_sweep();
 	third_duration_sweep();
