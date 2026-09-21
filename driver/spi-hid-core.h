@@ -318,6 +318,10 @@ struct spi_hid {
 	u32 blob_slot_missed[HEATMAP_MAX_SLOTS];    /* consecutive frames missed */
 	u8 blob_slot_stationary[HEATMAP_MAX_SLOTS]; /* stationary frame counter */
 
+	/* Pre-coalescing detector history for sequential close-born qualification. */
+	u8 close_birth_solo_frames;   /* consecutive frames with exactly one detector blob */
+	u8 close_birth_relax_frames;  /* remaining frames in the qualified 2-blob transition */
+
 	/* Per-slot history ring for sway and velocity (Surface: 10 samples). */
 	u32 blob_slot_hx[HEATMAP_MAX_SLOTS][SLOT_HISTORY_DEPTH];
 	u32 blob_slot_hy[HEATMAP_MAX_SLOTS][SLOT_HISTORY_DEPTH];
