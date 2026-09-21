@@ -943,12 +943,15 @@ static void raw_post_assoc_coalesce(struct spi_hid *shid,
 	u8 a, b;
 	u32 gdsq;
 	u32 birth_min_sq;
+	u32 birth_late_min_sq;
 
 	if (ghost_dist < 1)
 		ghost_dist = 1;
 	gdsq = ghost_dist * ghost_dist * 10000; /* fixed-point grid ×100 */
 	birth_min_sq = HEATMAP_CLOSE_BIRTH_MIN_SEP *
 			HEATMAP_CLOSE_BIRTH_MIN_SEP * 10000;
+	birth_late_min_sq = HEATMAP_CLOSE_BIRTH_LATE_MIN_SEP100 *
+			HEATMAP_CLOSE_BIRTH_LATE_MIN_SEP100;
 
 	for (a = 0; a < sorted_count; a++) {
 		if (assigned_slot[a] == 0xff || sorted[a].w == 0)
@@ -994,29 +997,40 @@ static void raw_post_assoc_coalesce(struct spi_hid *shid,
 				u8 established_slot = established_a ? sa : sb;
 				u8 new_slot = established_a ? sb : sa;
 				u32 age = shid->blob_slot_birth_age[established_slot];
+				bool late_birth_relax;
 
 				/*
 				 * Hardware can resolve a near-simultaneous close placement
 				 * sequentially: the first contact may finish debounce before
 				 * the second blob becomes visible. Do not mistake that second
 				 * finger for a duplicate while the first track is still inside
-				 * the tightly-bounded birth window. The minimum-separation
-				 * guard keeps the much tighter (~2-cell) duplicate candidates
-				 * on the normal suppression path.
+				 * the tightly-bounded birth window.
+				 *
+				 * Keep the original 3-cell minimum during the early ambiguous
+				 * part of the contact. Once the first track has been stable for
+				 * HEATMAP_CLOSE_BIRTH_LATE_AGE_FRAMES, allow the measured
+				 * sequential-birth case down to 2.75 cells. This is deliberately
+				 * age-gated rather than a global threshold reduction: same-frame
+				 * state-0 candidates remain conservative, and the normal slot
+				 * debounce still prevents a two-frame transient from publishing.
 				 *
 				 * State 3 does not qualify here: recovery must not reset an old
 				 * contact into a fresh birth window. blob_slot_birth_age is
 				 * therefore preserved across lift/hold recovery.
 				 */
+				late_birth_relax =
+					age >= HEATMAP_CLOSE_BIRTH_LATE_AGE_FRAMES &&
+					distsq >= birth_late_min_sq;
 				if (established_slot != new_slot &&
 				    shid->blob_slot_state[established_slot] == 2 &&
 				    age > 0 &&
 				    age <= HEATMAP_CLOSE_BIRTH_GRACE_FRAMES &&
-				    distsq >= birth_min_sq) {
+				    (distsq >= birth_min_sq || late_birth_relax)) {
 					seq_dbg(shid, 2,
-						"TRACKDBG: postassoc birth-grace preserve blobs=%u,%u slots=%u,%u states=%u,%u age=%u dist100=%u gd=%u\n",
+						"TRACKDBG: postassoc birth-grace preserve blobs=%u,%u slots=%u,%u states=%u,%u age=%u dist100=%u late=%u gd=%u\n",
 						a, b, sa, sb, state_a, state_b, age,
-						(u32)int_sqrt((u64)distsq), ghost_dist);
+						(u32)int_sqrt((u64)distsq),
+						late_birth_relax, ghost_dist);
 					continue;
 				}
 
