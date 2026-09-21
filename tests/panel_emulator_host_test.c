@@ -327,69 +327,37 @@ static void fine_spacing_sweep(void)
 	}
 }
 
-static void print_slot_state_summary(const struct spi_hid *shid)
+static void test_birth_min_sep_centroid_boundary(void)
 {
-	int i;
-	int any = 0;
-
-	for (i = 0; i < HEATMAP_MAX_SLOTS; i++) {
-		if (shid->blob_slot_state[i] == 0)
-			continue;
-		printf(" s%d=%u/d%u/a%u@%.2f",
-		       i,
-		       shid->blob_slot_state[i],
-		       shid->blob_slot_duration[i],
-		       shid->blob_slot_birth_age[i],
-		       (double)shid->blob_slot_gx[i] / 100.0);
-		any = 1;
-	}
-	if (!any)
-		printf(" none");
-}
-
-static void trace_spacing_boundary_case(double spacing)
-{
-	struct spi_hid shid;
-	struct spi_device spidev;
-	struct vcontact c[2];
-	struct frame_obs obs;
-	int i;
-
-	setup_device(&shid, &spidev);
-	c[0] = finger(30.0, 22.0);
-	c[1] = finger(30.0 + spacing, 22.0);
+	int max_blobs = 0;
+	int mt;
 
 	/*
-	 * Turn on the REAL driver's existing TRACKDBG only after baseline setup,
-	 * so this diagnostic shows association/coalescing decisions without
-	 * flooding the output with baseline noise.
+	 * At nominal 3.60-cell virtual spacing the detector resolves two peaks,
+	 * but their weighted centroids land at 3042 and 3339 (2.97 cells apart).
+	 * That is intentionally below HEATMAP_CLOSE_BIRTH_MIN_SEP=3, so the
+	 * weaker same-frame new candidate is treated as an ambiguous duplicate.
 	 */
-	sl4a_debug_level = 2;
-	sl4a_stub_verbose = 1;
+	mt = hold_pair(3.60, 12, &max_blobs);
+	CHECK(max_blobs >= 2,
+	      "3.60-cell boundary case is detector-resolved, max blobs %d",
+	      max_blobs);
+	CHECK(mt == 1,
+	      "3.60-cell boundary remains one Linux contact below 3-cell centroid guard, got %d",
+	      mt);
 
-	printf("\nTRACECASE spacing=%.2f\n", spacing);
-	printf("frame,detector_blobs,linux_contacts,slot_states\n");
-	for (i = 1; i <= 10; i++) {
-		obs = feed_virtual(&shid, c, 2);
-		printf("%d,%d,%d,", i, obs.detector_blobs, obs.mt_contacts);
-		print_slot_state_summary(&shid);
-		printf("\n");
-	}
-
-	sl4a_stub_verbose = 0;
-	sl4a_debug_level = 0;
-	teardown_device(&shid);
-}
-
-static void trace_spacing_boundary(void)
-{
-	static const double spacing[] = { 3.55, 3.60, 3.65, 3.70, 3.75 };
-	size_t i;
-
-	printf("\n-- verbose detector/tracker boundary trace --\n");
-	printf("TRACKDBG below comes from the real staged mshw0231-raw.c\n");
-	for (i = 0; i < sizeof(spacing) / sizeof(spacing[0]); i++)
-		trace_spacing_boundary_case(spacing[i]);
+	/*
+	 * At nominal 3.65-cell virtual spacing the centroids land at 3040 and
+	 * 3343 (3.03 cells apart), just clearing the same guard. The recent first
+	 * track's birth grace then preserves the second candidate through debounce.
+	 */
+	mt = hold_pair(3.65, 12, &max_blobs);
+	CHECK(max_blobs >= 2,
+	      "3.65-cell boundary case is detector-resolved, max blobs %d",
+	      max_blobs);
+	CHECK(mt == 2,
+	      "3.65-cell boundary becomes two Linux contacts above 3-cell centroid guard, got %d",
+	      mt);
 }
 
 static int staggered_result(int delay_frames, double spacing,
@@ -873,6 +841,7 @@ int main(void)
 
 	test_far_sanity();
 	test_detector_resolution_regimes();
+	test_birth_min_sep_centroid_boundary();
 	test_tracking_id_lifecycle();
 	test_established_pinch();
 	test_established_motion_slot_stability();
@@ -886,7 +855,6 @@ int main(void)
 	 * they let us compare algorithm changes without another physical gesture. */
 	spacing_sweep();
 	fine_spacing_sweep();
-	trace_spacing_boundary();
 	delay_sweep();
 	fine_delay_sweep();
 	third_duration_sweep();
