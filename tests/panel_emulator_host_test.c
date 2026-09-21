@@ -835,6 +835,87 @@ static void test_weak_established_peak_hysteresis(void)
 	teardown_device(&shid);
 }
 
+static void test_converging_weak_occlusion_recovery(void)
+{
+	struct spi_hid shid;
+	struct spi_device spidev;
+	struct vcontact pair[2];
+	struct frame_obs obs = { 0, 0 };
+	unsigned long long slot_mask;
+	int left_tid = -1, right_tid = -1;
+	int i;
+
+	setup_device(&shid, &spidev);
+	pair[0] = finger(24.0, 24.0);
+	pair[1] = finger(40.0, 24.0);
+
+	for (i = 0; i < 6; i++)
+		obs = feed_virtual(&shid, pair, 2);
+	CHECK(obs.mt_contacts == 2,
+	      "occlusion setup publishes two established contacts, got %d",
+	      obs.mt_contacts);
+	slot_mask = active_slot_mask();
+	CHECK(pair_tracking_ids_by_x(&left_tid, &right_tid),
+	      "occlusion setup assigns distinct tracking IDs");
+
+	/*
+	 * Mirror the physical precursor to the long detector collapse: B becomes
+	 * sub-birth-weight while continuing to move toward A. Five such converging
+	 * weak frames arm the bounded occlusion window; use six here for margin.
+	 */
+	pair[1].amplitude = 40.0;
+	pair[1].sigma = 0.18;
+	for (i = 0; i < 6; i++) {
+		pair[1].x -= 1.0;
+		obs = feed_virtual(&shid, pair, 2);
+		CHECK(obs.mt_contacts == 2,
+		      "converging weak precursor frame %d keeps two contacts, got %d",
+		      i + 1, obs.mt_contacts);
+		CHECK(active_slot_mask() == slot_mask,
+		      "converging weak precursor frame %d preserves Linux slots",
+		      i + 1);
+		CHECK(pair_tracking_ids_match(left_tid, right_tid),
+		      "converging weak precursor frame %d preserves tracking IDs",
+		      i + 1);
+	}
+
+	/*
+	 * The measured panel produced 37 consecutive one-peak frames (~360 ms).
+	 * Keep the established second slot alive across that bounded occlusion,
+	 * even though no second detector peak exists during these frames.
+	 */
+	pair[1].active = 0;
+	for (i = 0; i < 37; i++) {
+		obs = feed_virtual(&shid, pair, 2);
+		CHECK(obs.mt_contacts == 2,
+		      "armed occlusion frame %d preserves two contacts, got %d",
+		      i + 1, obs.mt_contacts);
+		CHECK(active_slot_mask() == slot_mask,
+		      "armed occlusion frame %d preserves original Linux slots",
+		      i + 1);
+		CHECK(pair_tracking_ids_match(left_tid, right_tid),
+		      "armed occlusion frame %d preserves tracking IDs",
+		      i + 1);
+	}
+
+	/* Re-resolution must bind back to the old slot/ID, not create a birth. */
+	pair[1].active = 1;
+	for (i = 0; i < 5; i++) {
+		obs = feed_virtual(&shid, pair, 2);
+		CHECK(obs.mt_contacts == 2,
+		      "post-occlusion recovery frame %d keeps two contacts, got %d",
+		      i + 1, obs.mt_contacts);
+		CHECK(active_slot_mask() == slot_mask,
+		      "post-occlusion recovery frame %d keeps original Linux slots",
+		      i + 1);
+		CHECK(pair_tracking_ids_match(left_tid, right_tid),
+		      "post-occlusion recovery frame %d preserves tracking IDs",
+		      i + 1);
+	}
+
+	teardown_device(&shid);
+}
+
 static void test_capture_shaped_close_birth(void)
 {
 	struct spi_hid shid;
@@ -1098,6 +1179,7 @@ int main(void)
 	test_short_dropout_recovery(1);
 	test_short_dropout_recovery(2);
 	test_weak_established_peak_hysteresis();
+	test_converging_weak_occlusion_recovery();
 	test_capture_shaped_close_birth();
 	test_accidental_third_finger();
 
