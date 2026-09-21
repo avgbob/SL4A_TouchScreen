@@ -799,11 +799,13 @@ static void test_weak_established_peak_hysteresis(void)
 	CHECK(pair_tracking_ids_by_x(&left_tid, &right_tid),
 	      "weak-peak setup assigns distinct tracking IDs");
 
-	/* Collapse B to an isolated but still real local maximum. A ~15 raw-count
-	 * drop is above the 200-rise peak floor but intentionally too small/narrow
-	 * for the normal >=2-pixel, >=1000-weight *birth* gate.  Continuity should
-	 * keep the already-established slot instead of churning its tracking ID. */
-	pair[1].amplitude = 15.0;
+	/* Collapse B to an isolated but still real local maximum. With REST_RAW
+	 * 200, a 40-count drop lands at raw 160, or about 448 c590 units: above
+	 * both the 200-rise peak floor and the 400 absolute-touch floor, but still
+	 * intentionally too small/narrow for the normal >=2-pixel, >=1000-weight
+	 * *birth* gate. Continuity should keep the already-established slot instead
+	 * of churning its tracking ID. */
+	pair[1].amplitude = 40.0;
 	pair[1].sigma = 0.18;
 	for (i = 0; i < 8; i++) {
 		obs = feed_virtual(&shid, pair, 2);
