@@ -582,6 +582,52 @@ static u32 raw_edge_penalised_weight(u32 wsum, s32 min_r, s32 max_r,
 	return wsum;
 }
 
+/*
+ * Detection hysteresis for already-established multitouch.
+ *
+ * A new component still needs the normal >=2-pixel / blob_min_weight gate.
+ * Once two contacts are established, however, the panel can leave a genuine
+ * second local maximum near its old slot while that component temporarily
+ * shrinks below the birth gate.  Treat that as continuity, not as a new birth.
+ *
+ * This helper is intentionally narrow:
+ *   - at least two state-2/state-3 slots must already exist;
+ *   - the weak component must remain within the normal association radius plus
+ *     the existing jump-reject margin of one of those slots.
+ *
+ * The caller additionally requires a real detector peak in the component.
+ * If that peak disappears, normal lift debounce proceeds unchanged.
+ */
+static bool raw_near_established_multitouch_slot(struct spi_hid *shid,
+						 u32 gx100, u32 gy100)
+{
+	u8 s;
+	u8 established = 0;
+	bool near = false;
+	u32 maxd = (u32)READ_ONCE(blob_max_distance) * 100 +
+		   HUNGARIAN_JUMP_REJECT_MARGIN;
+
+	for (s = 0; s < HEATMAP_MAX_SLOTS; s++) {
+		u8 state = shid->blob_slot_state[s];
+		s32 dx, dy;
+
+		if (state != 2 && state != 3)
+			continue;
+		established++;
+
+		dx = (s32)gx100 - (s32)shid->blob_slot_gx[s];
+		dy = (s32)gy100 - (s32)shid->blob_slot_gy[s];
+		if (dx < 0)
+			dx = -dx;
+		if (dy < 0)
+			dy = -dy;
+		if ((u32)dx <= maxd && (u32)dy <= maxd)
+			near = true;
+	}
+
+	return established >= 2 && near;
+}
+
 static u16 raw_ccl_flood_fill(struct spi_hid *shid, u32 cell_count,
 			      u32 ncols, u32 nrows,
 			      u16 *nlabels, int *touched_count,
@@ -612,6 +658,7 @@ static u16 raw_ccl_flood_fill(struct spi_hid *shid, u32 cell_count,
 			u32 pixel_count = 0;
 			s16 max_rise = 0;
 			u16 label = next_label;
+			bool continuity_rescue = false;
 
 			queue[tail++] = ci;
 			shid->heatmap_label[ci] = label;
@@ -703,13 +750,54 @@ static u16 raw_ccl_flood_fill(struct spi_hid *shid, u32 cell_count,
 			 * corrupt the second-moment sums for an unrelated blob. */
 			next_label++;
 
-			/* Filter noise: at least 2 pixels, max_rise >=
+			/*
+			 * Normal birth filter: at least 2 pixels, max_rise >=
 			 * HEATMAP_TOUCH_MIN_RISE (200), and total weight >=
-			 * blob_min_weight. The max_rise check alone rejects
-			 * residual noise after lift (typically 2-5 pixels at
-			 * <200 rise). */
-			if (pixel_count < HEATMAP_MIN_BLOB_PIXELS || max_rise < HEATMAP_TOUCH_MIN_RISE || sw < blob_min_weight)
+			 * blob_min_weight.
+			 *
+			 * Established multitouch gets a lower *sustain* gate, not a lower
+			 * birth gate.  The 2026-09-21 physical pinch capture showed the
+			 * second finger repeatedly retaining a real local maximum while its
+			 * component fell below this filter and was deleted.  If this
+			 * component contains one of the frame's detected peaks and remains
+			 * near one of two already-established slots, keep it as continuity.
+			 * A real lift still loses the peak and therefore cannot use this path.
+			 */
+			if (sw > 0 && npeaks >= 2 &&
+			    max_rise >= HEATMAP_TOUCH_MIN_RISE) {
+				u8 p;
+				bool contains_peak = false;
+				u32 gx100 = (u32)(sx * 100 / sw);
+				u32 gy100 = (u32)(sy * 100 / sw);
+
+				for (p = 0; p < npeaks; p++) {
+					u32 pix = (u32)peaks_row[p] * ncols +
+						  (u32)peaks_col[p];
+
+					if (shid->heatmap_label[pix] == label) {
+						contains_peak = true;
+						break;
+					}
+				}
+
+				continuity_rescue =
+					contains_peak &&
+					raw_near_established_multitouch_slot(shid,
+									     gx100, gy100);
+			}
+
+			if (!continuity_rescue &&
+			    (pixel_count < HEATMAP_MIN_BLOB_PIXELS ||
+			     max_rise < HEATMAP_TOUCH_MIN_RISE ||
+			     sw < blob_min_weight))
 				continue;
+
+			if (continuity_rescue &&
+			    (pixel_count < HEATMAP_MIN_BLOB_PIXELS ||
+			     sw < blob_min_weight))
+				seq_dbg(shid, 2,
+					"TRACKDBG: detector continuity rescue label=%u pixels=%u raw=%lld\n",
+					label, pixel_count, (long long)sw);
 
 			/* Velocity rejection (Windows FUN_180600c40):
 			 * blob centroid must be within 6 grid cells of at
@@ -1892,7 +1980,12 @@ static void mshw0231_raw_process_samples(struct spi_hid *shid, const u8 *data,
 			scale_y = (SCREEN_MAX * 1000) / (screen_y_cells - 1);
 
 		for (i = 0; i < HEATMAP_MAX_BLOBS; i++) {
-			if (!shid->blob_active[i] || shid->blob_raw_wsum[i] < blob_min_weight)
+			if (!shid->blob_active[i])
+				continue;
+			if (shid->blob_raw_wsum[i] < (u32)blob_min_weight &&
+			    !raw_near_established_multitouch_slot(shid,
+								 shid->blob_x[i],
+								 shid->blob_y[i]))
 				continue;
 			sorted[sorted_count].gx = shid->blob_x[i];
 			sorted[sorted_count].gy = shid->blob_y[i];
