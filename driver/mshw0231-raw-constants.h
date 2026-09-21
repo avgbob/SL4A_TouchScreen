@@ -125,28 +125,25 @@
 #define ASSOC_RADIUS_5_FINGERS          40
 
 /*
- * Ghost-merge radius multipliers per finger count (×10), baseline = 2
- * fingers (implicit ×10, i.e. unscaled module-param ghost_dist).
+ * Ghost-merge radius multipliers per finger count (×10).
  *
  * Unlike ASSOC_RADIUS_* (which WIDENS with finger count to tolerate more
  * per-frame jitter when re-matching an already-tracked blob to its slot),
- * this must NARROW with finger count: as more fingers are down, genuine
- * distinct fingers are naturally packed closer together (spread 4-5
- * finger gestures, closing pinch), so a merge radius sized for 1-2
- * fingers starts mistaking adjacent-but-real fingers for duplicate
- * detections of the same touch and drops one, causing flicker.
+ * this must NARROW once multiple real contacts are established. A closing
+ * two-finger pinch is the important case: keeping the full ghost_dist there
+ * can collapse two legitimate neighbouring blobs into one and age the other
+ * slot out, which appears to userspace as a tracking-ID drop/reacquire.
  *
- * FIRST-PASS VALUES, NOT HARDWARE-VALIDATED: the direction (tighten,
- * not widen) is what motivates this change; the exact multipliers below
- * are a reasoned starting guess (70%/60%/50% of baseline for 3/4/5+
- * fingers) and need real multi-finger touch testing on hardware to
- * confirm they don't over-tighten and start splitting single fingers
- * into ghost pairs. 1-finger case is left at baseline since merge-vs-
- * duplicate ambiguity barely matters with only one blob on screen.
+ * FIRST-PASS VALUES, HARDWARE VALIDATION REQUIRED. The two-finger value uses
+ * the same 70% starting point already used for three fingers. With the default
+ * ghost_dist=6 this gives gd=4 (integer arithmetic), preserving substantially
+ * closer contacts before the ghost-rejection stage discards one. 1-finger
+ * remains at the full radius because duplicate suppression is useful there.
  */
 #define GHOST_RADIUS_1_FINGER            10
-#define GHOST_RADIUS_3_FINGERS            7
-#define GHOST_RADIUS_4_FINGERS            6
-#define GHOST_RADIUS_5_FINGERS            5
+#define GHOST_RADIUS_2_FINGERS             7
+#define GHOST_RADIUS_3_FINGERS             7
+#define GHOST_RADIUS_4_FINGERS             6
+#define GHOST_RADIUS_5_FINGERS             5
 
 #endif
