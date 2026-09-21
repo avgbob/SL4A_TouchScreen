@@ -9,8 +9,9 @@
  * every slot on every processed frame; the stub implementations mirror
  * those calls into mt_slots[] below so a replay test can inspect, after
  * calling mshw0231_raw_consume_samples(), exactly what the real pipeline
- * decided to report — active slot count, positions, touch ellipse — the
- * same information a real evdev listener would see.
+ * decided to report — active slot count, synthetic kernel-style tracking IDs,
+ * positions, touch ellipse — the same lifecycle information a real evdev
+ * listener would see.
  */
 
 #include <stdbool.h>
@@ -19,6 +20,7 @@
 
 struct mt_slot_record {
 	bool active;
+	int tracking_id;        /* synthetic Type-B ID: new on inactive -> active */
 	int x, y;               /* last ABS_MT_POSITION_X/Y reported for this slot */
 	int major, minor, ori;  /* last ABS_MT_TOUCH_MAJOR/MINOR/ORIENTATION reported */
 };
