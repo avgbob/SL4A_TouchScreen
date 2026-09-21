@@ -41,6 +41,8 @@ merged = coalesce_contacts([
     Contact(x=10.0, y=10.0, status=1, group=4, track=0),
     Contact(x=14.0, y=13.0, status=1, group=7, track=1),
 ])
+assert len(merged) == 2  # Windows coalescing keeps both local contact records.
+assert [contact.track for contact in merged] == [0, 1]
 assert [contact.group for contact in merged] == [4, 4]
 assert [contact.status for contact in merged] == [7, 7]
 
