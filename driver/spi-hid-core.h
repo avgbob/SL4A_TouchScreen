@@ -311,6 +311,7 @@ struct spi_hid {
 	/* Slot state, duration, and coordinate history. */
 	u8 blob_slot_state[HEATMAP_MAX_SLOTS];      /* 0=empty 1=new 2=claimed 3=lift 4=hold */
 	u32 blob_slot_duration[HEATMAP_MAX_SLOTS];  /* frames in current state */
+	u32 blob_slot_birth_age[HEATMAP_MAX_SLOTS]; /* frames since initial contact birth */
 	u32 blob_slot_gx[HEATMAP_MAX_SLOTS];        /* last grid X, fixed-point */
 	u32 blob_slot_gy[HEATMAP_MAX_SLOTS];        /* last grid Y, fixed-point */
 	u32 blob_slot_weight[HEATMAP_MAX_SLOTS];    /* last blob weight */
