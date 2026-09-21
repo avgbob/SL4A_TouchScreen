@@ -268,15 +268,22 @@ static void test_one_frame_dropout_recovers_same_slots(void)
 
 	/* On the next frame both close candidates return. Association runs before
 	 * coalescing, so state 2 + state 3 is recognized as two established
-	 * tracks and the pending slot recovers in place. */
+	 * tracks and the pending slot recovers in place.
+	 *
+	 * Pin the real-panel failure mode: the returning split blob can be much
+	 * weaker than HEATMAP_HOLD_RECOVERY_WEIGHT while still being a valid
+	 * detected/associated candidate. The 2026-09-21 pinch capture returned
+	 * the second blob at roughly 1.3-1.6k after one merged frame. */
 	two[0] = blob(1000, 1000, 5000);
-	two[1] = blob(1500, 1000, 5000);
+	two[1] = blob(1500, 1000, 1500);
+	CHECK(two[1].raw_w < HEATMAP_HOLD_RECOVERY_WEIGHT,
+	      "regression candidate stays below hold-recovery guard");
 	run_tracker_frame(&shid, two, 2, active);
 
 	CHECK(shid.blob_slot_state[0] == 2 && shid.blob_slot_state[1] == 2,
-	      "state-3 contact recovers to active without slot reallocation");
+	      "weak state-3 split candidate recovers without slot reallocation");
 	CHECK(active[0] && active[1],
-	      "both original slots remain published after recovery");
+	      "both original slots remain published after weak recovery");
 }
 
 static void test_exact_boundary_is_not_coalesced(void)
