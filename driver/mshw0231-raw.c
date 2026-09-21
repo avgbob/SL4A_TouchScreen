@@ -1930,7 +1930,7 @@ static void mshw0231_raw_process_samples(struct spi_hid *shid, const u8 *data,
 		 * therefore can never reach the tighter threshold merely by waiting.
 		 */
 		if (sorted_count == 1) {
-			if (shid->close_birth_solo_frames < U8_MAX)
+			if (shid->close_birth_solo_frames < 255)
 				shid->close_birth_solo_frames++;
 			shid->close_birth_relax_frames = 0;
 		} else if (sorted_count == 2) {
