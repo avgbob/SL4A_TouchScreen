@@ -1891,9 +1891,11 @@ int mshw0231_raw_input_register(struct spi_hid *shid)
 	struct device *dev = &shid->spi->dev;
 	int ret;
 
-	if (!shid->raw_mode_active)
-		return 0;
-
+	/*
+	 * The caller decides whether a heatmap-backed MT input device is
+	 * required. This permits the normal HID-over-SPI transport to use
+	 * the existing CapImg multitouch pipeline after SET_FEATURE ID5.
+	 */
 	{
 		shid->touch_input = input_allocate_device();
 		if (shid->touch_input) {
