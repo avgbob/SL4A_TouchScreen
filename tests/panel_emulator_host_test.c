@@ -569,6 +569,44 @@ static void fine_delay_sweep(void)
 	}
 }
 
+static void test_age_gated_late_close_birth(void)
+{
+	int max_blobs = 0;
+	int mt;
+
+	/*
+	 * Nominal 3.60 cells resolves as two detector blobs but compresses to
+	 * ~2.97 centroid cells in the default model. Same-frame candidates stay
+	 * conservative; an established first finger may use the tighter 2.75-cell
+	 * late-birth guard only after its age reaches the configured threshold.
+	 */
+	mt = staggered_result(4, 3.60, &max_blobs);
+	CHECK(max_blobs >= 2,
+	      "early 3.60-cell stagger is detector-resolved, max blobs %d",
+	      max_blobs);
+	CHECK(mt == 1,
+	      "40 ms 3.60-cell stagger stays conservative before late-birth age, got %d",
+	      mt);
+
+	mt = staggered_result(6, 3.60, &max_blobs);
+	CHECK(max_blobs >= 2,
+	      "60 ms 3.60-cell stagger is detector-resolved, max blobs %d",
+	      max_blobs);
+	CHECK(mt == 2,
+	      "60 ms 3.60-cell stagger qualifies through age-gated 2.75-cell relaxation, got %d",
+	      mt);
+
+	mt = staggered_result(10, 3.60, &max_blobs);
+	CHECK(mt == 2,
+	      "100 ms 3.60-cell stagger still has enough grace to finish debounce, got %d",
+	      mt);
+
+	mt = staggered_result(11, 3.60, &max_blobs);
+	CHECK(mt == 1,
+	      "110 ms 3.60-cell stagger remains outside the effective debounce window, got %d",
+	      mt);
+}
+
 static void test_established_pinch(void)
 {
 	struct spi_hid shid;
@@ -992,6 +1030,7 @@ int main(void)
 	test_detector_resolution_regimes();
 	test_birth_min_sep_centroid_boundary();
 	test_tracking_id_lifecycle();
+	test_age_gated_late_close_birth();
 	test_established_pinch();
 	test_established_motion_slot_stability();
 	test_staggered_birth_window();
