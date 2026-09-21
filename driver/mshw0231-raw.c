@@ -930,9 +930,11 @@ static void raw_ghost_merge(struct spi_hid *shid, struct blob_entry *sorted,
 	 * closer together in multi-finger gestures and a radius sized
 	 * for 1-2 fingers starts falsely merging them. See constants
 	 * header for the (not yet hardware-validated) reasoning. */
-	gd = ghost_dist; /* baseline: 0/2 active slots, unscaled */
+	gd = ghost_dist; /* no established contacts: use the full duplicate radius */
 	if (active_slots == 1)
 		gd = ghost_dist * GHOST_RADIUS_1_FINGER / 10;
+	else if (active_slots == 2)
+		gd = ghost_dist * GHOST_RADIUS_2_FINGERS / 10;
 	else if (active_slots == 3)
 		gd = ghost_dist * GHOST_RADIUS_3_FINGERS / 10;
 	else if (active_slots == 4)
