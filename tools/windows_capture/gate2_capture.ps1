@@ -134,6 +134,30 @@ function Save-Descriptor {
     }
 }
 
+
+function Invoke-Gate2Sleep {
+    Add-Type -AssemblyName System.Windows.Forms
+
+    Write-Host ""
+    Write-Host "Windows will enter Sleep now."
+    Write-Host "After the screen turns off, WAIT AT LEAST 15 SECONDS before waking it."
+    Write-Host "Wake with the keyboard or power button. The script will continue automatically after resume."
+    Write-Host ""
+
+    $ok = [System.Windows.Forms.Application]::SetSuspendState(
+        [System.Windows.Forms.PowerState]::Suspend,
+        $false,
+        $false
+    )
+
+    if (-not $ok) {
+        throw "Windows rejected the suspend request. Reject this capture and rerun Gate 2."
+    }
+
+    # Execution resumes here after Windows returns from the suspend transition.
+    Start-Sleep -Seconds 3
+}
+
 function Write-Manifest {
     $files = Get-ChildItem -File $OutRoot | Sort-Object Name
     $rows = foreach ($f in $files) {
@@ -288,9 +312,10 @@ After the machine boots:
         Read-Host "Perform TWO-finger pinch/spread, then lift both fingers. Then press Enter"
         Mark-Step "T4_TWO_FINGER_END"
 
-        Mark-Step "T5_SLEEP_BEGIN" "Use Start > Power > Sleep; remain asleep at least 15 seconds"
-        Read-Host "Put Windows into Sleep now. Wait >=15 seconds after the screen turns off, wake it, return here, then press Enter"
-        Mark-Step "T5_RESUME"
+        Read-Host "T5: Press Enter and the script will put Windows to Sleep. After the screen turns off, wait >=15 seconds before waking it"
+        Mark-Step "T5_SLEEP_BEGIN" "script-initiated suspend; wait >=15 seconds before wake"
+        Invoke-Gate2Sleep
+        Mark-Step "T5_RESUME" "script resumed after Windows suspend transition"
 
         Mark-Step "T5_POST_RESUME_ONE_FINGER_BEGIN"
         Read-Host "Perform ONE finger down -> drag -> up after resume. Then press Enter"
