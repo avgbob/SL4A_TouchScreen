@@ -30,14 +30,17 @@ package on another Surface, another AMD SPI controller, or a generic
 
 | Profile | `raw_mode` | Intended use | Release status |
 | --- | --- | --- | --- |
-| Standard | `N` | HID transport and descriptor discovery | Default for the planned controlled release |
+| Standard | `N` | HID transport and descriptor discovery; single-touch installer default | Default for the planned controlled release |
 | Raw | `Y` | MSHW0231 / MSHW0162 CapImg capture and beta multitouch pipeline | Experimental; requires `sl4a-touch.sh install --raw` |
+| Standard-transport beta bridge | `N` | SET5-only transition into CapImg while retaining standard HID discovery/transport; publishes the beta MT node with `raw_input_beta=Y std_raw_transition=3` | Experimental/manual only; targeted SL4 AMD tracker/cold-boot evidence, not installer default or release-qualified |
 
 The module's compiled default and the installer default are standard mode.
-`sl4a-touch.sh install --raw` is required to write the experimental raw-mode profile.
+`sl4a-touch.sh install --raw` is required to write the packaged experimental
+raw-mode profile. The standard-transport beta bridge used during targeted
+qualification is intentionally not written by the installer.
 
 `raw_input_beta` controls publication of the decoded multitouch input device.
-Raw captures alone do not establish release-quality contact behavior.
+Raw/CapImg operation alone does not establish release-quality contact behavior.
 
 ## Feature Status
 
@@ -60,5 +63,7 @@ for the procedure required to add one.
 - Other AMD SPI controller IDs, including `AMDI0061` and `AMDI0062`.
 - Firmware, kernel, or distribution combinations not listed in
   `COMPATIBILITY.md`.
-- Any claim that Feature ID 5 alone produces a reliable raw stream. Existing
-  captures show it is a useful hypothesis, not sufficient release evidence.
+- Any claim that Feature ID 5 alone is a portable or release-qualified raw
+  activation method. SET5-only produced CapImg traffic on the targeted SL4 AMD
+  candidate and survived a corrected-profile cold boot, but the broader
+  lifecycle/hardware matrix remains incomplete.
