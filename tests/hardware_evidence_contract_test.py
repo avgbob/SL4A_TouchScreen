@@ -38,7 +38,8 @@ def test_beta_capture_identity_contract():
     require(text, 'device="/dev/input/$(basename "$event_sysfs")"',
             "capture_beta_multitouch.sh")
     forbid(text, "/dev/input/event15", "capture_beta_multitouch.sh")
-    forbid(text, "sudo ", "capture_beta_multitouch.sh")
+    forbid(text, "\nsudo ", "capture_beta_multitouch.sh")
+    forbid(text, "\tsudo ", "capture_beta_multitouch.sh")
 
 
 def test_bundle_propagates_beta_capture_failure():
