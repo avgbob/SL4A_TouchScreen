@@ -1,10 +1,10 @@
 # Tracker reorder: association before close-contact suppression
 
-Status: **implementation branch / not release-qualified**
+Status: **merged targeted fix / not release-qualified**
 
-Branch: `tracker/post-association-coalescing`
+Merged: PR #4 into `main` (squash commit `7322172`)
 
-This branch converts the experimentally-proven close-contact workaround into the
+The implementation converts the experimentally-proven close-contact workaround into the
 pipeline order recovered from `TouchPenProcessor0C19.dll`: candidate-to-track
 association happens before any close-contact coalescing/suppression decision.
 
@@ -43,7 +43,7 @@ candidate extraction
 and its coalescing function keeps both local contact records; it rewrites
 classification/group state rather than deleting a candidate before tracking.
 
-## What this branch changes
+## What the merged implementation changes
 
 The Linux tracker now does:
 
@@ -123,16 +123,25 @@ normal HID-over-SPI discovery
 
 `raw_mode=Y` is not required for this path.
 
-## Before release qualification
+## Release-qualification boundary
 
-Do not promote this branch directly to a release profile until all of the
-following are complete:
+The targeted tracker fix is merged and its software gates are closed: local
+normal/sanitized host validation passed, the deterministic panel emulator
+completed 469 assertions with zero failures, the external modules built, and
+GitHub Actions run `35678885908` passed all jobs. The corrected beta-bridge
+profile also survived a true cold boot.
 
-- host CI and kernel builds pass;
-- captured-frame/local replay still builds against the reordered static stages;
-- cold boot validates the final Report-6/SET5 profile without a manual reload;
-- suspend/resume re-enters SET5 and reacquires CapImg cleanly;
-- close-start contact creation is addressed by classification/persistent-track
-  logic rather than another distance-only tweak;
-- debug-only TRACKDBG/SPLITDBG volume is reduced;
-- the kernel stack-frame warnings in the tracker are removed or justified.
+This still does **not** establish release qualification or E1. The remaining
+items are deliberately recorded rather than inferred:
+
+- warm boot and suspend/resume were not run in the final candidate campaign;
+- pen, 3/4/5-finger, dedicated one-finger-lift, and long stress cases were not
+  run;
+- the close-start contact-classification problem remains distinct from the
+  established-contact pinch fix;
+- debug/diagnostic volume should be reduced before a production-oriented
+  profile;
+- kernel stack-frame warnings should be removed or explicitly justified.
+
+No additional physical testing is being performed in this campaign; see
+`docs/HARDWARE_QUALIFICATION_TRACKER.md` for the frozen matrix.
