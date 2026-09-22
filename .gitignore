@@ -3,6 +3,9 @@ sl4a-touch-diagnostics-*.txt
 sl4a-hunt-*.txt
 sl4a-soak-*.txt
 
+# Local one-off backup copies made during hardware/debug sessions
+*.before-*
+
 # Build artifacts
 driver/*.o
 driver/*.ko
