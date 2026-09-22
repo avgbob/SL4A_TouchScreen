@@ -86,3 +86,4 @@ jobs:
           make -C "$KDIR" M="$GITHUB_WORKSPACE/driver" modules
           test -s driver/sl4a-spi-amd.ko
           test -s driver/sl4a-spi-hid.ko
+          test -s driver/sl4a-tablet-mode.ko
