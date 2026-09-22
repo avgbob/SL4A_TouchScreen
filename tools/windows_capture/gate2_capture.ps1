@@ -48,7 +48,8 @@ function Run-Exe {
 function Mark-Step {
     param(
         [Parameter(Mandatory=$true)][string]$Name,
-        [string]$Note = ""
+        [string]$Note = "",
+        [switch]$LocalOnly
     )
 
     $stamp = [DateTimeOffset]::UtcNow.ToString("o")
@@ -58,11 +59,15 @@ function Mark-Step {
     Add-Content -Path (Join-Path $OutRoot "markers.tsv") -Value $line
     Set-Content -Path (Join-Path $OutRoot ("marker_{0}.txt" -f $safe)) -Value $line
 
+    if ($LocalOnly) {
+        return
+    }
+
     & wpr.exe -marker ("SL4A_GATE2::{0}::{1}" -f $Name,$Note) 2>&1 |
         Add-Content -Path (Join-Path $OutRoot "wpr-marker.log")
 
     if ($LASTEXITCODE -ne 0) {
-        throw "WPR marker failed at $Name. The boot-persistent session is not healthy; reject this capture."
+        throw "WPR marker failed at $Name. The active Gate 2 session is not healthy; reject this capture."
     }
 }
 
@@ -191,6 +196,8 @@ switch ($Phase) {
         }
 
         Run-Exe wpr.exe @("-profiles",$Profile) (Join-Path $OutRoot "wpr-profiles.txt")
+        & wpr.exe -help boottrace 2>&1 |
+            Out-File -Encoding utf8 (Join-Path $OutRoot "wpr-boottrace-help.txt")
 
         $providers = & logman.exe query providers 2>&1 | Out-String -Width 400
         $providers | Set-Content -Encoding utf8 (Join-Path $OutRoot "providers-current.txt")
@@ -243,7 +250,8 @@ Gate 2 preflight passed.
 Next:
   powershell -ExecutionPolicy Bypass -File "$($MyInvocation.MyCommand.Path)" -Phase Arm -PowerOff
 
-That starts a file-mode WPR session with -shutdown persistence and powers the machine fully off.
+That configures a file-mode WPR boot autologger and powers the machine fully off.
+The recorder starts automatically on the next cold power-on.
 Power the Surface back on, sign in, then run the same script with -Phase Resume as Administrator.
 "@ | Set-Content -Encoding utf8 (Join-Path $OutRoot "NEXT.txt")
 
@@ -260,17 +268,27 @@ Power the Surface back on, sign in, then run the same script with -Phase Resume 
         & wpr.exe -status 2>&1 |
             Out-File -Encoding utf8 (Join-Path $OutRoot "wpr-status-before-arm.txt")
 
-        Run-Exe wpr.exe @(
-            "-start",("$Profile!TouchInit.Verbose"),
-            "-filemode",
-            "-shutdown",
-            "-recordtempto",(Join-Path $OutRoot "wpr-temp")
-        ) (Join-Path $OutRoot "wpr-start.txt")
+        Remove-Item -Force -ErrorAction SilentlyContinue (Join-Path $OutRoot "markers.tsv")
+        Get-ChildItem -Path $OutRoot -Filter "marker_*.txt" -ErrorAction SilentlyContinue |
+            Remove-Item -Force -ErrorAction SilentlyContinue
+        Remove-Item -Force -ErrorAction SilentlyContinue (Join-Path $OutRoot "gate2.etl")
+        Remove-Item -Force -ErrorAction SilentlyContinue (Join-Path $OutRoot "gate2-postcheck-summary.txt")
+        Remove-Item -Force -ErrorAction SilentlyContinue (Join-Path $OutRoot "gate2-postcheck.xml")
 
-        Mark-Step "T0_PRE_BOOT" "WPR armed; next transition is full shutdown/power-on"
+        & wpr.exe -boottrace -cancelboot 2>&1 |
+            Out-File -Encoding utf8 (Join-Path $OutRoot "wpr-cancelboot-before-arm.txt")
+
+        Run-Exe wpr.exe @(
+            "-boottrace",
+            "-addboot",("$Profile!TouchInit.Verbose"),
+            "-filemode",
+            "-recordtempto",(Join-Path $OutRoot "wpr-temp")
+        ) (Join-Path $OutRoot "wpr-addboot.txt")
+
+        Mark-Step "T0_PRE_BOOT" "boot autologger configured; next transition is full shutdown/power-on" -LocalOnly
 
         @"
-WPR is armed with reboot persistence.
+WPR boot autologger is configured.
 
 After the machine boots:
   1. sign in;
@@ -284,13 +302,22 @@ After the machine boots:
             Start-Sleep -Seconds 2
             & shutdown.exe /s /t 0 /f
         } else {
-            Write-Host "WPR armed. Perform a full shutdown/power-on now, then run -Phase Resume."
+            Write-Host "Boot autologger configured. Perform a full shutdown/power-on now, then run -Phase Resume."
         }
     }
 
     "Resume" {
-        & wpr.exe -status 2>&1 |
-            Out-File -Encoding utf8 (Join-Path $OutRoot "wpr-status-after-boot.txt")
+        $bootStatus = (& wpr.exe -status 2>&1 | Out-String -Width 400)
+        $bootStatus | Set-Content -Encoding utf8 (Join-Path $OutRoot "wpr-status-after-boot.txt")
+
+        if ($bootStatus -match "not recording|stopped and waiting to be merged" -or
+            $bootStatus -notmatch "Time since start") {
+            ("Boot autologger is not actively recording after cold boot." + [Environment]::NewLine + [Environment]::NewLine + $bootStatus) |
+                Set-Content -Encoding utf8 (Join-Path $OutRoot "BOOTTRACE-NOT-ACTIVE.txt")
+            throw "Gate 2 rejected: boot autologger is not actively recording after cold boot."
+        }
+
+        Mark-Step "T0_BOOTTRACE_ACTIVE" "first post-login marker; early-boot events precede this marker"
 
         Mark-Step "T1_DESKTOP_IDLE_BEGIN" "10-second idle"
         Start-Sleep -Seconds 10
@@ -328,13 +355,37 @@ After the machine boots:
         Mark-Step "T6_EVIDENCE_EXPORT_END"
 
         Mark-Step "T6_STOP"
+        $etlPath = Join-Path $OutRoot "gate2.etl"
         Run-Exe wpr.exe @(
-            "-stop",(Join-Path $OutRoot "gate2.etl"),
+            "-boottrace",
+            "-stopboot",$etlPath,
             "SL4A Gate 2 golden lifecycle"
-        ) (Join-Path $OutRoot "wpr-stop.txt")
+        ) (Join-Path $OutRoot "wpr-stopboot.txt")
 
         & wpr.exe -status 2>&1 |
             Out-File -Encoding utf8 (Join-Path $OutRoot "wpr-status-after-stop.txt")
+
+        $postSummary = Join-Path $OutRoot "gate2-postcheck-summary.txt"
+        $postXml = Join-Path $OutRoot "gate2-postcheck.xml"
+        Run-Exe tracerpt.exe @(
+            $etlPath,
+            "-o",$postXml,
+            "-of","XML",
+            "-lr",
+            "-summary",$postSummary,
+            "-y"
+        ) (Join-Path $OutRoot "tracerpt-postcheck.log")
+
+        $summaryText = Get-Content -Raw $postSummary
+        $elapsedSeconds = $null
+        if ($summaryText -match "Elapsed Time\s+(\d+)\s+sec") {
+            $elapsedSeconds = [int]$Matches[1]
+        }
+        if ($null -eq $elapsedSeconds -or $elapsedSeconds -lt 60) {
+            ("Gate 2 structural postcheck failed. Expected >=60 seconds spanning boot through T6." + [Environment]::NewLine + [Environment]::NewLine + $summaryText) |
+                Set-Content -Encoding utf8 (Join-Path $OutRoot "POSTCHECK-FAIL.txt")
+            throw "Gate 2 rejected: ETL does not span the full lifecycle. See POSTCHECK-FAIL.txt"
+        }
 
         Write-Manifest
 
