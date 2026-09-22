@@ -13,6 +13,7 @@ does not need /sys, /dev/input, root, or Surface hardware.
 
 from pathlib import Path
 import re
+import stat
 
 ROOT = Path(__file__).resolve().parents[1]
 TOOLS = ROOT / "tools" / "hardware_evidence"
@@ -28,6 +29,19 @@ def require(text, needle, where):
 
 def forbid(text, needle, where):
     assert needle not in text, f"{where}: forbidden {needle!r}"
+
+
+def test_evidence_helpers_are_executable():
+    for name in (
+        "capture_beta_multitouch.sh",
+        "capture_direct_touch.sh",
+        "capture_linux_trace_bundle.sh",
+        "capture_stylus.sh",
+        "collect.sh",
+        "run_blinded_session.sh",
+    ):
+        mode = (TOOLS / name).stat().st_mode
+        assert mode & stat.S_IXUSR, f"{name}: owner executable bit is not set"
 
 
 def test_beta_capture_identity_contract():
@@ -79,6 +93,7 @@ def test_blinded_session_passes_beta_capture_through():
 
 
 def main():
+    test_evidence_helpers_are_executable()
     test_beta_capture_identity_contract()
     test_bundle_propagates_beta_capture_failure()
     test_blinded_session_passes_beta_capture_through()
