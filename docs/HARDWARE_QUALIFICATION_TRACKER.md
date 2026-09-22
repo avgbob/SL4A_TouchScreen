@@ -75,6 +75,16 @@ was also observed after boot. Cold boot is therefore PASS for the corrected
 candidate profile; the failed first attempt remains part of the qualification
 history because it exposed the persistence mismatch.
 
+The first corrected cold-boot evidence session used
+`--capture-direct-touch`, which intentionally selects the standard HID
+`spi 045E:0C19` node rather than the beta bridge, and the unprivileged caller
+could not open that event device. That artifact remains useful provenance but
+is not the input trace for this matrix. Candidate touch cases must use
+`--capture-beta-multitouch`; on systems where the invoking user cannot read
+`/dev/input/event*`, run the read-only evidence wrapper with `sudo`. The
+trace bundle propagates requested capture failures so they cannot be recorded
+as a completed session.
+
 ## Evidence Root
 
 Use one root for this candidate:
@@ -92,11 +102,11 @@ must use a new case name or suffix rather than replacing evidence.
 For ordinary touch cases:
 
 ```sh
-./tools/hardware_evidence/run_blinded_session.sh \
+sudo ./tools/hardware_evidence/run_blinded_session.sh \
   --period p1 \
   --case CASE \
   --duration 20 \
-  --capture-direct-touch \
+  --capture-beta-multitouch \
   --output "$RUN/p1-CASE"
 ```
 
@@ -117,11 +127,11 @@ For pen:
 For the stress period:
 
 ```sh
-./tools/hardware_evidence/run_blinded_session.sh \
+sudo ./tools/hardware_evidence/run_blinded_session.sh \
   --period p1 \
   --case mixed-stress-30m \
   --duration 1800 \
-  --capture-direct-touch \
+  --capture-beta-multitouch \
   --output "$RUN/p1-mixed-stress-30m"
 ```
 
