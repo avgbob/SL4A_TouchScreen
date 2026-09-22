@@ -41,7 +41,7 @@ function Run-Exe {
     }
 
     if ($LASTEXITCODE -ne 0) {
-        throw "$File exited with code $LASTEXITCODE: $($Args -join ' ')"
+        throw "${File} exited with code ${LASTEXITCODE}: $($Args -join ' ')"
     }
 }
 
