@@ -274,6 +274,9 @@ Power the Surface back on, sign in, then run the same script with -Phase Resume 
         Remove-Item -Force -ErrorAction SilentlyContinue (Join-Path $OutRoot "gate2.etl")
         Remove-Item -Force -ErrorAction SilentlyContinue (Join-Path $OutRoot "gate2-postcheck-summary.txt")
         Remove-Item -Force -ErrorAction SilentlyContinue (Join-Path $OutRoot "gate2-postcheck.xml")
+        Remove-Item -Recurse -Force -ErrorAction SilentlyContinue (Join-Path $OutRoot "decode")
+        Remove-Item -Force -ErrorAction SilentlyContinue (Join-Path $OutRoot "POSTCHECK-FAIL.txt")
+        Remove-Item -Force -ErrorAction SilentlyContinue (Join-Path $OutRoot "BOOTTRACE-NOT-ACTIVE.txt")
 
         & wpr.exe -boottrace -cancelboot 2>&1 |
             Out-File -Encoding utf8 (Join-Path $OutRoot "wpr-cancelboot-before-arm.txt")
@@ -385,6 +388,23 @@ After the machine boots:
             ("Gate 2 structural postcheck failed. Expected >=60 seconds spanning boot through T6." + [Environment]::NewLine + [Environment]::NewLine + $summaryText) |
                 Set-Content -Encoding utf8 (Join-Path $OutRoot "POSTCHECK-FAIL.txt")
             throw "Gate 2 rejected: ETL does not span the full lifecycle. See POSTCHECK-FAIL.txt"
+        }
+
+        $postXmlText = Get-Content -Raw $postXml
+        $requiredTraceMarkers = @(
+            "SL4A_GATE2::T0_BOOTTRACE_ACTIVE",
+            "SL4A_GATE2::T2_DISABLE_BEGIN",
+            "SL4A_GATE2::T2_ENABLE_BEGIN",
+            "SL4A_GATE2::T5_SLEEP_BEGIN",
+            "SL4A_GATE2::T5_RESUME",
+            "SL4A_GATE2::T6_STOP"
+        )
+        $missingTraceMarkers = @($requiredTraceMarkers | Where-Object { $postXmlText -notmatch [regex]::Escape($_) })
+        if ($missingTraceMarkers.Count -gt 0) {
+            ("Gate 2 structural postcheck failed: required ETL markers missing:" + [Environment]::NewLine +
+             ($missingTraceMarkers -join [Environment]::NewLine)) |
+                Set-Content -Encoding utf8 (Join-Path $OutRoot "POSTCHECK-FAIL.txt")
+            throw "Gate 2 rejected: lifecycle markers are missing from the ETL. See POSTCHECK-FAIL.txt"
         }
 
         Write-Manifest
