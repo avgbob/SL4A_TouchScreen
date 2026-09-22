@@ -1,8 +1,10 @@
 # Raw Mode Activation (SET_FEATURE ID5)
 
-The MSHW0231 touch controller has an observed activation sequence for raw-mode
-experiments. Its sufficiency for a reliable raw stream is not yet release
-evidence; see `docs/EVIDENCE.md` before treating it as a protocol contract.
+The MSHW0231 touch controller has an observed activation sequence for heatmap
+experiments. SET_FEATURE ID5 alone has produced CapImg traffic on the targeted
+SL4 AMD unit and the SET5-only standard-transport bridge survived a corrected
+cold boot, but that result is not portable/release evidence; see
+`docs/EVIDENCE.md` before treating it as a protocol contract.
 The Surface Laptop 3 AMD controller (`MSHW0162`) uses the same V0 transport
 and the same sequence.
 
@@ -62,7 +64,17 @@ The driver uses a direct vendor-init path:
 2. After a short stabilization delay, write GET_FEATURE Report ID 6 and keep/log
    the reply (Windows order; diagnostic only, a failed read does not stop here)
 3. Write SET_FEATURE ID5=01
-4. Observe subsequent reports; reliable streaming remains unproven
+4. Observe subsequent reports; targeted SL4 streaming has been demonstrated,
+   but broader lifecycle/hardware reliability remains unqualified
+
+### `std_raw_transition=3` (Experimental Standard-Transport Beta Bridge)
+
+After normal HID-over-SPI descriptor discovery, mode 3 performs the SET_FEATURE
+ID5 write without the Report-6 GET step and routes subsequent CapImg `0x0c`
+frames into the beta heatmap multitouch input path when `raw_input_beta=1`.
+The targeted SL4 AMD qualification profile used `raw_mode=0`,
+`raw_input_beta=1`, `skip_std_getfeat=1`, and `std_raw_transition=3`.
+This bridge is manual/experimental and is not written by the installer.
 
 ### `skip_getfeat=0` (Legacy)
 
@@ -73,9 +85,10 @@ The original GET_FEATURE-based path:
 4. Send GET_FEATURE → device returns current ID5 state
 5. Send SET_FEATURE ID5=01 → observe whether a stream follows
 
-The `skip_getfeat=1` path is selected only by `sl4a-touch.sh install --raw`. The standard
-installer profile remains standard HID mode until the raw validation matrix is
-complete.
+The `skip_getfeat=1` raw-transport path is selected by
+`sl4a-touch.sh install --raw`. The standard installer profile remains
+standard HID/single-touch; the standard-transport beta bridge above is an
+explicit manual qualification profile rather than an installer default.
 
 ## Debug Validation
 
