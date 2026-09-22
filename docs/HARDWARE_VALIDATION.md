@@ -6,10 +6,11 @@ are required before an E1 claim or release qualification is recorded.
 ## Targeted Tracker Regression Result — 2026-09-21 (Not E1)
 
 A focused Surface Laptop 4 AMD hardware run was completed for the
-post-association pinch-continuity work on
-`tracker/post-association-coalescing`. This is regression evidence only; it
-does **not** replace the blinded crossover protocol below and does not qualify
-the branch for an E1 or release claim.
+post-association pinch-continuity work that was developed on
+`tracker/post-association-coalescing` and later merged to `main` in PR #4.
+This is regression evidence only; it does **not** replace the blinded crossover
+protocol below and does not qualify the merged implementation for an E1 or
+release claim.
 
 Hardware/test provenance recorded for this run:
 
