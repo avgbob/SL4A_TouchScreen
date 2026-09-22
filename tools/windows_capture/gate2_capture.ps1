@@ -181,7 +181,6 @@ switch ($Phase) {
             "Microsoft-Windows-Input-HIDCLASS"         = "6465DA78-E7A0-4F39-B084-8F53C7C30DC6"
             "Microsoft-Windows-Kernel-Process"         = "22FB2CD6-0E7B-422B-A0C7-2FAD1FD0E716"
             "Microsoft-Surface-SurfaceHidMiniDriver"   = "2FEA7205-B0B1-41CA-8609-5A1D16F3132F"
-            "Microsoft-Surface-TouchAndPen-Prod"       = "3FA102E9-1A62-5490-7AF8-6088C2F9E6BE"
         }
 
         $missing = @()
@@ -189,6 +188,20 @@ switch ($Phase) {
             if ($providers -notmatch [regex]::Escape($kv.Value)) {
                 $missing += "$($kv.Key) {$($kv.Value)}"
             }
+        }
+
+        # This production Surface TouchAndPen provider was observed in prior
+        # capture work and is enabled by GUID in touch_boot.wprp, but it is
+        # not guaranteed to appear in 'logman query providers' on this build.
+        # Keep it best-effort: its absence must not block the core ACPI/SPB/
+        # GPIO/HIDCLASS lifecycle capture.
+        $touchAndPenGuid = "3FA102E9-1A62-5490-7AF8-6088C2F9E6BE"
+        if ($providers -match [regex]::Escape($touchAndPenGuid)) {
+            "PRESENT Microsoft-Surface-TouchAndPen-Prod {$touchAndPenGuid}" |
+                Set-Content (Join-Path $OutRoot "optional-providers.txt")
+        } else {
+            "NOT LISTED by logman; still enabled by GUID in touch_boot.wprp: Microsoft-Surface-TouchAndPen-Prod {$touchAndPenGuid}" |
+                Set-Content (Join-Path $OutRoot "optional-providers.txt")
         }
 
         if ($missing.Count -gt 0) {
