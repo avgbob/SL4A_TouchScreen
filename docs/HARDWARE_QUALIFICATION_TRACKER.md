@@ -35,7 +35,7 @@ Keep every evidence directory intact and preserve its manifest/checksums.
 
 | Case | Status | Required observation |
 | --- | --- | --- |
-| Cold boot | FAIL — profile mismatch | 2026-09-21 cold boot loaded `F1084988B115CF74C159D58`, but the boot profile did not publish the beta MT bridge: no `MSHW0231 Touchscreen` input node and the direct-touch capture could not resolve its target. The standard installer profile omits `raw_input_beta=Y`; rerun after persisting the validated bridge profile. |
+| Cold boot | PASS after profile correction | Corrected persistent profile (`raw_mode=N raw_input_beta=Y std_raw_transition=3`) survived a true cold boot with `F1084988B115CF74C159D58`; `MSHW0231 Touchscreen` returned on `event15`, the beta MT bridge registered, and the boot log showed the intended mode-3 SET5 transition. The earlier profile-mismatch failure is retained below. |
 | Warm boot | TODO | Same checks after normal reboot. |
 | Suspend/resume >=30 s | TODO | Touch returns after resume; binding/state sane; no input loss. |
 | Safe module reload | PASS | `F7D22... -> F108...`; touchscreen returned; known descriptor fallback bound successfully. |
@@ -64,6 +64,16 @@ installer profile intentionally writes `raw_mode=N wire_double_opcode=1` and
 does not enable `raw_input_beta`. Qualification must use one explicit,
 versioned beta-bridge profile on every lifecycle test so a reboot and a manual
 reload exercise the same input semantics.
+
+After persisting the qualification profile with
+`raw_mode=N raw_input_beta=Y std_raw_transition=3`, a second true cold boot
+loaded the same `F1084988B115CF74C159D58` module, recreated
+`MSHW0231 Touchscreen` on `event15`, registered both the heatmap input and
+standard-transport MT bridge, and executed
+`standard-mode raw transition: mode=3 GET6=0 SET5=1`. Functional multitouch
+was also observed after boot. Cold boot is therefore PASS for the corrected
+candidate profile; the failed first attempt remains part of the qualification
+history because it exposed the persistence mismatch.
 
 ## Evidence Root
 
