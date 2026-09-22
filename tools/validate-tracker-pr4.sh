@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: GPL-2.0
 #
-# Validate the tracker/post-association-coalescing branch without installing
-# or loading either kernel module. Safe to run from a detached validation
+# Validate the merged post-association tracker tree without installing or
+# loading either kernel module. Safe to run from a detached validation
 # worktree: it only builds/tests files under that worktree.
 #
 # Usage:
@@ -96,6 +96,7 @@ run make -C "$ROOT/tests" test
 section "SANITIZER HOST TESTS"
 run make -C "$ROOT/tests" clean
 run make -C "$ROOT/tests" SANITIZE=1 test
+run make -C "$ROOT/tests" clean
 
 section "KERNEL MODULE BUILD"
 if [ ! -f "$KDIR/Makefile" ]; then
