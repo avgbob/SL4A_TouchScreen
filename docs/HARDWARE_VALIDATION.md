@@ -3,6 +3,62 @@
 This is a planned validation protocol, not a hardware result. Complete results
 are required before an E1 claim or release qualification is recorded.
 
+## Targeted Tracker Regression Result — 2026-09-21 (Not E1)
+
+A focused Surface Laptop 4 AMD hardware run was completed for the
+post-association pinch-continuity work on
+`tracker/post-association-coalescing`. This is regression evidence only; it
+does **not** replace the blinded crossover protocol below and does not qualify
+the branch for an E1 or release claim.
+
+Hardware/test provenance recorded for this run:
+
+| Item | Value |
+| --- | --- |
+| Device | Surface Laptop 4 AMD, MSHW0231 |
+| Kernel | `7.0.0-29-generic` |
+| Branch HEAD | `07065e0` (`tests: mirror occlusion tracker fields in host shim`) |
+| Live test module | `sl4a-spi-hid.ko` srcversion `F1084988B115CF74C159D58` |
+| Signed module SHA-256 | `c42fa1575d45a49319a8900be822dba73a8833c8fbff7a941e8620441015c6b9` |
+| Raw tracker parameters | `raw_mode=N raw_input_beta=Y ghost_dist=6 blob_max_distance=3 blob_debounce=3 blob_lift_frames=3 hold_frames=0` |
+| Focused run id | `sl4a-pinch-final-20260921-194612` |
+| Host emulator | 469 assertions, 0 failures |
+
+The focused gesture established two contacts far apart, pinched them together,
+held them close, expanded them again, and then lifted. Linux kept the same two
+tracking IDs throughout the gesture:
+
+```text
+FAR HOLD      active=2 slots={0:8, 1:9}
+PINCH START   active=2 slots={0:8, 1:9}
+CLOSE HOLD    active=2 slots={0:8, 1:9}
+EXPAND START  active=2 slots={0:8, 1:9}
+FAR HOLD 2    active=2 slots={0:8, 1:9}
+```
+
+The trace also exercised the intended continuity paths rather than merely
+avoiding the detector corner case:
+
+- 278 detector-continuity rescues were recorded, including sub-1000 and
+  one-pixel weak components.
+- The weak-occlusion path armed once at score 5.
+- The same established slot survived a real 20-frame detector blackout;
+  18 frames were explicitly retained by the occlusion hold after the normal
+  three-frame lift threshold was reached.
+- The missing contact reacquired the same slot and tracking ID.
+- At the final intentional lift, both slots had `weak_score=0` and
+  `occlusion=0`, then followed the ordinary `2 -> 3 -> 0` release path.
+- The deterministic host emulator additionally covers a 37-frame synthetic
+  blackout and completed 469 assertions with zero failures.
+
+This result validates the specific pinch tracking-ID regression on this
+hardware/build combination. It does not cover the full hardware matrix:
+cold boot, warm boot, suspend/resume, pen, the complete one-through-five-finger
+matrix, long mixed-input stress, and blinded profile comparison remain required
+by the protocol below. The local evtest/kernel capture is not committed to the
+repository and must be preserved separately if it is to be used as future
+audit evidence.
+
 ## Profiles And Randomization
 
 The test operator and results assessor see only the blind labels `A`, `B`, and
