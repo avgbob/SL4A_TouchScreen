@@ -126,3 +126,16 @@ After decode, create `docs/GOLDEN-SM.md` with:
 - an explicit **PASS** or **REJECT**.
 
 Only a PASS can authorize a later Linux reset/power/wire change. Every such change must cite one observed golden transition.
+
+
+## Capture transport
+
+Gate 2 cold-boot capture uses the WPR boot autologger, not `wpr -start ... -shutdown`.
+
+- Arm: `wpr -boottrace -addboot <profile> -filemode`
+- Power transition: full S5 shutdown, then manual cold power-on
+- Resume phase: the boot autologger must still report an active recording before T1
+- Stop: `wpr -boottrace -stopboot <gate2.etl>`
+- Structural postcheck: tracerpt summary must span at least 60 seconds from boot through T6
+
+Why: the 2026-09-22 first attempt used `-shutdown`. On Windows 11 build 26200 / WPR 10.0.26100, the post-boot status reported the shutdown trace as stopped and waiting to be merged. The resulting ETL contained only the pre-shutdown interval, so T1-T6 were not in the trace.
