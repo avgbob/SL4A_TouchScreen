@@ -32,6 +32,7 @@ wire protocol.
 | 484 valid 4304-byte raw captures were recorded. | Partial Linux observation; machine and kernel provenance are absent. | `captures/id5-20260718/raw_capture_status` |
 | An isolated GET/SET Feature experiment wrote successfully but timed out. | Does not prove activation sufficiency. | `captures/id5-20260718/isolated_set_status` |
 | The raw pipeline creates beta multitouch contacts. | Requires replay comparison and hardware gesture matrix. | `driver/spi-hid-core.c` |
+| 2026-09-21 targeted SL4 AMD pinch regression preserved two tracking IDs through far -> pinch -> close hold -> expand -> far; the trace exercised weak-component rescue and one armed occlusion episode with a 20-frame detector blackout, then released normally on intentional lift. | Targeted non-E1 hardware regression evidence only; full blinded matrix and release qualification remain incomplete. | `docs/HARDWARE_VALIDATION.md` |
 | The current controller driver forces physical ALT_CS 1. | Implementation behavior; board mapping needs target-machine verification. | `driver/spi-amd.c` |
 
 ## Open Discrepancies
