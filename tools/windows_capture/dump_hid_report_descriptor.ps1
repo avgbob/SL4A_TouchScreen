@@ -132,7 +132,7 @@ public static class HidReportDescriptorDump
                         set, ref data, detail, need, out need, IntPtr.Zero))
                         throw new Win32Exception(Marshal.GetLastWin32Error());
 
-                    IntPtr pPath = IntPtr.Add(detail, IntPtr.Size == 8 ? 8 : 4);
+                    IntPtr pPath = IntPtr.Add(detail, 4);
                     string path = Marshal.PtrToStringUni(pPath);
                     if (!String.IsNullOrEmpty(path))
                         result.Add(path);
