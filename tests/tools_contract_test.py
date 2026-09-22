@@ -11,6 +11,7 @@ Guards the P9 fix classes:
     concatenate every buffer of one direction.
 """
 import csv
+import stat
 import struct
 import sys
 import tempfile
@@ -43,6 +44,11 @@ def make_body(vendor_first=False, with_vendor=True, magic=b"\xce\x10\x0c",
     body[0:3] = magic
     body[5:5 + len(payload)] = payload
     return bytes(body)
+
+
+def test_validator_is_executable():
+    mode = (ROOT / "tools" / "validate-tracker-pr4.sh").stat().st_mode
+    assert mode & stat.S_IXUSR, "validate-tracker-pr4.sh: owner executable bit is not set"
 
 
 def test_c590_matches_the_driver_integer_form():
@@ -138,6 +144,7 @@ def test_parse_spi_prints_tx_on_the_real_capture():
 
 
 def main():
+    test_validator_is_executable()
     test_c590_matches_the_driver_integer_form()
     test_decode_raster_matches_the_shared_decoder()
     test_decode_raster_accepts_vendor_first()
