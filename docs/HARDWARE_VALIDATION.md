@@ -59,6 +59,11 @@ by the protocol below. The local evtest/kernel capture is not committed to the
 repository and must be preserved separately if it is to be used as future
 audit evidence.
 
+The practical unblinded candidate matrix is tracked in
+[`docs/HARDWARE_QUALIFICATION_TRACKER.md`](HARDWARE_QUALIFICATION_TRACKER.md).
+Completing that checklist is useful prequalification evidence but does not
+replace the blinded E1 protocol below.
+
 ## Profiles And Randomization
 
 The test operator and results assessor see only the blind labels `A`, `B`, and
