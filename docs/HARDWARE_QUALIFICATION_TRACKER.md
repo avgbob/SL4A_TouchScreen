@@ -1,7 +1,7 @@
 # Hardware Qualification Tracker — SL4 AMD Post-Association Tracker
 
 This file tracks the broader Surface Laptop 4 AMD hardware matrix for
-`tracker/post-association-coalescing` after the targeted pinch-continuity fix.
+`main` after the targeted pinch-continuity fix was merged in PR #4.
 
 It is **not** an E1 release-qualification record. The blinded A/B/C crossover
 protocol in `docs/HARDWARE_VALIDATION.md` remains the authority for an E1
@@ -12,7 +12,7 @@ the current raw tracker is stable enough to proceed to that protocol.
 
 | Item | Value |
 | --- | --- |
-| Branch | `tracker/post-association-coalescing` |
+| Branch | `main` (PR #4 squash-merged as `7322172`) |
 | Tracker implementation base | `07065e0` |
 | Documentation HEAD before this tracker | `151a016` |
 | Tested module srcversion | `F1084988B115CF74C159D58` |
@@ -113,6 +113,27 @@ one-finger-lift safety case, and long mixed-input stress remain unexecuted.
 They are not prerequisites for retaining the targeted pinch fix, but they are
 still required before any full hardware-qualification or E1 compatibility
 claim.
+
+## Software Validation Closure — 2026-09-21
+
+The merged `main` tree was validated locally with
+`tools/validate-tracker-pr4.sh` after the evidence-harness contract fixes.
+The complete normal host suite and ASan/UBSan host suite passed, including the
+469-assertion deterministic panel emulator, source-order guard, replay tests,
+evidence-tooling contracts, descriptor pin, and hunt sandbox. The external
+kernel modules also built successfully for `7.0.0-29-generic`; the resulting
+`sl4a-spi-hid.ko` retained srcversion
+`F1084988B115CF74C159D58`. The validator ended with
+`VALIDATION PASSED` and explicitly did not install or load a module.
+
+GitHub Actions was then enabled/verified and workflow-dispatch support was
+added to `.github/workflows/ci.yml`. Manual CI run `35678885908` on
+`main` completed successfully. Its whitespace, host-tests, Ubuntu kernel
+build, and current-kernel build jobs all passed.
+
+This closes the software-validation work for the targeted tracker change. It
+does not upgrade the hardware evidence to E1 and does not change the physical
+qualification stop point below.
 
 ## Evidence Root
 
