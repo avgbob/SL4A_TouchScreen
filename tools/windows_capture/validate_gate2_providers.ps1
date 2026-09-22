@@ -20,10 +20,16 @@ function Assert-Admin {
     }
 }
 
-function Run-Native([string]$File,[string[]]$Args,[string]$Log) {
-    & $File @Args 2>&1 | Tee-Object -FilePath $Log
+function Run-Native {
+    param(
+        [Parameter(Mandatory=$true)][string]$File,
+        [Parameter(Mandatory=$true)][string[]]$CommandArgs,
+        [Parameter(Mandatory=$true)][string]$Log
+    )
+
+    & $File @CommandArgs 2>&1 | Tee-Object -FilePath $Log
     if ($LASTEXITCODE -ne 0) {
-        throw "$File exited with code $LASTEXITCODE"
+        throw "$File exited with code $LASTEXITCODE`: $($CommandArgs -join ' ')"
     }
 }
 
@@ -39,7 +45,7 @@ if (-not (Test-Path $Profile)) {
 # Validate the custom profile before starting anything. If WPR rejects the
 # XML/profile schema, fail here with the exact diagnostic rather than after
 # device state has been changed.
-Run-Native wpr.exe @("-profiles",$Profile) (Join-Path $OutRoot "wpr-profiles.txt")
+Run-Native -File "wpr.exe" -CommandArgs @("-profiles",$Profile) -Log (Join-Path $OutRoot "wpr-profiles.txt")
 
 # Do not disturb the boot-autologger registry configuration. This smoke test
 # uses a normal WPR session only.
@@ -51,7 +57,7 @@ try {
     $ErrorActionPreference = $savedEap
 }
 
-Run-Native wpr.exe @("-start",("$Profile!TouchInit.Verbose"),"-filemode") (Join-Path $OutRoot "wpr-start.txt")
+Run-Native -File "wpr.exe" -CommandArgs @("-start",("$Profile!TouchInit.Verbose"),"-filemode") -Log (Join-Path $OutRoot "wpr-start.txt")
 Start-Sleep -Seconds 2
 
 & wpr.exe -status profiles collectors -details 2>&1 |
@@ -60,23 +66,23 @@ Start-Sleep -Seconds 2
 # Force a process event after tracing starts.
 & cmd.exe /c exit
 
-Run-Native pnputil.exe @("/disable-device",$InstanceId,"/force") (Join-Path $OutRoot "pnputil-disable.txt")
+Run-Native -File "pnputil.exe" -CommandArgs @("/disable-device",$InstanceId,"/force") -Log (Join-Path $OutRoot "pnputil-disable.txt")
 Start-Sleep -Seconds 3
-Run-Native pnputil.exe @("/enable-device",$InstanceId) (Join-Path $OutRoot "pnputil-enable.txt")
+Run-Native -File "pnputil.exe" -CommandArgs @("/enable-device",$InstanceId) -Log (Join-Path $OutRoot "pnputil-enable.txt")
 Start-Sleep -Seconds 3
 
 Read-Host "Perform ONE finger down -> drag -> up for a few seconds, then press Enter"
 
-Run-Native wpr.exe @("-stop",$Etl,"SL4A Gate 2 provider smoke") (Join-Path $OutRoot "wpr-stop.txt")
+Run-Native -File "wpr.exe" -CommandArgs @("-stop",$Etl,"SL4A Gate 2 provider smoke") -Log (Join-Path $OutRoot "wpr-stop.txt")
 
-Run-Native tracerpt.exe @(
+Run-Native -File "tracerpt.exe" -CommandArgs @(
     $Etl,
     "-o",$Xml,
     "-of","XML",
     "-lr",
     "-summary",$Summary,
     "-y"
-) (Join-Path $OutRoot "tracerpt.log")
+) -Log (Join-Path $OutRoot "tracerpt.log")
 
 $haystack = ((Get-Content -Raw $Xml) + [Environment]::NewLine + (Get-Content -Raw $Summary)).ToLowerInvariant()
 
