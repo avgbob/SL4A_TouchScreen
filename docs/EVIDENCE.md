@@ -24,6 +24,7 @@ wire protocol.
 | The captured MSHW0231 device is identified as VID/PID `045e:0c19`. | E2 | `captures/wintrace/analisi_MSHW0231.md:3-7` |
 | The host protocol and CapImg decoder have executable bounds coverage. | E3 | `tests/protocol_test.c`, `tests/capimg_decoder_host_test.c` |
 | Eight retained V0 raw-slot bodies have checksum-validated decoder replay coverage, including deterministic malformed-input rejection. | E3 | `tests/fixtures/replay/v1/manifest.json`, `tests/replay_fixture_test.py` |
+| The merged post-association tracker tree passes the complete local host/sanitizer validation, deterministic 469-assertion panel emulator, and kernel-module build; GitHub Actions run `35678885908` also passed whitespace, host tests, Ubuntu kernel build, and current-kernel build. | E3 | `tools/validate-tracker-pr4.sh`, `.github/workflows/ci.yml`, GitHub Actions run `35678885908` |
 
 ## Observations Not Yet Release Evidence
 
