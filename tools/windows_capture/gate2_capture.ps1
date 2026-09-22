@@ -60,6 +60,10 @@ function Mark-Step {
 
     & wpr.exe -marker ("SL4A_GATE2::{0}::{1}" -f $Name,$Note) 2>&1 |
         Add-Content -Path (Join-Path $OutRoot "wpr-marker.log")
+
+    if ($LASTEXITCODE -ne 0) {
+        throw "WPR marker failed at $Name. The boot-persistent session is not healthy; reject this capture."
+    }
 }
 
 function Save-PnpEvidence {
@@ -177,6 +181,7 @@ switch ($Phase) {
             "Microsoft-Windows-Input-HIDCLASS"         = "6465DA78-E7A0-4F39-B084-8F53C7C30DC6"
             "Microsoft-Windows-Kernel-Process"         = "22FB2CD6-0E7B-422B-A0C7-2FAD1FD0E716"
             "Microsoft-Surface-SurfaceHidMiniDriver"   = "2FEA7205-B0B1-41CA-8609-5A1D16F3132F"
+            "Microsoft-Surface-TouchAndPen-Prod"       = "3FA102E9-1A62-5490-7AF8-6088C2F9E6BE"
         }
 
         $missing = @()
