@@ -40,7 +40,13 @@ most of the electric field.
 
 | Offset | DLL Value | Description | Linux Equivalent |
 |--------|-----------|-------------|-----------------|
-| +0xC98 | 36.0 | Distance² threshold for merging nearby blobs | `ghost_dist=6` (√36) |
+| +0xC98 | 36.0 | Distance² threshold used by close-contact coalescing policy | `ghost_dist=6` (√36), applied after Hungarian association |
+
+Linux previously used `ghost_dist` as a destructive pre-association
+blob merge. The merged tracker fix no longer does that: Hungarian sees the
+complete candidate set first, then the six-cell threshold is applied by the
+post-association close-contact policy so two distinct established tracks can
+survive a pinch.
 
 ## Pre-Association Filter (offset +0x8C0, +0x8C4)
 
