@@ -12,6 +12,7 @@ does not need /sys, /dev/input, root, or Surface hardware.
 """
 
 from pathlib import Path
+import re
 
 ROOT = Path(__file__).resolve().parents[1]
 TOOLS = ROOT / "tools" / "hardware_evidence"
@@ -38,8 +39,18 @@ def test_beta_capture_identity_contract():
     require(text, 'device="/dev/input/$(basename "$event_sysfs")"',
             "capture_beta_multitouch.sh")
     forbid(text, "/dev/input/event15", "capture_beta_multitouch.sh")
-    forbid(text, "\nsudo ", "capture_beta_multitouch.sh")
-    forbid(text, "\tsudo ", "capture_beta_multitouch.sh")
+
+    # Refuse an actual sudo command, not prose in the usage heredoc.
+    scrubbed = re.sub(
+        r"<<'?(\\w+)'?\\n.*?^\\1$",
+        "",
+        text,
+        flags=re.MULTILINE | re.DOTALL,
+    )
+    scrubbed = re.sub(r"^[ \\t]*#.*$", "", scrubbed, flags=re.MULTILINE)
+    assert not re.search(r"(?m)^[ \\t]*sudo(?:[ \\t]|$)", scrubbed), (
+        "capture_beta_multitouch.sh: must not invoke sudo"
+    )
 
 
 def test_bundle_propagates_beta_capture_failure():
