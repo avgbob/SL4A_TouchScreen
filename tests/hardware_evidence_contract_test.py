@@ -42,13 +42,13 @@ def test_beta_capture_identity_contract():
 
     # Refuse an actual sudo command, not prose in the usage heredoc.
     scrubbed = re.sub(
-        r"<<'?(\\w+)'?\\n.*?^\\1$",
+        r"<<'?(\w+)'?\n.*?^\1$",
         "",
         text,
         flags=re.MULTILINE | re.DOTALL,
     )
-    scrubbed = re.sub(r"^[ \\t]*#.*$", "", scrubbed, flags=re.MULTILINE)
-    assert not re.search(r"(?m)^[ \\t]*sudo(?:[ \\t]|$)", scrubbed), (
+    scrubbed = re.sub(r"^[ \t]*#.*$", "", scrubbed, flags=re.MULTILINE)
+    assert not re.search(r"(?m)^[ \t]*sudo(?:[ \t]|$)", scrubbed), (
         "capture_beta_multitouch.sh: must not invoke sudo"
     )
 
