@@ -200,6 +200,15 @@ switch ($Phase) {
             throw "Missing WPR profile: $Profile"
         }
 
+        $smokePass = "C:\gate2-smoke\SMOKE-PASS.txt"
+        $smokePresence = "C:\gate2-smoke\provider-presence.txt"
+        if (-not (Test-Path $smokePass) -or ((Get-Content -Raw $smokePass).Trim() -ne "PASS")) {
+            throw "Gate 2 provider smoke has not passed. Run validate_gate2_providers.ps1 first."
+        }
+        if (-not (Test-Path $smokePresence)) {
+            throw "Gate 2 provider smoke evidence missing: $smokePresence"
+        }
+
         Run-Exe wpr.exe @("-profiles",$Profile) (Join-Path $OutRoot "wpr-profiles.txt")
         & wpr.exe -help boottrace 2>&1 |
             Out-File -Encoding utf8 (Join-Path $OutRoot "wpr-boottrace-help.txt")
@@ -270,6 +279,13 @@ Power the Surface back on, sign in, then run the same script with -Phase Resume 
             throw "Missing WPR profile: $Profile"
         }
 
+        $smokePass = "C:\gate2-smoke\SMOKE-PASS.txt"
+        if (-not (Test-Path $smokePass) -or ((Get-Content -Raw $smokePass).Trim() -ne "PASS")) {
+            throw "Gate 2 provider smoke has not passed. Refusing to arm another cold capture."
+        }
+
+        Run-Exe wpr.exe @("-profiles",$Profile) (Join-Path $OutRoot "wpr-profiles-arm.txt")
+
         & wpr.exe -status 2>&1 |
             Out-File -Encoding utf8 (Join-Path $OutRoot "wpr-status-before-arm.txt")
 
@@ -297,6 +313,9 @@ Power the Surface back on, sign in, then run the same script with -Phase Resume 
         } finally {
             $ErrorActionPreference = $savedEap
         }
+
+        Get-ChildItem -Path (Join-Path $OutRoot "wpr-temp") -File -ErrorAction SilentlyContinue |
+            Remove-Item -Force -ErrorAction SilentlyContinue
 
         Run-Exe wpr.exe @(
             "-boottrace",
@@ -410,6 +429,41 @@ After the machine boots:
             ("Gate 2 structural postcheck failed. Expected >=60 seconds spanning boot through T6." + [Environment]::NewLine + [Environment]::NewLine + $summaryText) |
                 Set-Content -Encoding utf8 (Join-Path $OutRoot "POSTCHECK-FAIL.txt")
             throw "Gate 2 rejected: ETL does not span the full lifecycle. See POSTCHECK-FAIL.txt"
+        }
+
+        $postXmlText = Get-Content -Raw $postXml
+        $postSummaryText = if (Test-Path $postSummary) { Get-Content -Raw $postSummary } else { "" }
+        $postHaystack = ($postXmlText + [Environment]::NewLine + $postSummaryText).ToLowerInvariant()
+
+        $requiredEvidenceProviders = [ordered]@{
+            "ACPI-Method"    = "dab01d4d-2d48-477d-b1c3-daad0ce6f06b"
+            "Kernel-Acpi"    = "c514638f-7723-485b-bcfc-96565d735d4a"
+            "Kernel-Power"   = "331c3b3a-2005-44c2-ac5e-77220c37d6b4"
+            "Kernel-PnP"     = "9c205a39-1250-487d-abd7-e831c6290539"
+            "Kernel-Process" = "22fb2cd6-0e7b-422b-a0c7-2fad1fd0e716"
+            "SPB"            = "72cd9ff7-4af8-4b89-aede-5f26fda13567"
+            "GPIO"           = "55ab77f6-fa04-43ef-af45-688fbf500482"
+            "HIDCLASS"       = "6465da78-e7a0-4f39-b084-8f53c7c30dc6"
+        }
+
+        $providerRows = foreach ($kv in $requiredEvidenceProviders.GetEnumerator()) {
+            [pscustomobject]@{
+                provider = $kv.Key
+                guid = $kv.Value
+                observed = $postHaystack.Contains($kv.Value)
+            }
+        }
+        $providerRows |
+            Format-Table -AutoSize |
+            Out-String |
+            Set-Content -Encoding utf8 (Join-Path $OutRoot "gate2-provider-presence.txt")
+
+        $missingEvidenceProviders = @($providerRows | Where-Object { -not $_.observed } | ForEach-Object provider)
+        if ($missingEvidenceProviders.Count -gt 0) {
+            ("Gate 2 provider-coverage postcheck failed. Missing:" + [Environment]::NewLine +
+             ($missingEvidenceProviders -join [Environment]::NewLine)) |
+                Set-Content -Encoding utf8 (Join-Path $OutRoot "POSTCHECK-FAIL.txt")
+            throw "Gate 2 rejected: required evidence providers are missing from the final ETL. See gate2-provider-presence.txt"
         }
 
         $markerPath = Join-Path $OutRoot "markers.tsv"
