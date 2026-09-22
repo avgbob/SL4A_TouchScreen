@@ -125,12 +125,15 @@ This is still not full Windows-equivalent classification: two contacts first
 created already very close remain an unresolved candidate-classification case.
 See `docs/TRACKER-REORDER.md`.
 
-## Next validation
+## Qualification status
 
-Before treating this as a default profile:
+The corrected persistent SET5-only beta-bridge profile has now passed a true
+cold boot: the expected `MSHW0231 Touchscreen` node returned, the bridge
+registered, and the mode-3 SET5 transition ran without a manual reload.
 
-1. cold-boot with the SET5-only bridge configuration
-2. verify the CapImg stream starts without manual module reload
-3. suspend/resume and verify the bridge re-enters SET5 mode cleanly
-4. reduce debug logging
-5. tune contact/blob tracking only after transport stability is confirmed
+This does not make the profile a release default. Suspend/resume and the broader
+hardware matrix were not completed before physical testing stopped, and debug
+logging still should be reduced for a production-oriented profile. Tracker
+tuning should remain separate from transport stability; the targeted
+established-contact pinch fix is merged, while close-start classification is a
+different unresolved tracker problem.
