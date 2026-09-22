@@ -56,6 +56,7 @@ jobs:
           make -C "$KDIR" M="$GITHUB_WORKSPACE/driver" modules
           test -s driver/sl4a-spi-amd.ko
           test -s driver/sl4a-spi-hid.ko
+          test -s driver/sl4a-tablet-mode.ko
 
   # The job above builds against Ubuntu 24.04's 6.8 headers. The driver also
   # targets Arch/CachyOS/Fedora, whose kernels run ahead of LTS and where the
