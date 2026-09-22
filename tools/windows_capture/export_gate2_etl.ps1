@@ -31,7 +31,7 @@ if ($LASTEXITCODE -ne 0) {
     throw "tracerpt XML export failed with exit code $LASTEXITCODE"
 }
 
-& tracerpt.exe $Etl -o $csv -of CSV -lr -rts -y 2>&1 |
+& tracerpt.exe $Etl -o $csv -of CSV -rts -y 2>&1 |
     Tee-Object -FilePath (Join-Path $OutDir "tracerpt-csv.log")
 if ($LASTEXITCODE -ne 0) {
     throw "tracerpt CSV export failed with exit code $LASTEXITCODE"
