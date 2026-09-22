@@ -10,7 +10,7 @@ contracts (MSHW0231 on SL4, MSHW0162 on SL3):
 | Product | Microsoft Surface Laptop 4 AMD (Cezanne) / Surface Laptop 3 AMD | E1 required for a release row |
 | SPI controller | ACPI `AMDI0060`, MMIO `0xFEC10000`, length `0x100` | `docs/acpi/dsdt.dsl` |
 | Touch controller (SL4) | Runtime ACPI `MSHW0231` under `\_SB.SPI1` | Windows capture and target-machine check |
-| Touch controller (SL3) | Runtime ACPI `MSHW0162` under `\_SB.SPI1` | Issue #6 report (guskog, real SL3) |
+| Touch controller (SL3) | Runtime ACPI `MSHW0162` under `\_SB.SPI1` | Upstream issue #6 report (guskog, real SL3) |
 | SPI resource | Logical CS 0, mode 0, 33.33 MHz, GPIO 0x55 | `docs/acpi/dsdt.dsl` |
 | HID descriptor | Microsoft VID `045e`, PID `0c19` | captured report descriptor |
 | Transport | MSHW0231 / MSHW0162 HID-over-SPI V0 | captured protocol traffic |
