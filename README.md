@@ -4,9 +4,9 @@ Linux kernel driver for the Microsoft Surface Laptop 3/4 (AMD) touchscreen,
 implementing the MSHW0231 / MSHW0162 V0 HID-over-SPI transport and a
 beta raw-heatmap multitouch pipeline on the AMD Cezanne FCH SPI controller.
 
-[![Status](https://img.shields.io/badge/status-beta-orange)](https://github.com/Syax89/SL4A_TouchScreen)
+[![Status](https://img.shields.io/badge/status-beta-orange)](https://github.com/avgbob/SL4A_TouchScreen)
 [![Release](https://img.shields.io/badge/release-1.7.0-brightgreen)](VERSION)
-[![CI](https://github.com/Syax89/SL4A_TouchScreen/actions/workflows/ci.yml/badge.svg)](https://github.com/Syax89/SL4A_TouchScreen/actions/workflows/ci.yml)
+[![CI](https://github.com/avgbob/SL4A_TouchScreen/actions/workflows/ci.yml/badge.svg)](https://github.com/avgbob/SL4A_TouchScreen/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-GPL--2.0-blue)](LICENSE)
 
 > [!WARNING]
@@ -15,14 +15,18 @@ beta raw-heatmap multitouch pipeline on the AMD Cezanne FCH SPI controller.
 
 ## What to Expect
 
-- **Standard HID mode** (default) provides **single-touch only** — basic
-  tap, drag, and single-finger interaction. This is the qualified profile.
+- The **standard installer profile** (default) provides **single-touch only** —
+  basic tap, drag, and single-finger interaction.
 - A **stylus/pen input node** is published by the HID descriptor but is
   **untested** — pen behavior has not been observed or validated.
-- **No multi-touch** in standard mode. Multi-touch requires the
-  beta raw pipeline (`raw_mode=1`).
-- **Raw mode is beta** — functional on hardware, still under field review.
-  Finger tracking is observed to degrade at 4 contacts; pipeline tuning is ongoing.
+- The beta heatmap multitouch pipeline can be reached either through the
+  explicit raw profile (`raw_mode=Y`) or through the experimental
+  standard-transport SET5 bridge (`raw_mode=N raw_input_beta=Y
+  std_raw_transition=3`). The latter is a manually configured qualification
+  profile, not an installer default or release-qualified profile.
+- **Raw/heatmap multitouch remains beta** — targeted two-finger tracking is
+  validated on the SL4 AMD test unit, while the broader hardware matrix remains
+  incomplete.
 
 See [`docs/QUICKSTART.md`](docs/QUICKSTART.md) for a 5-step install and
 activation guide.
@@ -110,7 +114,7 @@ See [`docs/COMPATIBILITY.md`](docs/COMPATIBILITY.md) before treating a setup as
 supported.
 
 ```bash
-git clone https://github.com/Syax89/SL4A_TouchScreen.git
+git clone https://github.com/avgbob/SL4A_TouchScreen.git
 cd SL4A_TouchScreen
 ./tools/sl4a-touch.sh install --check
 sudo ./tools/sl4a-touch.sh install
@@ -159,15 +163,20 @@ complete rollback and upgrade procedure.
 ```
 
 The explicit raw profile written by `sl4a-touch.sh install --raw` uses
-`raw_mode=Y raw_input_beta=Y skip_getfeat=Y wire_double_opcode=1`. Every raw control is experimental
-and load-time-only. The complete release, diagnostic, and experimental contract
-is in [`docs/PARAMETERS.md`](docs/PARAMETERS.md).
+`raw_mode=Y raw_input_beta=Y skip_getfeat=Y wire_double_opcode=1`. The
+targeted SL4 AMD tracker qualification instead used the manual
+standard-transport beta bridge
+`raw_mode=N raw_input_beta=Y skip_std_getfeat=1 std_raw_transition=3`;
+the installer intentionally does not write that profile. Every raw/heatmap
+control is experimental and load-time-only. The complete release, diagnostic,
+and experimental contract is in [`docs/PARAMETERS.md`](docs/PARAMETERS.md).
 
 ## What Will Not Work
 
-- **Multi-touch** in standard mode (`raw_mode=0`) — the multi-touch input
-  device is registered only by the raw pipeline (`mshw0231-raw.c`); standard
-  mode forwards HID reports with no host-side tracking.
+- **Multi-touch in the standard installer profile** — it forwards standard HID
+  reports and does not enable the heatmap bridge. An experimental manual
+  standard-transport SET5 bridge exists, but it is not a release/default
+  profile.
 - **Pen input** — the raw input device publishes touch contacts only and the
   driver contains no pen-specific handling, so pen behavior is unvalidated.
 - **Palm rejection** — no palm/rejection stage exists in the pipeline.
@@ -181,7 +190,7 @@ is in [`docs/PARAMETERS.md`](docs/PARAMETERS.md).
 | No touch after cold boot | Power off → unplug AC → wait 30s → reboot |
 | No touch after cold boot, but the driver looks ready (dmesg shows the descriptor, HID registered, `ready`) | Set `std_liveness_ms=8000` (`echo 'options sl4a_spi_hid std_liveness_ms=8000' \| sudo tee /etc/modprobe.d/sl4a-liveness.conf`), cold boot, then read the `standard-mode liveness` line in dmesg: it reports the controller activity (IRQs) seen in that window, so a healthy idle device prints the alarm too (issue #4) |
 | No touch after cold boot and no `RESET_RSP` in dmesg at all | Enable the backstop: `echo 'options sl4a_spi_hid wait_reset_kick_ms=4000' \| sudo tee /etc/modprobe.d/sl4a-kick.conf`, then cold boot. dmesg then shows `no RESET_RSP and no IRQ at all after 4000 ms, forcing DESCREQ`, and the descriptor poller keeps reading until the device answers. A `DESCREQ write to a silent controller failed 3 times` line instead means the SPI write itself is failing (bus level), not that the device stayed quiet. If the touchscreen never comes back, power off, unplug AC, wait 30 s, reboot and report the log in issue #4 |
-| No multi-touch (only single-touch) | Check `raw_mode=Y` in modprobe config |
+| No multi-touch (only single-touch) | The standard installer profile is single-touch. Use the explicit experimental raw profile, or consult `docs/STANDARD-SET5-MULTITOUCH.md` for the manual standard-transport beta bridge used in targeted qualification. |
 | Fingers lost during fast movement | Increase `blob_lift_frames` |
 | Jitter during pinch-to-zoom | Verify `ema_alpha=2`, stationary lock active |
 | Module rejected (Secure Boot) | Enroll DKMS signing key via distribution MOK |
@@ -206,7 +215,7 @@ unit that repeats the binding automatically.
 
 | Document | Content |
 |----------|---------|
-| [Wiki](https://github.com/Syax89/SL4A_TouchScreen/wiki) | Project wiki: protocol, pipeline, config, hardware |
+| [Upstream Wiki](https://github.com/Syax89/SL4A_TouchScreen/wiki) | Upstream project wiki: protocol, pipeline, config, hardware |
 | [`docs/QUICKSTART.md`](docs/QUICKSTART.md) | 5-step install and activation guide |
 | [`docs/HIDSPI_PROTOCOL.md`](docs/HIDSPI_PROTOCOL.md) | HID-over-SPI V0 wire protocol |
 | [`docs/PIPELINE.md`](docs/PIPELINE.md) | Touch pipeline specification |
