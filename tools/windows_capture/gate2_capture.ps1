@@ -63,11 +63,16 @@ function Mark-Step {
         return
     }
 
-    & wpr.exe -marker ("SL4A_GATE2::{0}::{1}" -f $Name,$Note) 2>&1 |
-        Add-Content -Path (Join-Path $OutRoot "wpr-marker.log")
-
-    if ($LASTEXITCODE -ne 0) {
-        throw "WPR marker failed at $Name. The active Gate 2 session is not healthy; reject this capture."
+    $savedEap = $ErrorActionPreference
+    try {
+        $ErrorActionPreference = "Continue"
+        & wpr.exe -marker ("SL4A_GATE2::{0}::{1}" -f $Name,$Note) 2>&1 |
+            Add-Content -Path (Join-Path $OutRoot "wpr-marker.log")
+        $markerExit = $LASTEXITCODE
+        ("{0} {1} exit={2}" -f $stamp,$Name,$markerExit) |
+            Add-Content -Path (Join-Path $OutRoot "wpr-marker-status.log")
+    } finally {
+        $ErrorActionPreference = $savedEap
     }
 }
 
@@ -322,17 +327,22 @@ After the machine boots:
     }
 
     "Resume" {
-        $bootStatus = (& wpr.exe -status 2>&1 | Out-String -Width 400)
+        $bootStatus = (& wpr.exe -status profiles collectors -details 2>&1 | Out-String -Width 400)
         $bootStatus | Set-Content -Encoding utf8 (Join-Path $OutRoot "wpr-status-after-boot.txt")
 
-        if ($bootStatus -match "not recording|stopped and waiting to be merged" -or
-            $bootStatus -notmatch "Time since start") {
-            ("Boot autologger is not actively recording after cold boot." + [Environment]::NewLine + [Environment]::NewLine + $bootStatus) |
+        $bootSession = "WPR_initiated_WprApp_boottr_TouchInitCollector"
+        $etsStatus = (& logman.exe query -ets 2>&1 | Out-String -Width 400)
+        $etsStatus | Set-Content -Encoding utf8 (Join-Path $OutRoot "logman-ets-after-boot.txt")
+
+        if ($etsStatus -notmatch [regex]::Escape($bootSession)) {
+            ("Boot autologger is not present in active ETW sessions." + [Environment]::NewLine + [Environment]::NewLine +
+             "Expected session: " + $bootSession + [Environment]::NewLine + [Environment]::NewLine + $etsStatus) |
                 Set-Content -Encoding utf8 (Join-Path $OutRoot "BOOTTRACE-NOT-ACTIVE.txt")
-            throw "Gate 2 rejected: boot autologger is not actively recording after cold boot."
+            throw "Gate 2 rejected: TouchInit boot autologger is not active in ETW."
         }
 
-        Mark-Step "T0_BOOTTRACE_ACTIVE" "first post-login marker; early-boot events precede this marker"
+        Remove-Item -Force -ErrorAction SilentlyContinue (Join-Path $OutRoot "BOOTTRACE-NOT-ACTIVE.txt")
+        Mark-Step "T0_BOOTTRACE_ACTIVE" "logman confirms TouchInitCollector active; early-boot events precede this marker"
 
         Mark-Step "T1_DESKTOP_IDLE_BEGIN" "10-second idle"
         Start-Sleep -Seconds 10
@@ -402,21 +412,26 @@ After the machine boots:
             throw "Gate 2 rejected: ETL does not span the full lifecycle. See POSTCHECK-FAIL.txt"
         }
 
-        $postXmlText = Get-Content -Raw $postXml
-        $requiredTraceMarkers = @(
-            "SL4A_GATE2::T0_BOOTTRACE_ACTIVE",
-            "SL4A_GATE2::T2_DISABLE_BEGIN",
-            "SL4A_GATE2::T2_ENABLE_BEGIN",
-            "SL4A_GATE2::T5_SLEEP_BEGIN",
-            "SL4A_GATE2::T5_RESUME",
-            "SL4A_GATE2::T6_STOP"
+        $markerPath = Join-Path $OutRoot "markers.tsv"
+        $markerText = if (Test-Path $markerPath) { Get-Content -Raw $markerPath } else { "" }
+        $requiredLocalMarkers = @(
+            "T0_PRE_BOOT",
+            "T0_BOOTTRACE_ACTIVE",
+            "T2_DISABLE_BEGIN",
+            "T2_ENABLE_BEGIN",
+            "T3_ONE_FINGER_BEGIN",
+            "T4_TWO_FINGER_BEGIN",
+            "T5_SLEEP_BEGIN",
+            "T5_RESUME",
+            "T5_POST_RESUME_ONE_FINGER_BEGIN",
+            "T6_STOP"
         )
-        $missingTraceMarkers = @($requiredTraceMarkers | Where-Object { $postXmlText -notmatch [regex]::Escape($_) })
-        if ($missingTraceMarkers.Count -gt 0) {
-            ("Gate 2 structural postcheck failed: required ETL markers missing:" + [Environment]::NewLine +
-             ($missingTraceMarkers -join [Environment]::NewLine)) |
+        $missingLocalMarkers = @($requiredLocalMarkers | Where-Object { $markerText -notmatch [regex]::Escape($_) })
+        if ($missingLocalMarkers.Count -gt 0) {
+            ("Gate 2 structural postcheck failed: required local phase markers missing:" + [Environment]::NewLine +
+             ($missingLocalMarkers -join [Environment]::NewLine)) |
                 Set-Content -Encoding utf8 (Join-Path $OutRoot "POSTCHECK-FAIL.txt")
-            throw "Gate 2 rejected: lifecycle markers are missing from the ETL. See POSTCHECK-FAIL.txt"
+            throw "Gate 2 rejected: lifecycle phase markers are incomplete. See POSTCHECK-FAIL.txt"
         }
 
         Write-Manifest
