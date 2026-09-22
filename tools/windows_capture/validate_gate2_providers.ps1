@@ -29,10 +29,17 @@ function Run-Native([string]$File,[string[]]$Args,[string]$Log) {
 
 Assert-Admin
 New-Item -ItemType Directory -Force -Path $OutRoot | Out-Null
+Get-ChildItem -Path $OutRoot -File -ErrorAction SilentlyContinue |
+    Remove-Item -Force -ErrorAction SilentlyContinue
 
 if (-not (Test-Path $Profile)) {
     throw "Missing WPR profile: $Profile"
 }
+
+# Validate the custom profile before starting anything. If WPR rejects the
+# XML/profile schema, fail here with the exact diagnostic rather than after
+# device state has been changed.
+Run-Native wpr.exe @("-profiles",$Profile) (Join-Path $OutRoot "wpr-profiles.txt")
 
 # Do not disturb the boot-autologger registry configuration. This smoke test
 # uses a normal WPR session only.
