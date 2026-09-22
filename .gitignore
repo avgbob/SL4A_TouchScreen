@@ -26,6 +26,11 @@ tests/raw_pipeline_math_test
 tests/raw_pipeline_replay_test
 tests/real_frame_replay_test
 tests/plateau_host_test
+tests/tracker_coalescing_host_test
+tests/panel_emulator_host_test
+tests/panel_policy_ab_250
+tests/panel_policy_ab_275
+tests/panel_policy_ab_300
 tests/heatmap_pure_test
 tests/fch-test/*.o
 tests/fch-test/*.ko
