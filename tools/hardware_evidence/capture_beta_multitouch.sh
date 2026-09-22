@@ -10,8 +10,8 @@ Usage: tools/hardware_evidence/capture_beta_multitouch.sh --duration SECONDS --o
 
 Discovers the SL4A heatmap-backed multitouch bridge by its driver-owned input
 identity ("MSHW0231 Touchscreen") and multitouch capabilities, then records a
-bounded evtest trace. FILE must not already exist. The helper never invokes
-sudo or installs, loads, unloads, or configures drivers.
+bounded evtest trace. FILE must not already exist. The helper never escalates
+privileges or installs, loads, unloads, or configures drivers.
 EOF
 }
 
