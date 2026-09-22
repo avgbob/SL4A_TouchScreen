@@ -219,7 +219,7 @@ else
 	evtest_status="not-requested"
 fi
 if [ "$capture_beta_multitouch" -eq 1 ]; then
-	"$(dirname "${BASH_SOURCE[0]}")/capture_beta_multitouch.sh" --duration "$duration" \
+	bash "$(dirname "${BASH_SOURCE[0]}")/capture_beta_multitouch.sh" --duration "$duration" \
 		--output "$output/input/beta-multitouch.evtest.txt" &
 	beta_multitouch_pid=$!
 	beta_multitouch_status="running"
