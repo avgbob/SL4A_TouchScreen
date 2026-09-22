@@ -35,7 +35,7 @@ Keep every evidence directory intact and preserve its manifest/checksums.
 
 | Case | Status | Required observation |
 | --- | --- | --- |
-| Cold boot | TODO | Touch/HID present; one controller/device binding; ready/lifecycle/protocol state sane; no new fatal kernel errors. |
+| Cold boot | FAIL — profile mismatch | 2026-09-21 cold boot loaded `F1084988B115CF74C159D58`, but the boot profile did not publish the beta MT bridge: no `MSHW0231 Touchscreen` input node and the direct-touch capture could not resolve its target. The standard installer profile omits `raw_input_beta=Y`; rerun after persisting the validated bridge profile. |
 | Warm boot | TODO | Same checks after normal reboot. |
 | Suspend/resume >=30 s | TODO | Touch returns after resume; binding/state sane; no input loss. |
 | Safe module reload | PASS | `F7D22... -> F108...`; touchscreen returned; known descriptor fallback bound successfully. |
@@ -47,6 +47,23 @@ Keep every evidence directory intact and preserve its manifest/checksums.
 | Five fingers | TODO | Five contacts appear and all release; record degradation if present. |
 | One-finger lift after close two-finger state | TODO | Lifted ID disappears; remaining ID stays stable; no ghost reappearance. |
 | 30-minute mixed-input stress | TODO | No input loss/stuck contacts; start/end protocol stats recorded; kernel log reviewed. |
+
+## Cold-Boot Finding — 2026-09-21
+
+The first cold-boot qualification attempt is retained as a failure rather than
+discarded. The intended module srcversion loaded successfully, and the standard
+HID descriptor fallback completed, but the raw multitouch bridge did not
+register. The boot log therefore exposed only the HID-core `spi 045E:0C19`
+nodes (plus stylus), while the expected `MSHW0231 Touchscreen` beta bridge was
+absent and the direct-touch evidence helper exited without a matching target.
+
+This is a profile-persistence mismatch, not evidence that the post-association
+tracker regressed: the successful physical tracker run was loaded with
+`raw_mode=N raw_input_beta=Y`, whereas the repository's supported standard
+installer profile intentionally writes `raw_mode=N wire_double_opcode=1` and
+does not enable `raw_input_beta`. Qualification must use one explicit,
+versioned beta-bridge profile on every lifecycle test so a reboot and a manual
+reload exercise the same input semantics.
 
 ## Evidence Root
 
