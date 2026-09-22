@@ -330,8 +330,7 @@ After the machine boots:
         Mark-Step "T6_STOP"
         Run-Exe wpr.exe @(
             "-stop",(Join-Path $OutRoot "gate2.etl"),
-            "SL4A Gate 2 golden lifecycle",
-            "-compress"
+            "SL4A Gate 2 golden lifecycle"
         ) (Join-Path $OutRoot "wpr-stop.txt")
 
         & wpr.exe -status 2>&1 |
