@@ -55,7 +55,7 @@ cd <repo>\tools\windows_capture
 powershell -ExecutionPolicy Bypass -File .\gate2_capture.ps1 -Phase Resume
 ```
 
-The script drives the exact scenario:
+The script drives the exact scenario. At T5, pressing Enter causes the script itself to request Windows Sleep; wait at least 15 seconds after the display turns off before waking the Surface:
 
 ```text
 T0  WPR armed -> full shutdown -> power on
@@ -63,7 +63,7 @@ T1  desktop idle 10s
 T2  pnputil disable ACPI\MSHW0231\A -> 5s -> enable -> 5s
 T3  one finger down / drag / up
 T4  two-finger pinch/spread / up
-T5  Sleep >=15s -> resume -> one finger
+T5  script initiates Sleep -> remain asleep >=15s -> wake -> one finger
 T6  evidence export -> WPR stop
 ```
 
