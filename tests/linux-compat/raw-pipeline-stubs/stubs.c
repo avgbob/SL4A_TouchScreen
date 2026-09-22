@@ -41,6 +41,7 @@ unsigned long mt_sync_count;
 unsigned int mt_init_slots_requested;
 
 static int current_slot = -1;
+static int next_tracking_id;
 
 int mt_record_active_count(void)
 {
@@ -54,10 +55,15 @@ int mt_record_active_count(void)
 
 void mt_record_reset(void)
 {
+	int i;
+
 	memset(mt_slots, 0, sizeof(mt_slots));
+	for (i = 0; i < MT_RECORD_MAX_SLOTS; i++)
+		mt_slots[i].tracking_id = -1;
 	mt_btn_touch = 0;
 	mt_sync_count = 0;
 	current_slot = -1;
+	next_tracking_id = 0;
 }
 
 /* ── linux/input.h ────────────────────────────────────────────────── */
@@ -150,10 +156,29 @@ void input_mt_slot(struct input_dev *dev, int slot)
 void input_mt_report_slot_state(struct input_dev *dev, unsigned int tool_type,
 				 bool active)
 {
+	struct mt_slot_record *r;
+
 	(void)dev; (void)tool_type;
 	if (current_slot < 0 || current_slot >= MT_RECORD_MAX_SLOTS)
 		return;
-	mt_slots[current_slot].active = active;
+
+	r = &mt_slots[current_slot];
+
+	/*
+	 * Mirror the observable Type-B lifecycle that input_mt_report_slot_state()
+	 * gives userspace: an inactive -> active transition gets a fresh tracking
+	 * ID; repeated active reports keep it; lift clears it. The numeric value is
+	 * harness-local — continuity, not the exact kernel allocator, is what these
+	 * host tests need to prove.
+	 */
+	if (active) {
+		if (!r->active)
+			r->tracking_id = next_tracking_id++;
+		r->active = true;
+	} else {
+		r->active = false;
+		r->tracking_id = -1;
+	}
 }
 
 void input_mt_sync_frame(struct input_dev *dev)

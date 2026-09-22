@@ -311,11 +311,18 @@ struct spi_hid {
 	/* Slot state, duration, and coordinate history. */
 	u8 blob_slot_state[HEATMAP_MAX_SLOTS];      /* 0=empty 1=new 2=claimed 3=lift 4=hold */
 	u32 blob_slot_duration[HEATMAP_MAX_SLOTS];  /* frames in current state */
+	u32 blob_slot_birth_age[HEATMAP_MAX_SLOTS]; /* frames since initial contact birth */
 	u32 blob_slot_gx[HEATMAP_MAX_SLOTS];        /* last grid X, fixed-point */
 	u32 blob_slot_gy[HEATMAP_MAX_SLOTS];        /* last grid Y, fixed-point */
 	u32 blob_slot_weight[HEATMAP_MAX_SLOTS];    /* last blob weight */
 	u32 blob_slot_missed[HEATMAP_MAX_SLOTS];    /* consecutive frames missed */
 	u8 blob_slot_stationary[HEATMAP_MAX_SLOTS]; /* stationary frame counter */
+	u8 blob_slot_weak_score[HEATMAP_MAX_SLOTS]; /* converging weak-continuity evidence */
+	u8 blob_slot_occlusion_grace[HEATMAP_MAX_SLOTS]; /* armed merge/occlusion miss budget */
+
+	/* Pre-coalescing detector history for sequential close-born qualification. */
+	u8 close_birth_solo_frames;   /* consecutive frames with exactly one detector blob */
+	u8 close_birth_relax_frames;  /* remaining frames in the qualified 2-blob transition */
 
 	/* Per-slot history ring for sway and velocity (Surface: 10 samples). */
 	u32 blob_slot_hx[HEATMAP_MAX_SLOTS][SLOT_HISTORY_DEPTH];

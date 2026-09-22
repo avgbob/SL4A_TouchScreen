@@ -143,6 +143,7 @@ void mshw0231_raw_reset(struct spi_hid *shid)
 	memset(shid->heatmap_baseline, 0, sizeof(shid->heatmap_baseline));
 	memset(shid->blob_slot_state, 0, sizeof(shid->blob_slot_state));
 	memset(shid->blob_slot_duration, 0, sizeof(shid->blob_slot_duration));
+	memset(shid->blob_slot_birth_age, 0, sizeof(shid->blob_slot_birth_age));
 	memset(shid->blob_slot_gx, 0, sizeof(shid->blob_slot_gx));
 	memset(shid->blob_slot_gy, 0, sizeof(shid->blob_slot_gy));
 	memset(shid->blob_slot_weight, 0, sizeof(shid->blob_slot_weight));
@@ -157,6 +158,10 @@ void mshw0231_raw_reset(struct spi_hid *shid)
 	memset(shid->blob_slot_hpos, 0, sizeof(shid->blob_slot_hpos));
 	memset(shid->blob_slot_hcount, 0, sizeof(shid->blob_slot_hcount));
 	memset(shid->blob_slot_stationary, 0, sizeof(shid->blob_slot_stationary));
+	memset(shid->blob_slot_weak_score, 0, sizeof(shid->blob_slot_weak_score));
+	memset(shid->blob_slot_occlusion_grace, 0, sizeof(shid->blob_slot_occlusion_grace));
+	shid->close_birth_solo_frames = 0;
+	shid->close_birth_relax_frames = 0;
 	memset(shid->blob_x, 0, sizeof(shid->blob_x));
 	memset(shid->blob_y, 0, sizeof(shid->blob_y));
 	memset(shid->blob_wsum, 0, sizeof(shid->blob_wsum));
@@ -579,6 +584,52 @@ static u32 raw_edge_penalised_weight(u32 wsum, s32 min_r, s32 max_r,
 	return wsum;
 }
 
+/*
+ * Detection hysteresis for already-established multitouch.
+ *
+ * A new component still needs the normal >=2-pixel / blob_min_weight gate.
+ * Once two contacts are established, however, the panel can leave a genuine
+ * second local maximum near its old slot while that component temporarily
+ * shrinks below the birth gate.  Treat that as continuity, not as a new birth.
+ *
+ * This helper is intentionally narrow:
+ *   - at least two state-2/state-3 slots must already exist;
+ *   - the weak component must remain within the normal association radius plus
+ *     the existing jump-reject margin of one of those slots.
+ *
+ * The caller additionally requires a real detector peak in the component.
+ * If that peak disappears, normal lift debounce proceeds unchanged.
+ */
+static bool raw_near_established_multitouch_slot(struct spi_hid *shid,
+						 u32 gx100, u32 gy100)
+{
+	u8 s;
+	u8 established = 0;
+	bool near = false;
+	u32 maxd = (u32)READ_ONCE(blob_max_distance) * 100 +
+		   HUNGARIAN_JUMP_REJECT_MARGIN;
+
+	for (s = 0; s < HEATMAP_MAX_SLOTS; s++) {
+		u8 state = shid->blob_slot_state[s];
+		s32 dx, dy;
+
+		if (state != 2 && state != 3)
+			continue;
+		established++;
+
+		dx = (s32)gx100 - (s32)shid->blob_slot_gx[s];
+		dy = (s32)gy100 - (s32)shid->blob_slot_gy[s];
+		if (dx < 0)
+			dx = -dx;
+		if (dy < 0)
+			dy = -dy;
+		if ((u32)dx <= maxd && (u32)dy <= maxd)
+			near = true;
+	}
+
+	return established >= 2 && near;
+}
+
 static u16 raw_ccl_flood_fill(struct spi_hid *shid, u32 cell_count,
 			      u32 ncols, u32 nrows,
 			      u16 *nlabels, int *touched_count,
@@ -609,6 +660,7 @@ static u16 raw_ccl_flood_fill(struct spi_hid *shid, u32 cell_count,
 			u32 pixel_count = 0;
 			s16 max_rise = 0;
 			u16 label = next_label;
+			bool continuity_rescue = false;
 
 			queue[tail++] = ci;
 			shid->heatmap_label[ci] = label;
@@ -700,13 +752,54 @@ static u16 raw_ccl_flood_fill(struct spi_hid *shid, u32 cell_count,
 			 * corrupt the second-moment sums for an unrelated blob. */
 			next_label++;
 
-			/* Filter noise: at least 2 pixels, max_rise >=
+			/*
+			 * Normal birth filter: at least 2 pixels, max_rise >=
 			 * HEATMAP_TOUCH_MIN_RISE (200), and total weight >=
-			 * blob_min_weight. The max_rise check alone rejects
-			 * residual noise after lift (typically 2-5 pixels at
-			 * <200 rise). */
-			if (pixel_count < HEATMAP_MIN_BLOB_PIXELS || max_rise < HEATMAP_TOUCH_MIN_RISE || sw < blob_min_weight)
+			 * blob_min_weight.
+			 *
+			 * Established multitouch gets a lower *sustain* gate, not a lower
+			 * birth gate.  The 2026-09-21 physical pinch capture showed the
+			 * second finger repeatedly retaining a real local maximum while its
+			 * component fell below this filter and was deleted.  If this
+			 * component contains one of the frame's detected peaks and remains
+			 * near one of two already-established slots, keep it as continuity.
+			 * A real lift still loses the peak and therefore cannot use this path.
+			 */
+			if (sw > 0 && npeaks >= 2 &&
+			    max_rise >= HEATMAP_TOUCH_MIN_RISE) {
+				u8 p;
+				bool contains_peak = false;
+				u32 gx100 = (u32)(sx * 100 / sw);
+				u32 gy100 = (u32)(sy * 100 / sw);
+
+				for (p = 0; p < npeaks; p++) {
+					u32 pix = (u32)peaks_row[p] * ncols +
+						  (u32)peaks_col[p];
+
+					if (shid->heatmap_label[pix] == label) {
+						contains_peak = true;
+						break;
+					}
+				}
+
+				continuity_rescue =
+					contains_peak &&
+					raw_near_established_multitouch_slot(shid,
+									     gx100, gy100);
+			}
+
+			if (!continuity_rescue &&
+			    (pixel_count < HEATMAP_MIN_BLOB_PIXELS ||
+			     max_rise < HEATMAP_TOUCH_MIN_RISE ||
+			     sw < blob_min_weight))
 				continue;
+
+			if (continuity_rescue &&
+			    (pixel_count < HEATMAP_MIN_BLOB_PIXELS ||
+			     sw < blob_min_weight))
+				seq_dbg(shid, 2,
+					"TRACKDBG: detector continuity rescue label=%u pixels=%u raw=%lld\n",
+					label, pixel_count, (long long)sw);
 
 			/* Velocity rejection (Windows FUN_180600c40):
 			 * blob centroid must be within 6 grid cells of at
@@ -755,6 +848,11 @@ static u16 raw_ccl_flood_fill(struct spi_hid *shid, u32 cell_count,
 						if (shid->heatmap_label[pix] == label)
 							split_peaks[split_count++] = p;
 					}
+					seq_dbg(shid, 2,
+						"SPLITDBG: label=%u pixels=%u frame_peaks=%u component_peaks=%u bbox=[r%d..%d c%d..%d]\n",
+						label, pixel_count, npeaks, split_count,
+						min_r, max_r, min_c, max_c);
+
 					if (split_count >= HEATMAP_SPLIT_MIN_PEAKS && split_count <= 4) {
 						bool too_close = true;
 						for (p = 1; p < split_count && too_close; p++) {
@@ -774,6 +872,11 @@ static u16 raw_ccl_flood_fill(struct spi_hid *shid, u32 cell_count,
 								}
 							}
 						}
+						seq_dbg(shid, 2,
+							"SPLITDBG: label=%u component_peaks=%u too_close=%u min_dist=%u\n",
+							label, split_count, too_close,
+							HEATMAP_SPLIT_MIN_DIST);
+
 						if (!too_close) {
 							/* The current blob has not been committed yet: append
 							 * split blobs without decrementing the prior count. */
@@ -897,84 +1000,150 @@ static u16 raw_ccl_flood_fill(struct spi_hid *shid, u32 cell_count,
 	return *nlabels;
 }
 
-/* ── Pipeline stage 6: ghost merge / pre-association coalescence ─── */
+/* ── Post-association duplicate/coalescing policy ─────────────────── */
 
 /*
- * Ghost rejection (GROUND_TRUTH.md §22.7 step 3):
- * Merge blobs closer than ghost_dist threshold (grid cells).
- * Windows uses Euclidean squared distance (dx²+dy² < ghost_dist²),
- * not axis-aligned box. If two blobs are within radius, keep the one
- * with the larger PRE-PENALTY weight (raw_w): this is a tracker-stage
- * decision, and the bottom-edge penalty (x0.23) can otherwise make a
- * real bottom-edge finger lose the merge to a lighter interior
- * artifact — the same contract the recovery guard already follows.
- * The loser is zapped via its `w` field, the discard marker.
+ * The recovered Surface tracker associates candidates to persistent tracks
+ * before report coalescing.  The old Linux pipeline did the opposite: it
+ * destructively removed close blobs here before Hungarian assignment.  Field
+ * capture on MSHW0231 proved that every legitimate two-blob frame below the
+ * six-cell threshold was collapsed by that ordering.
  *
- * Modifies sorted[] in-place; updates *sorted_count. */
-static void raw_ghost_merge(struct spi_hid *shid, struct blob_entry *sorted,
-			    u8 *sorted_count, u32 ghost_dist)
+ * Keep the complete candidate set through Hungarian, then apply a conservative
+ * post-association policy:
+ *
+ *   - two different established tracks (state 2 active or state 3
+ *     lift-pending) always keep both candidates, even inside ghost_dist;
+ *   - an established track wins over a close candidate assigned to a
+ *     non-established slot;
+ *   - when neither side has established-track continuity, retain the
+ *     higher pre-penalty raw weight, matching the old duplicate rejection.
+ *
+ * This intentionally does NOT pretend to implement the full Windows
+ * classification/merge-group state.  It fixes the proven ordering bug while
+ * preserving conservative duplicate suppression for ambiguous new candidates.
+ * Linux tracking IDs remain owned by the slot state machine, never by a mutable
+ * coalescing/group label.
+ *
+ * Suppression is represented by assigned_slot[blob] = 0xff.  The blob list is
+ * left intact so diagnostics retain the pre/post-association candidate record.
+ */
+static void raw_post_assoc_coalesce(struct spi_hid *shid,
+				    struct blob_entry *sorted, u8 sorted_count,
+				    u8 *assigned_slot, u32 ghost_dist)
 {
-	u8 a, b, j, col;
-	u8 active_slots = 0;
-	u32 gd;
+	u8 a, b;
 	u32 gdsq;
+	u32 birth_min_sq;
+	u32 birth_late_min_sq;
 
-	/* Count claimed slots, same definition raw_hungarian_match() uses. */
-	for (col = 0; col < HEATMAP_MAX_SLOTS; col++)
-		if (shid->blob_slot_state[col] >= 2)
-			active_slots++;
+	if (ghost_dist < 1)
+		ghost_dist = 1;
+	gdsq = ghost_dist * ghost_dist * 10000; /* fixed-point grid ×100 */
+	birth_min_sq = HEATMAP_CLOSE_BIRTH_MIN_SEP *
+			HEATMAP_CLOSE_BIRTH_MIN_SEP * 10000;
+	birth_late_min_sq = HEATMAP_CLOSE_BIRTH_LATE_MIN_SEP100 *
+			HEATMAP_CLOSE_BIRTH_LATE_MIN_SEP100;
 
-	/* Scale merge radius by finger count. Direction is opposite of
-	 * raw_hungarian_match()'s ASSOC_RADIUS_*: here we tighten as
-	 * finger count rises, since real distinct fingers get physically
-	 * closer together in multi-finger gestures and a radius sized
-	 * for 1-2 fingers starts falsely merging them. See constants
-	 * header for the (not yet hardware-validated) reasoning. */
-	gd = ghost_dist; /* baseline: 0/2 active slots, unscaled */
-	if (active_slots == 1)
-		gd = ghost_dist * GHOST_RADIUS_1_FINGER / 10;
-	else if (active_slots == 3)
-		gd = ghost_dist * GHOST_RADIUS_3_FINGERS / 10;
-	else if (active_slots == 4)
-		gd = ghost_dist * GHOST_RADIUS_4_FINGERS / 10;
-	else if (active_slots >= 5)
-		gd = ghost_dist * GHOST_RADIUS_5_FINGERS / 10;
-	if (gd < 1)
-		gd = 1;
-
-	gdsq = gd * gd * 10000; /* ×100 scale */
-
-	for (a = 0; a < *sorted_count; a++) {
-		if (sorted[a].w == 0)
+	for (a = 0; a < sorted_count; a++) {
+		if (assigned_slot[a] == 0xff || sorted[a].w == 0)
 			continue;
-		for (b = a + 1; b < *sorted_count; b++) {
+
+		for (b = a + 1; b < sorted_count; b++) {
+			u8 sa, sb, state_a, state_b;
+			bool established_a, established_b;
+			u8 loser;
+			u32 distsq;
 			s32 dx, dy;
 
-			if (sorted[b].w == 0)
+			if (assigned_slot[b] == 0xff || sorted[b].w == 0)
 				continue;
+
 			dx = (s32)sorted[a].gx - (s32)sorted[b].gx;
 			dy = (s32)sorted[a].gy - (s32)sorted[b].gy;
-			/* Strict, as in Windows and the in-tree oracle test: a
-			 * distance of exactly ghost_dist does not merge. */
-			if ((u32)(dx * dx) + (u32)(dy * dy) < gdsq) {
-				if (sorted[b].raw_w > sorted[a].raw_w) {
-					sorted[a].w = 0;
-					break;
-				} else {
-					sorted[b].w = 0;
-				}
+			distsq = (u32)(dx * dx) + (u32)(dy * dy);
+			if (distsq >= gdsq)
+				continue;
+
+			sa = assigned_slot[a];
+			sb = assigned_slot[b];
+			state_a = shid->blob_slot_state[sa];
+			state_b = shid->blob_slot_state[sb];
+			established_a = state_a == 2 || state_a == 3;
+			established_b = state_b == 2 || state_b == 3;
+
+			/*
+			 * This is the key ordering property the live pinch capture
+			 * proved: once Hungarian can explain two close candidates as
+			 * two different established tracks, proximity alone must not
+			 * delete either one.
+			 */
+			if (sa != sb && established_a && established_b) {
+				seq_dbg(shid, 2,
+					"TRACKDBG: postassoc preserve blobs=%u,%u slots=%u,%u states=%u,%u gd=%u\n",
+					a, b, sa, sb, state_a, state_b, ghost_dist);
+				continue;
 			}
+
+			if (established_a != established_b) {
+				u8 established_slot = established_a ? sa : sb;
+				u8 new_slot = established_a ? sb : sa;
+				u32 age = shid->blob_slot_birth_age[established_slot];
+				bool sequential_relax;
+
+				/*
+				 * Hardware can resolve a near-simultaneous close placement
+				 * sequentially: the first contact may finish debounce before
+				 * the second blob becomes visible. Do not mistake that second
+				 * finger for a duplicate while the first track is still inside
+				 * the tightly-bounded birth window.
+				 *
+				 * The tighter 2.75-cell path is not age-only. It requires a
+				 * pre-coalescing detector transition from one blob to two, with
+				 * at least HEATMAP_CLOSE_BIRTH_SOLO_FRAMES of genuine one-blob
+				 * history. That prevents a same-frame two-blob pair from being
+				 * repeatedly suppressed until it eventually "ages into" the
+				 * relaxed threshold.
+				 *
+				 * State 3 does not qualify here: recovery must not reset an old
+				 * contact into a fresh birth window. blob_slot_birth_age is
+				 * therefore preserved across lift/hold recovery.
+				 */
+				sequential_relax =
+					shid->close_birth_relax_frames > 0 &&
+					distsq >= birth_late_min_sq;
+				if (established_slot != new_slot &&
+				    shid->blob_slot_state[established_slot] == 2 &&
+				    age > 0 &&
+				    age <= HEATMAP_CLOSE_BIRTH_GRACE_FRAMES &&
+				    (distsq >= birth_min_sq || sequential_relax)) {
+					seq_dbg(shid, 2,
+						"TRACKDBG: postassoc birth-grace preserve blobs=%u,%u slots=%u,%u states=%u,%u age=%u dist100=%u relax=%u gd=%u\n",
+						a, b, sa, sb, state_a, state_b, age,
+						(u32)int_sqrt((u64)distsq),
+						shid->close_birth_relax_frames, ghost_dist);
+					continue;
+				}
+
+				loser = established_a ? b : a;
+			} else if (sorted[b].raw_w > sorted[a].raw_w) {
+				loser = a;
+			} else {
+				loser = b;
+			}
+
+			seq_dbg(shid, 2,
+				"TRACKDBG: postassoc suppress blob=%u peer=%u slots=%u,%u states=%u,%u raw=%u,%u gd=%u\n",
+				loser, loser == a ? b : a, sa, sb,
+				state_a, state_b, sorted[a].raw_w,
+				sorted[b].raw_w, ghost_dist);
+
+			assigned_slot[loser] = 0xff;
+			sorted[loser].w = 0;
+			if (loser == a)
+				break;
 		}
 	}
-	j = 0;
-	for (a = 0; a < *sorted_count; a++) {
-		if (sorted[a].w > 0) {
-			if (a != j)
-				sorted[j] = sorted[a];
-			j++;
-		}
-	}
-	*sorted_count = j;
 }
 
 /* ── Pipeline stage 7: Hungarian matching ─────────────────────────── */
@@ -1197,6 +1366,53 @@ static void slot_history_clear(struct spi_hid *shid, u32 s)
 	shid->blob_slot_hpos[s] = 0;
 }
 
+/*
+ * Return true when a weak candidate for an established slot moved toward
+ * another established/lift-pending slot by at least 0.2 grid cells this frame.
+ *
+ * This is intentionally directional evidence. A stationary contact that merely
+ * fades during a real lift must not arm the long occlusion window.
+ */
+static bool raw_weak_candidate_converging(struct spi_hid *shid, u8 slot,
+						 u32 gx, u32 gy)
+{
+	u8 other;
+
+	for (other = 0; other < HEATMAP_MAX_SLOTS; other++) {
+		u8 state;
+		s32 odx, ody, ndx, ndy;
+		u32 old_dist, new_dist;
+
+		if (other == slot)
+			continue;
+		state = shid->blob_slot_state[other];
+		if (state != 2 && state != 3)
+			continue;
+
+		odx = (s32)shid->blob_slot_gx[slot] -
+		      (s32)shid->blob_slot_gx[other];
+		ody = (s32)shid->blob_slot_gy[slot] -
+		      (s32)shid->blob_slot_gy[other];
+		ndx = (s32)gx - (s32)shid->blob_slot_gx[other];
+		ndy = (s32)gy - (s32)shid->blob_slot_gy[other];
+		if (odx < 0)
+			odx = -odx;
+		if (ody < 0)
+			ody = -ody;
+		if (ndx < 0)
+			ndx = -ndx;
+		if (ndy < 0)
+			ndy = -ndy;
+
+		old_dist = (u32)odx + (u32)ody;
+		new_dist = (u32)ndx + (u32)ndy;
+		if (old_dist >= new_dist + HEATMAP_WEAK_CONVERGE_DELTA100)
+			return true;
+	}
+
+	return false;
+}
+
 static void raw_update_slots(struct spi_hid *shid,
 			     const struct blob_entry *sorted, u8 sorted_count,
 			     const u8 *assigned_slot, u32 bmd,
@@ -1213,6 +1429,13 @@ static void raw_update_slots(struct spi_hid *shid,
 
 	for (s = 0; s < HEATMAP_MAX_SLOTS; s++) {
 		u8 bi = 0xFF;
+		u8 trace_old_state = shid->blob_slot_state[s];
+
+		/* Birth age is contact lifetime, not current-state duration. Keep
+		 * counting through hold/lift so a recovered old contact cannot gain
+		 * a fresh close-born qualification window. */
+		if (trace_old_state != 0)
+			shid->blob_slot_birth_age[s]++;
 
 		for (i = 0; i < sorted_count; i++) {
 			if (assigned_slot[i] == s) {
@@ -1257,6 +1480,7 @@ static void raw_update_slots(struct spi_hid *shid,
 				slot_history_clear(shid, s);
 				shid->blob_slot_state[s] = 1;
 				shid->blob_slot_duration[s] = 1;
+				shid->blob_slot_birth_age[s] = 1;
 				shid->blob_slot_stationary[s] = 0;
 				break;
 			case 1:
@@ -1268,13 +1492,23 @@ static void raw_update_slots(struct spi_hid *shid,
 				shid->blob_slot_duration[s]++;
 				break;
 			case 3:
-				/* Re-acquisition while the lift is still pending:
-				 * same guard as hold recovery. Restarting the
-				 * debounce here turned a single dropped frame
-				 * into a release plus re-press for blob_debounce
-				 * frames, which aborts multi-finger gestures. */
-				if (guard_w < HEATMAP_HOLD_RECOVERY_WEIGHT)
-					goto slot_unassigned;
+				/*
+				 * Re-acquisition while lift is still pending is a
+				 * continuity decision, not a fresh-contact decision.
+				 * The candidate has already passed the normal blob
+				 * threshold and Hungarian has associated it back to
+				 * this still-owned slot. Requiring the much stronger
+				 * HEATMAP_HOLD_RECOVERY_WEIGHT here breaks pinch
+				 * continuity: the real panel can emit one merged frame,
+				 * then immediately re-split the second finger at only
+				 * ~1.3-1.6k raw weight. Rejecting those valid split
+				 * candidates exhausts the state-3 miss budget and turns
+				 * the same physical finger into a new tracking ID.
+				 *
+				 * State 4 (longer hold recovery) keeps the stronger
+				 * guard below; state 3 is deliberately permissive only
+				 * during the short lift-pending continuity window.
+				 */
 				shid->blob_slot_state[s] = 2;
 				shid->blob_slot_duration[s] = 1;
 				shid->blob_slot_stationary[s] = 0;
@@ -1290,6 +1524,38 @@ static void raw_update_slots(struct spi_hid *shid,
 				shid->blob_slot_duration[s] = 1;
 				shid->blob_slot_stationary[s] = 0;
 				break;
+			}
+
+			/*
+			 * Long occlusion continuity is earned, not global.  A weak
+			 * established candidate (< normal birth weight) only builds
+			 * evidence when it actually moves toward another established
+			 * contact.  Once enough such frames have been observed, any
+			 * subsequent weak re-acquisition refreshes a bounded occlusion
+			 * window.  Healthy strong frames decay both the evidence and
+			 * the armed window.
+			 */
+			if (old_state < 2) {
+				shid->blob_slot_weak_score[s] = 0;
+				shid->blob_slot_occlusion_grace[s] = 0;
+			} else if (guard_w < (u32)READ_ONCE(blob_min_weight)) {
+				if (raw_weak_candidate_converging(shid, s, gx, gy) &&
+				    shid->blob_slot_weak_score[s] < 0xff)
+					shid->blob_slot_weak_score[s]++;
+				if (shid->blob_slot_weak_score[s] >=
+				    HEATMAP_WEAK_OCCLUSION_ARM_SCORE) {
+					if (shid->blob_slot_occlusion_grace[s] == 0)
+						seq_dbg(shid, 2,
+							 "TRACKDBG: slot=%u weak-occlusion armed score=%u\n",
+							 s, shid->blob_slot_weak_score[s]);
+					shid->blob_slot_occlusion_grace[s] =
+						HEATMAP_WEAK_OCCLUSION_GRACE_FRAMES;
+				}
+			} else {
+				if (shid->blob_slot_weak_score[s] > 0)
+					shid->blob_slot_weak_score[s]--;
+				if (shid->blob_slot_occlusion_grace[s] > 0)
+					shid->blob_slot_occlusion_grace[s]--;
 			}
 
 			/* Copy per-blob eigenvalues to the assigned slot.
@@ -1389,6 +1655,9 @@ slot_unassigned:
 				slot_history_clear(shid, s);
 				shid->blob_slot_state[s] = 0;
 				shid->blob_slot_duration[s] = 0;
+				shid->blob_slot_birth_age[s] = 0;
+				shid->blob_slot_weak_score[s] = 0;
+				shid->blob_slot_occlusion_grace[s] = 0;
 				break;
 			case 2:
 				if (hold_frames < 1) {
@@ -1403,6 +1672,8 @@ slot_unassigned:
 					}
 					shid->blob_slot_state[s] = 3;
 					shid->blob_slot_missed[s] = 0;
+					if (shid->blob_slot_occlusion_grace[s] > 0)
+						shid->blob_slot_occlusion_grace[s]--;
 				} else {
 					shid->blob_slot_state[s] = 4;
 					shid->blob_slot_missed[s] = 1;
@@ -1426,14 +1697,29 @@ slot_unassigned:
 				break;
 			case 3:
 				shid->blob_slot_missed[s]++;
+				if (shid->blob_slot_occlusion_grace[s] > 0)
+					shid->blob_slot_occlusion_grace[s]--;
 				if (shid->blob_slot_missed[s] >=
-				    (u32)blob_lift_frames) {
+				    (u32)blob_lift_frames &&
+				    shid->blob_slot_occlusion_grace[s] == 0) {
 					slot_history_clear(shid, s);
 					shid->blob_slot_state[s] = 0;
 					shid->blob_slot_missed[s] = 0;
+					shid->blob_slot_birth_age[s] = 0;
+					shid->blob_slot_weak_score[s] = 0;
+				} else if (shid->blob_slot_missed[s] >=
+					   (u32)blob_lift_frames) {
+					seq_dbg(shid, 2,
+						 "TRACKDBG: slot=%u occlusion hold missed=%u grace=%u score=%u\n",
+						 s, shid->blob_slot_missed[s],
+						 shid->blob_slot_occlusion_grace[s],
+						 shid->blob_slot_weak_score[s]);
 				}
 				break;
 			case 0:
+				shid->blob_slot_birth_age[s] = 0;
+				shid->blob_slot_weak_score[s] = 0;
+				shid->blob_slot_occlusion_grace[s] = 0;
 				break;
 			}
 
@@ -1448,6 +1734,14 @@ slot_unassigned:
 				new_active[s] = false;
 			}
 		}
+
+		if (trace_old_state != shid->blob_slot_state[s])
+			seq_dbg(shid, 2,
+				 "TRACKDBG: slot=%u state=%u->%u candidate=%u missed=%u weak_score=%u occlusion=%u\n",
+				 s, trace_old_state, shid->blob_slot_state[s],
+				 bi != 0xFF, shid->blob_slot_missed[s],
+				 shid->blob_slot_weak_score[s],
+				 shid->blob_slot_occlusion_grace[s]);
 	}
 }
 
@@ -1558,8 +1852,8 @@ static bool raw_emit_mt(struct spi_hid *shid, struct input_dev *input,
  *   3. CCL flood-fill (4-connected BFS)
  *   4. Velocity rejection + edge penalty + blob splitting
  *   5. Centroid + eigenvalues computation
- *   6. Pre-merge (ghost rejection)
- *   7. Hungarian assignment with multi-finger radii
+ *   6. Hungarian assignment with multi-finger radii
+ *   7. Post-association duplicate/coalescing policy
  *   8. Slot state machine + EMA + deadband + stationary lock
  *   9. MT protocol emission
  *
@@ -1689,6 +1983,7 @@ static void mshw0231_raw_process_samples(struct spi_hid *shid, const u8 *data,
 				  HEATMAP_MAX_SLOTS);
 		memset(shid->blob_slot_state, 0, sizeof(shid->blob_slot_state));
 		memset(shid->blob_slot_duration, 0, sizeof(shid->blob_slot_duration));
+		memset(shid->blob_slot_birth_age, 0, sizeof(shid->blob_slot_birth_age));
 		memset(shid->blob_slot_gx, 0, sizeof(shid->blob_slot_gx));
 		memset(shid->blob_slot_gy, 0, sizeof(shid->blob_slot_gy));
 		memset(shid->blob_slot_weight, 0, sizeof(shid->blob_slot_weight));
@@ -1751,6 +2046,8 @@ static void mshw0231_raw_process_samples(struct spi_hid *shid, const u8 *data,
 		npeaks = raw_detect_peaks(shid, cell_count, ncols, nrows,
 				   peaks_col, peaks_row);
 
+		seq_dbg(shid, 2, "SPLITDBG: frame npeaks=%u\n", npeaks);
+
 		if (npeaks > 0)
 			raw_ccl_flood_fill(shid, cell_count, ncols, nrows,
 					   &nlabels, &touched_count, npeaks,
@@ -1783,7 +2080,12 @@ static void mshw0231_raw_process_samples(struct spi_hid *shid, const u8 *data,
 			scale_y = (SCREEN_MAX * 1000) / (screen_y_cells - 1);
 
 		for (i = 0; i < HEATMAP_MAX_BLOBS; i++) {
-			if (!shid->blob_active[i] || shid->blob_raw_wsum[i] < blob_min_weight)
+			if (!shid->blob_active[i])
+				continue;
+			if (shid->blob_raw_wsum[i] < (u32)blob_min_weight &&
+			    !raw_near_established_multitouch_slot(shid,
+								 shid->blob_x[i],
+								 shid->blob_y[i]))
 				continue;
 			sorted[sorted_count].gx = shid->blob_x[i];
 			sorted[sorted_count].gy = shid->blob_y[i];
@@ -1821,6 +2123,31 @@ static void mshw0231_raw_process_samples(struct spi_hid *shid, const u8 *data,
 			sorted_count = keep;
 		}
 
+		/*
+		 * Pre-coalescing detector history for sequential close births.
+		 *
+		 * A genuine sequential placement must first present as one detector
+		 * blob for several frames, then transition to exactly two. Arm a
+		 * short relaxation latch only on that transition. A pair that was
+		 * detector-resolved from frame 0 never accumulates solo history and
+		 * therefore can never reach the tighter threshold merely by waiting.
+		 */
+		if (sorted_count == 1) {
+			if (shid->close_birth_solo_frames < 255)
+				shid->close_birth_solo_frames++;
+			shid->close_birth_relax_frames = 0;
+		} else if (sorted_count == 2) {
+			if (shid->close_birth_relax_frames == 0 &&
+			    shid->close_birth_solo_frames >=
+				HEATMAP_CLOSE_BIRTH_SOLO_FRAMES)
+				shid->close_birth_relax_frames =
+					HEATMAP_CLOSE_BIRTH_RELAX_FRAMES;
+			shid->close_birth_solo_frames = 0;
+		} else {
+			shid->close_birth_solo_frames = 0;
+			shid->close_birth_relax_frames = 0;
+		}
+
 		for (i = 0; i < sorted_count; i++) {
 			u32 screen_gx = swap_xy ? sorted[i].gy : sorted[i].gx;
 			u32 screen_gy = swap_xy ? sorted[i].gx : sorted[i].gy;
@@ -1839,20 +2166,47 @@ static void mshw0231_raw_process_samples(struct spi_hid *shid, const u8 *data,
 			seq_dbg(shid, 2, "CALIB: blobs=%u cells_touched=%d\n",
 				 sorted_count, touched_count);
 
-		/* ── Stage 6: ghost merge ── */
-		raw_ghost_merge(shid, sorted, &sorted_count,
-				(u32)READ_ONCE(ghost_dist));
-
-		/* ── Stage 7: Hungarian global assignment ── */
+		/* ── Stage 6: Hungarian global assignment ── */
 		{
 			u8 assigned_slot[HEATMAP_MAX_BLOBS];
 			u32 new_gx[HEATMAP_MAX_SLOTS], new_gy[HEATMAP_MAX_SLOTS];
 			bool new_active[HEATMAP_MAX_SLOTS];
 			u32 bmd;
+			u8 kept = 0;
 
 			bmd = raw_hungarian_match(shid, sorted, sorted_count,
 						 assigned_slot,
 						 (u32)READ_ONCE(blob_max_distance));
+
+			for (i = 0; i < sorted_count; i++) {
+				if (assigned_slot[i] == 0xFF) {
+					seq_dbg(shid, 2,
+						 "TRACKDBG: assign blob=%u grid=(%u,%u) slot=NONE bmd=%u\n",
+						 i, sorted[i].gx, sorted[i].gy, bmd);
+				} else {
+					u8 as = assigned_slot[i];
+					seq_dbg(shid, 2,
+						 "TRACKDBG: assign blob=%u grid=(%u,%u) slot=%u slot_state=%u bmd=%u\n",
+						 i, sorted[i].gx, sorted[i].gy, as,
+						 shid->blob_slot_state[as], bmd);
+				}
+			}
+
+			/* ── Stage 7: post-association duplicate/coalescing policy ── */
+			raw_post_assoc_coalesce(shid, sorted, sorted_count,
+						assigned_slot,
+						(u32)READ_ONCE(ghost_dist));
+
+			if (shid->close_birth_relax_frames > 0)
+				shid->close_birth_relax_frames--;
+
+			for (i = 0; i < sorted_count; i++) {
+				if (assigned_slot[i] != 0xff)
+					kept++;
+			}
+			seq_dbg(shid, 2,
+				"TRACKDBG: postassoc candidates=%u kept=%u\n",
+				sorted_count, kept);
 
 			/* ── Stage 8: slot state machine ── */
 			raw_update_slots(shid, sorted, sorted_count,
@@ -1891,9 +2245,11 @@ int mshw0231_raw_input_register(struct spi_hid *shid)
 	struct device *dev = &shid->spi->dev;
 	int ret;
 
-	if (!shid->raw_mode_active)
-		return 0;
-
+	/*
+	 * The caller decides whether a heatmap-backed MT input device is
+	 * required. This permits the normal HID-over-SPI transport to use
+	 * the existing CapImg multitouch pipeline after SET_FEATURE ID5.
+	 */
 	{
 		shid->touch_input = input_allocate_device();
 		if (shid->touch_input) {

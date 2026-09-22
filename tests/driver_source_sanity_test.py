@@ -1032,6 +1032,30 @@ def check_control_flow_pins():
         if _needle not in _raw:
             print(f"FAIL driver/mshw0231-raw.c: {_why} (P16 wave, A:C3)")
             failures += 1
+    # 7g. Candidate association must precede close-contact suppression. The
+    # hardware spacing capture proved the old pre-Hungarian raw_ghost_merge()
+    # ordering deletes a legitimate second contact at <6 cells. The behavioral
+    # host test pins the policy; this structural check pins the call order in
+    # the real frame pipeline so the old stage cannot quietly be reintroduced
+    # around a still-green helper test.
+    if "raw_ghost_merge(" in _raw:
+        print("FAIL driver/mshw0231-raw.c: destructive raw_ghost_merge() "
+              "reappeared — close-contact suppression must run after association")
+        failures += 1
+    _proc = _raw.split("static void mshw0231_raw_process_samples", 1)
+    if len(_proc) != 2:
+        print("FAIL driver/mshw0231-raw.c: mshw0231_raw_process_samples() is gone")
+        failures += 1
+    else:
+        _proc = _proc[1].split("\n}", 1)[0]
+        _hung = _proc.find("raw_hungarian_match(")
+        _coal = _proc.find("raw_post_assoc_coalesce(")
+        _upd = _proc.find("raw_update_slots(")
+        if _hung < 0 or _coal < 0 or _upd < 0 or not (_hung < _coal < _upd):
+            print("FAIL driver/mshw0231-raw.c: tracker order is not "
+                  "Hungarian -> post-association coalescing -> slot update")
+            failures += 1
+
     # The writes that ask for a response must record which request they are,
     # or the read that follows names nothing (trace: 00 04 03 00 06,
     # 00 03 0A 00 56). The descriptor requests are the 0/0 case.

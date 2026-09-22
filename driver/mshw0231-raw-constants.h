@@ -103,6 +103,72 @@
 #define HEATMAP_DEADBAND_THRESHOLD      20
 #define HEATMAP_STATIONARY_FRAMES         2
 
+/*
+ * Close-born qualification guard.
+ *
+ * Field capture sl4a-close-born-pr4-20260921-160102 showed a legitimate
+ * second finger resolving about 85 ms after the first. By then the first
+ * slot was already state 2, so conservative established-vs-new coalescing
+ * suppressed the second contact until the pair separated past six cells.
+ *
+ * Permit a nearby new candidate only while the established peer is still
+ * very young, and only when the pair is separated enough to differ from the
+ * tight duplicate candidates seen in the earlier PR4 field capture.
+ *
+ * FIRST-PASS HARDWARE-BOUNDED VALUES, not recovered Windows constants:
+ *   - the established peer may be at most 12 frames old when each candidate
+ *     frame is considered. Because the new peer still needs the normal
+ *     3-frame debounce, the deterministic panel emulator shows an effective
+ *     latest-arrival cutoff of about 100 ms at the observed ~100 Hz CapImg
+ *     rate (10-frame skew passes, 12-frame skew does not). The measured
+ *     hardware skew was ~85 ms, so it is inside the qualified window;
+ *   - 3 cells sits above observed duplicate candidates (~1.72-2.00 cells)
+ *     and below the legitimate close-born pair (~4.27 cells initially).
+ *
+ * These bounds deliberately do not make two same-frame state-0 candidates
+ * authoritative; that classification remains conservative.
+ */
+#define HEATMAP_CLOSE_BIRTH_GRACE_FRAMES      12
+#define HEATMAP_CLOSE_BIRTH_MIN_SEP             3
+
+/*
+ * Sequential close-birth relaxation.
+ *
+ * Real panel captures show that two fingers placed together can become
+ * detector-resolvable sequentially rather than in the same frame. Keep the
+ * conservative 3-cell guard normally. Only after the detector has seen one
+ * blob alone for at least ~60 ms, followed by a transition to exactly two
+ * blobs, arm a short relaxation window that permits a 2.75-cell centroid
+ * separation. The window lasts just long enough for the normal 3-frame
+ * new-contact debounce to complete.
+ *
+ * This is intentionally based on pre-coalescing detector history: a second
+ * candidate that was present from frame 0 but repeatedly suppressed can never
+ * manufacture the required solo history.
+ */
+#define HEATMAP_CLOSE_BIRTH_SOLO_FRAMES           6
+#define HEATMAP_CLOSE_BIRTH_RELAX_FRAMES          3
+#define HEATMAP_CLOSE_BIRTH_LATE_MIN_SEP100     275
+
+/*
+ * Established-pair weak/occlusion hysteresis.
+ *
+ * The 2026-09-21 physical pinch trace showed a characteristic sequence that
+ * the ordinary 3-frame lift debounce cannot represent: while the fingers were
+ * converging, the weaker established contact was repeatedly rescued below the
+ * normal blob birth weight, then its detector peak disappeared entirely for
+ * 37 consecutive frames (~360 ms) before becoming resolvable again.  That is
+ * an occlusion/merge continuity event, not a new-contact birth.
+ *
+ * Do not lengthen lift debounce globally.  Arm the longer window only after
+ * several weak established assignments have actually moved toward another
+ * established slot.  A weak-but-stationary contact therefore still uses the
+ * ordinary lift path.
+ */
+#define HEATMAP_WEAK_OCCLUSION_ARM_SCORE          5
+#define HEATMAP_WEAK_OCCLUSION_GRACE_FRAMES      48
+#define HEATMAP_WEAK_CONVERGE_DELTA100            20
+
 /* Missed frame timeout (ms) */
 #define HEATMAP_MISSED_FRAME_TIMEOUT_MS  60
 
@@ -125,28 +191,10 @@
 #define ASSOC_RADIUS_5_FINGERS          40
 
 /*
- * Ghost-merge radius multipliers per finger count (×10), baseline = 2
- * fingers (implicit ×10, i.e. unscaled module-param ghost_dist).
- *
- * Unlike ASSOC_RADIUS_* (which WIDENS with finger count to tolerate more
- * per-frame jitter when re-matching an already-tracked blob to its slot),
- * this must NARROW with finger count: as more fingers are down, genuine
- * distinct fingers are naturally packed closer together (spread 4-5
- * finger gestures, closing pinch), so a merge radius sized for 1-2
- * fingers starts mistaking adjacent-but-real fingers for duplicate
- * detections of the same touch and drops one, causing flicker.
- *
- * FIRST-PASS VALUES, NOT HARDWARE-VALIDATED: the direction (tighten,
- * not widen) is what motivates this change; the exact multipliers below
- * are a reasoned starting guess (70%/60%/50% of baseline for 3/4/5+
- * fingers) and need real multi-finger touch testing on hardware to
- * confirm they don't over-tighten and start splitting single fingers
- * into ghost pairs. 1-finger case is left at baseline since merge-vs-
- * duplicate ambiguity barely matters with only one blob on screen.
+ * Close-contact suppression deliberately has no per-finger-count radius
+ * multipliers here.  The recovered 0C19 report-coalescing threshold is the
+ * strict six-cell rule exposed by the ghost_dist module parameter; established
+ * multi-contact continuity is handled by association before suppression.
  */
-#define GHOST_RADIUS_1_FINGER            10
-#define GHOST_RADIUS_3_FINGERS            7
-#define GHOST_RADIUS_4_FINGERS            6
-#define GHOST_RADIUS_5_FINGERS            5
 
 #endif

@@ -2559,7 +2559,7 @@ MODULE_PARM_DESC(skip_getfeat,
 static int std_raw_transition;
 module_param(std_raw_transition, int, 0444);
 MODULE_PARM_DESC(std_raw_transition,
-	"Run the GET ID6 + SET ID5 heatmap transition in standard mode (0=off)");
+	"Standard-mode heat transition: 0=off, 1=GET6+SET5, 2=GET6-only, 3=SET5-only");
 
 module_param(skip_std_getfeat, bool, 0444);
 MODULE_PARM_DESC(skip_std_getfeat,
@@ -3495,20 +3495,28 @@ static void seq_handle_rpt(struct spi_hid *shid, int type, u16 blen)
 				}
 			}
 		} else {
-			/* July one-shot transition, opt-in: GET ID6 + SET ID5=1,
-			 * then DONE reads reg 0 as usual. raw_mode=N captured
-			 * 1616 valid 4304B bodies this way; the transition sends
-			 * no vendor init, no power frames, and never delays the
-			 * handshake (best-effort, failures fall through). */
+			/* Standard-mode heat transition, opt-in.  Mode 1 preserves
+			 * the July GET6+SET5 sequence; modes 2 and 3 isolate each
+			 * command for hardware A/B testing without changing raw_mode. */
 			if (std_raw_transition && !shid->transition_done) {
-				seq_dbg(shid, 1, "SEQ: standard-mode raw transition: GET ID6 + SET ID5\n");
-				spi_hid_getfeat6_read(shid);
-				if (spi_hid_seq_write_setfeat(shid))
+				bool do_get6 = std_raw_transition == 1 ||
+					       std_raw_transition == 2;
+				bool do_set5 = std_raw_transition == 1 ||
+					       std_raw_transition == 3;
+
+				seq_dbg(shid, 1,
+					"SEQ: standard-mode raw transition: mode=%d GET6=%d SET5=%d\n",
+					std_raw_transition, do_get6, do_set5);
+
+				if (do_get6)
+					spi_hid_getfeat6_read(shid);
+
+				if (do_set5 && spi_hid_seq_write_setfeat(shid))
 					dev_warn(&shid->spi->dev,
 						 "SEQ: transition SET_FEATURE ID5 failed, continuing\n");
+
 				shid->transition_done = true;
-				/* Back to unnamed reads: the GET exception shapes
-				 * only the transition's own reads. */
+
 				shid->read_resp_type = 0;
 				shid->read_resp_content_id = 0;
 			}
@@ -3721,7 +3729,11 @@ static void seq_handle_data(struct spi_hid *shid, int type, u16 blen)
 				body[7]);
 		}
 
-		if (shid->raw_mode_active && body[7] == 0x0C && shid->touch_input) {
+		if ((shid->raw_mode_active ||
+		     (!shid->raw_mode_active &&
+		      std_raw_transition == 3 &&
+		      raw_input_beta)) &&
+		    body[7] == 0x0C && shid->touch_input) {
 			int cret;
 
 			if (stream_watchdog_ms > 0 && !shid->stream_watchdog_active) {
@@ -4675,19 +4687,22 @@ static int spi_hid_probe(struct spi_device *spi)
 
 	dev_info(dev, "SEQ: device powered by ACPI _INI, arming IRQ\n");
 
-	/* Create multitouch input device for heatmap-to-touch pipeline.
-	 * Bug fix: this was created unconditionally,
-	 * even in the default raw_mode=0 configuration where it never receives
-	 * a single event (only heatmap_process_frame() feeds it, and that's
-	 * only called when raw_mode is set) — exposing a second, permanently
-	 * dead "MSHW0231 Touchscreen" input device alongside the real
-	 * hid-core one and risking userspace picking the wrong one. Switching
-	 * raw_mode 0->1 always goes through a fresh probe (module
-	 * reload/rebind), so gating creation on raw_mode here loses no
-	 * capability. */
-	ret = mshw0231_raw_input_register(shid);
-	if (ret)
-		goto err1_touch;
+	/* Create the heatmap-backed MT input device only when it can receive
+	 * frames: native raw mode, or the opt-in standard-transport SET5
+	 * bridge. The latter keeps normal HID-over-SPI discovery/transport
+	 * while switching the panel to CapImg reports after enumeration. */
+	if (shid->raw_mode_active ||
+	    (!shid->raw_mode_active &&
+	     std_raw_transition == 3 &&
+	     raw_input_beta)) {
+		ret = mshw0231_raw_input_register(shid);
+		if (ret)
+			goto err1_touch;
+
+		if (!shid->raw_mode_active)
+			dev_info(dev,
+				 "HEATMAP: standard-transport MT bridge registered\n");
+	}
 
 	/* The descriptor's own input register stands everywhere now: e541dd0
 	 * (last working raw) never forced it — the parse fills it in, and raw
