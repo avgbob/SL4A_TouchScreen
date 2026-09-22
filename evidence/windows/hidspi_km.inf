@@ -1,0 +1,125 @@
+;/*++
+;
+;Copyright (c) Microsoft Corporation.  All rights reserved.
+;
+;Module Name:
+;    hidspi.inf
+;
+;Abstract:
+;    INF file for installing the HIDSPI miniport driver (kernel mode)
+;
+;--*/
+
+;*****************************************
+; Class section
+;*****************************************
+
+[Version]
+Signature="$WINDOWS NT$"
+Class=HIDClass
+ClassGuid={745a17a0-74d3-11d0-b6fe-00a0c90f57da}
+Provider=%MSFT%
+DriverVer = 06/21/2006,10.0.26100.8972
+PnpLockdown=1
+
+[SourceDisksNames]
+3426=windows cd
+
+[SourceDisksFiles]
+hidspi.sys  = 3426
+
+[DestinationDirs]
+hidspi_Device.CopyFiles = 12
+
+[ControlFlags]
+ExcludeFromSelect = *
+
+;*****************************************
+; Install Section
+;*****************************************
+
+[Manufacturer]
+%MSFT%=Microsoft,NTamd64...1
+
+[Microsoft.NTamd64...1]
+%hidspi.DeviceDesc%=hidspi_Device, ACPI\PNP0C51
+
+[hidspi_Device.NT]
+CopyFiles=hidspi_Device.CopyFiles
+
+[hidspi_Device.CopyFiles]
+hidspi.sys,,,0x100
+
+[hidspi_Device.NT.HW]
+AddReg = hidspi_Device.FilterLevels.AddReg, hidspi_Device.Configuration.AddReg
+Include=pci.inf
+Needs=PciD3ColdSupported.HW
+
+[hidspi_Device.FilterLevels.AddReg]
+;
+; Three levels of upper filters are defined here:
+; TopLevel:         Top of the stack, above HIDClass. The default level for filters
+;                   which don't explicitly specify a filter level.
+; HIDClassLevel:    Dedicated level for mshidkmdf to load.
+; InternalHIDLevel: Between HIDClass (mshidkmdf) and the HIDSPI driver.
+;
+HKR,,UpperFilterLevels,%REG_MULTI_SZ%,"InternalHIDLevel","HIDClassLevel",TopLevel"
+HKR,,UpperFilterDefaultLevel,,"TopLevel"
+
+[hidspi_Device.NT.Filters]
+AddFilter = mshidkmdf,,mshidkmdfInstall
+
+[mshidkmdfInstall]
+FilterLevel = HIDClassLevel
+
+[hidspi_Device.Configuration.AddReg]
+HKR,,"EnhancedPowerManagementEnabled",0x00010001,1
+HKR,,"DeviceResetNotificationEnabled",0x00010001,1
+HKR,,"LegacyTouchScaling",0x00010001,0
+
+;*****************************************
+; Service installation section
+;*****************************************
+
+[hidspi_Device.NT.Services]
+AddService = hidspi,0x00000002, hidspi_Service_Inst, hidspi_EventLog_Inst
+
+[hidspi_Service_Inst]
+DisplayName    = %hidspi.SVCDESC%
+ServiceType    = 1               ; SERVICE_KERNEL_DRIVER
+StartType      = 3               ; SERVICE_DEMAND_START
+ErrorControl   = 1               ; SERVICE_ERROR_NORMAL
+ServiceBinary  = %12%\hidspi.sys
+Dependencies = HidSpiCx
+LoadOrderGroup = Extended Base
+AddReg = hidspi_Service_Inst.AddReg
+
+[hidspi_Service_Inst.AddReg]
+HKR, Parameters, WppRecorder_UseTimeStamp, 0x00010001, 1
+
+[hidspi_EventLog_Inst]
+AddReg=hidspi_EventLog_Inst.AddReg
+
+[hidspi_EventLog_Inst.AddReg]
+HKR,,EventMessageFile,0x00020000,"%%SystemRoot%%\System32\IoLogMsg.dll;%%SystemRoot%%\System32\Drivers\hidspi.sys"
+HKR,,TypesSupported,0x00010001,7
+
+;*****************************************
+; Strings section
+;*****************************************
+
+[Strings]
+;Localizable
+MSFT="Microsoft"
+DiskName = "hidspi"
+hidspi.DeviceDesc = "SPI HID Device"
+hidspi.SVCDESC = "Microsoft SPI HID Miniport Driver"
+
+;Non-Localizable
+SERVICE_KERNEL_DRIVER  = 0x1 
+SERVICE_ERROR_IGNORE   = 0x0 
+SERVICE_ERROR_NORMAL   = 0x1 
+SERVICE_ERROR_SEVERE   = 0x2 
+SERVICE_ERROR_CRITICAL = 0x3 
+
+REG_MULTI_SZ = 0x00010000
