@@ -61,8 +61,10 @@ ls /sys/bus/spi/devices/          # the controller enumerates as spi-MSHW0231:00
 cat /sys/class/input/input*/name | sort -u    # the touch input node is named "spi 045E:0C19"
 ```
 
-Look for the input node named `spi 045E:0C19` (raw mode names it
-`MSHW0231 Touchscreen`). If something looks wrong,
+Look for the input node named `spi 045E:0C19` in the standard installer
+profile. The heatmap multitouch pipeline (raw mode or the experimental
+standard-transport beta bridge) names its node `MSHW0231 Touchscreen`. If
+something looks wrong,
 `sudo ./tools/sl4a-touch.sh logs` collects a diagnostic bundle to attach to a
 bug report.
 
@@ -80,11 +82,14 @@ Force-reboot if the unload fails.
 
 ## What to Expect
 
-- **Single-touch only** in standard HID mode (the default). Multi-touch
-  requires the experimental raw mode (`raw_mode=1`).
-- The touch input node is named **`spi 045E:0C19`** (raw mode: `MSHW0231 Touchscreen`);
-  the controller itself is the SPI device `spi-MSHW0231:00` (SL3: `spi-MSHW0162:00`).
-- A **stylus/pen input node is published** but remains untested — pen
-  input behavior has not been qualified.
-- **No multi-touch, no palm rejection, no pen qualification** in the
-  standard profile. Raw mode is experimental and not validated.
+- **Single-touch only** in the standard installer profile (the default).
+  Packaged experimental multitouch is available with `--raw`. A separate
+  manual standard-transport SET5 beta bridge was used for the targeted SL4 AMD
+  tracker qualification; see `docs/STANDARD-SET5-MULTITOUCH.md`.
+- The standard input node is **`spi 045E:0C19`**. The heatmap multitouch
+  pipeline (raw mode or the beta bridge) uses `MSHW0231 Touchscreen`; the
+  controller itself is `spi-MSHW0231:00` (SL3: `spi-MSHW0162:00`).
+- A **stylus/pen input node is published** but remains untested — pen input
+  behavior has not been qualified.
+- **No palm rejection or pen qualification.** All heatmap multitouch profiles
+  remain experimental and are not release-qualified.
