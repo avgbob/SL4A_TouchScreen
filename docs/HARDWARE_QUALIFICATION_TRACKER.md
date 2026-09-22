@@ -36,17 +36,17 @@ Keep every evidence directory intact and preserve its manifest/checksums.
 | Case | Status | Required observation |
 | --- | --- | --- |
 | Cold boot | PASS after profile correction | Corrected persistent profile (`raw_mode=N raw_input_beta=Y std_raw_transition=3`) survived a true cold boot with `F1084988B115CF74C159D58`; `MSHW0231 Touchscreen` returned on `event15`, the beta MT bridge registered, and the boot log showed the intended mode-3 SET5 transition. The earlier profile-mismatch failure is retained below. |
-| Warm boot | TODO | Same checks after normal reboot. |
-| Suspend/resume >=30 s | TODO | Touch returns after resume; binding/state sane; no input loss. |
+| Warm boot | NOT RUN | Further physical testing stopped after the cold-boot campaign. |
+| Suspend/resume >=30 s | NOT RUN | Further physical testing stopped after the cold-boot campaign. |
 | Safe module reload | PASS | `F7D22... -> F108...`; touchscreen returned; known descriptor fallback bound successfully. |
-| Pen/stylus | TODO | Record pass/fail/not observed; capture stylus trace if present. |
-| One finger | TODO | Contact appears and releases normally. |
+| Pen/stylus | NOT RUN | Further physical testing stopped after the cold-boot campaign. |
+| One finger | PARTIAL | A one-finger contact/release was observed in the cold-boot beta-MT evidence session, but no separate dedicated qualification run was completed. |
 | Two-finger pinch/expand | PASS | Same two tracking IDs preserved through the complete gesture. |
-| Three fingers | TODO | Three contacts appear and all release. |
-| Four fingers | TODO | Four contacts appear and all release. |
-| Five fingers | TODO | Five contacts appear and all release; record degradation if present. |
-| One-finger lift after close two-finger state | TODO | Lifted ID disappears; remaining ID stays stable; no ghost reappearance. |
-| 30-minute mixed-input stress | TODO | No input loss/stuck contacts; start/end protocol stats recorded; kernel log reviewed. |
+| Three fingers | NOT RUN | Further physical testing stopped after the cold-boot campaign. |
+| Four fingers | NOT RUN | Further physical testing stopped after the cold-boot campaign. |
+| Five fingers | NOT RUN | Further physical testing stopped after the cold-boot campaign. |
+| One-finger lift after close two-finger state | NOT RUN | Further physical testing stopped after the cold-boot campaign. |
+| 30-minute mixed-input stress | NOT RUN | Further physical testing stopped after the cold-boot campaign. |
 
 ## Cold-Boot Finding — 2026-09-21
 
@@ -84,6 +84,35 @@ is not the input trace for this matrix. Candidate touch cases must use
 `/dev/input/event*`, run the read-only evidence wrapper with `sudo`. The
 trace bundle propagates requested capture failures so they cannot be recorded
 as a completed session.
+
+## Qualification Stop Point — 2026-09-21
+
+No further physical touchscreen tests will be run in this campaign.
+
+The corrected beta-bridge profile passed cold-start activation: the same
+`F1084988B115CF74C159D58` module returned after a true cold boot with
+`raw_mode=N raw_input_beta=Y std_raw_transition=3`, registered
+`MSHW0231 Touchscreen`, and executed the intended mode-3 SET5 transition.
+A later beta-MT evidence capture confirmed that the correct event node produced
+real multitouch events.
+
+That cue-driven cold-boot evidence capture created IDs 30/31, released both at
+the same timestamp, and created IDs 32/33 roughly 20-42 ms later during the
+general pinch portion of the scripted window. Because the gesture cues were not
+timestamped tightly enough to prove whether the fingers remained continuously
+on glass, this result is **inconclusive for post-cold-boot pinch identity
+continuity**. It must not be recorded as either a regression or a pass.
+
+The earlier dedicated physical pinch run remains the authoritative targeted
+result for the tracker fix: it preserved the same two tracking IDs through the
+complete pinch/close/expand gesture, exercised the weak-component and
+long-occlusion recovery paths, and released normally.
+
+Warm boot, suspend/resume, pen, 3/4/5-finger qualification, the dedicated
+one-finger-lift safety case, and long mixed-input stress remain unexecuted.
+They are not prerequisites for retaining the targeted pinch fix, but they are
+still required before any full hardware-qualification or E1 compatibility
+claim.
 
 ## Evidence Root
 
