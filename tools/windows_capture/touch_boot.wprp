@@ -13,55 +13,50 @@
   <Profiles>
 
     <!--
-      Kernel/driver ETW providers are isolated into a nonpaged collector.
-      Microsoft WPR guidance requires NonPagedMemory for kernel-mode providers.
-      Keep the nonpaged footprint bounded: 256 KiB * 256 buffers = 64 MiB.
+      Keep the collector topology identical to the previously accepted profile.
+      Kernel/driver providers below opt into NonPagedMemory individually.
+      256 KiB * 256 buffers = 64 MiB total collector buffering.
     -->
-    <EventCollector Id="EC_Touch_Kernel" Name="TouchInitKernelCollector">
-      <BufferSize Value="256"/>
-      <Buffers Value="256"/>
-    </EventCollector>
-
-    <EventCollector Id="EC_Touch_User" Name="TouchInitUserCollector">
+    <EventCollector Id="EC_Touch" Name="TouchInitCollector">
       <BufferSize Value="256"/>
       <Buffers Value="256"/>
     </EventCollector>
 
     <!-- ACPI: metodi + kernel -->
-    <EventProvider Id="Acpi-MethodTrace" Name="dab01d4d-2d48-477d-b1c3-daad0ce6f06b" NonPagedMemory="true" Level="5"/>
-    <EventProvider Id="Kernel-Acpi" Name="c514638f-7723-485b-bcfc-96565d735d4a" NonPagedMemory="true" Level="5"/>
+    <EventProvider Id="Acpi-MethodTrace" Name="dab01d4d-2d48-477d-b1c3-daad0ce6f06b" NonPagedMemory="true"/>
+    <EventProvider Id="Kernel-Acpi" Name="c514638f-7723-485b-bcfc-96565d735d4a" NonPagedMemory="true"/>
 
     <!-- Power / PnP -->
-    <EventProvider Id="Kernel-Power" Name="331c3b3a-2005-44c2-ac5e-77220c37d6b4" NonPagedMemory="true" Level="5"/>
-    <EventProvider Id="Kernel-PowerTrigger" Name="aa1f73e8-15fd-45d2-abfd-e7f64f78eb11" NonPagedMemory="true" Level="5"/>
-    <EventProvider Id="Kernel-Processor-Power" Name="0f67e49f-fe51-4e9f-b490-6f2948cc6027" NonPagedMemory="true" Level="5"/>
-    <EventProvider Id="Kernel-PnP" Name="9c205a39-1250-487d-abd7-e831c6290539" NonPagedMemory="true" Level="5"/>
-    <EventProvider Id="UserPnp" Name="96f4a050-7e31-453c-88be-9634f4e02139" Level="5"/>
+    <EventProvider Id="Kernel-Power" Name="331c3b3a-2005-44c2-ac5e-77220c37d6b4" NonPagedMemory="true"/>
+    <EventProvider Id="Kernel-PowerTrigger" Name="aa1f73e8-15fd-45d2-abfd-e7f64f78eb11" NonPagedMemory="true"/>
+    <EventProvider Id="Kernel-Processor-Power" Name="0f67e49f-fe51-4e9f-b490-6f2948cc6027" NonPagedMemory="true"/>
+    <EventProvider Id="Kernel-PnP" Name="9c205a39-1250-487d-abd7-e831c6290539" NonPagedMemory="true"/>
+    <EventProvider Id="UserPnp" Name="96f4a050-7e31-453c-88be-9634f4e02139"/>
     <!-- Resolves SPB submitter PID/TID values to an image in the same ETL. -->
-    <EventProvider Id="Kernel-Process" Name="22fb2cd6-0e7b-422b-a0c7-2fad1fd0e716" NonPagedMemory="true" Level="5"/>
+    <EventProvider Id="Kernel-Process" Name="22fb2cd6-0e7b-422b-a0c7-2fad1fd0e716" NonPagedMemory="true"/>
 
     <!-- Surface: Serial Hub (SAM transport), SMF core/client, service, panel, power, HID mini -->
-    <EventProvider Id="Surface-SerialHub" Name="8ddb06d0-a54b-4014-b119-5a09fb550d18" NonPagedMemory="true" Level="5"/>
-    <EventProvider Id="Surface-SmfCore" Name="0ec12c6e-794a-4b5e-8e27-6d3dc98bbd38" NonPagedMemory="true" Level="5"/>
-    <EventProvider Id="Surface-SmfClient" Name="a8d5fcb2-ff94-4166-920d-3338902e77e0" NonPagedMemory="true" Level="5"/>
-    <EventProvider Id="Surface-Service" Name="1e8d5623-6573-47f2-b69e-eea8923ce036" Level="5"/>
-    <EventProvider Id="Surface-OemPanel" Name="3d53356d-424b-496a-a094-2154d8d2b304" Level="5"/>
-    <EventProvider Id="Surface-PowerTrack" Name="23ac50b3-680e-7ad3-a2b3-d5dbef945870" NonPagedMemory="true" Level="5"/>
-    <EventProvider Id="Surface-HidMini" Name="2fea7205-b0b1-41ca-8609-5a1d16f3132f" NonPagedMemory="true" Level="5"/>
-    <EventProvider Id="Surface-HotPlug" Name="69cd60e3-430f-4da4-b1b3-e3bdaf945875" NonPagedMemory="true" Level="5"/>
+    <EventProvider Id="Surface-SerialHub" Name="8ddb06d0-a54b-4014-b119-5a09fb550d18" NonPagedMemory="true"/>
+    <EventProvider Id="Surface-SmfCore" Name="0ec12c6e-794a-4b5e-8e27-6d3dc98bbd38" NonPagedMemory="true"/>
+    <EventProvider Id="Surface-SmfClient" Name="a8d5fcb2-ff94-4166-920d-3338902e77e0" NonPagedMemory="true"/>
+    <EventProvider Id="Surface-Service" Name="1e8d5623-6573-47f2-b69e-eea8923ce036"/>
+    <EventProvider Id="Surface-OemPanel" Name="3d53356d-424b-496a-a094-2154d8d2b304"/>
+    <EventProvider Id="Surface-PowerTrack" Name="23ac50b3-680e-7ad3-a2b3-d5dbef945870" NonPagedMemory="true"/>
+    <EventProvider Id="Surface-HidMini" Name="2fea7205-b0b1-41ca-8609-5a1d16f3132f" NonPagedMemory="true"/>
+    <EventProvider Id="Surface-HotPlug" Name="69cd60e3-430f-4da4-b1b3-e3bdaf945875" NonPagedMemory="true"/>
 
     <!-- Traffico touch grezzo, per correlare sulla stessa timeline -->
-    <EventProvider Id="SPB-ClassExtension" Name="72cd9ff7-4af8-4b89-aede-5f26fda13567" NonPagedMemory="true" Level="5"/>
-    <EventProvider Id="GPIO-ClassExtension" Name="55ab77f6-fa04-43ef-af45-688fbf500482" NonPagedMemory="true" Level="5"/>
-    <EventProvider Id="Input-HIDCLASS" Name="6465da78-e7a0-4f39-b084-8f53c7c30dc6" NonPagedMemory="true" Level="5"/>
+    <EventProvider Id="SPB-ClassExtension" Name="72cd9ff7-4af8-4b89-aede-5f26fda13567" NonPagedMemory="true"/>
+    <EventProvider Id="GPIO-ClassExtension" Name="55ab77f6-fa04-43ef-af45-688fbf500482" NonPagedMemory="true"/>
+    <EventProvider Id="Input-HIDCLASS" Name="6465da78-e7a0-4f39-b084-8f53c7c30dc6" NonPagedMemory="true"/>
 
     <!-- Windows touch-processing output: TouchBlobCoMX/Y per tracked finger. -->
-    <EventProvider Id="Surface-TouchAndPen-Prod" Name="3fa102e9-1a62-5490-7af8-6088c2f9e6be" Level="5"/>
+    <EventProvider Id="Surface-TouchAndPen-Prod" Name="3fa102e9-1a62-5490-7af8-6088c2f9e6be"/>
 
     <Profile Id="TouchInit.Verbose.File" Name="TouchInit" Description="Touch init boot trace"
              LoggingMode="File" DetailLevel="Verbose">
       <Collectors>
-        <EventCollectorId Value="EC_Touch_Kernel">
+        <EventCollectorId Value="EC_Touch">
           <EventProviders>
             <EventProviderId Value="Acpi-MethodTrace"/>
             <EventProviderId Value="Kernel-Acpi"/>
@@ -69,23 +64,19 @@
             <EventProviderId Value="Kernel-PowerTrigger"/>
             <EventProviderId Value="Kernel-Processor-Power"/>
             <EventProviderId Value="Kernel-PnP"/>
+            <EventProviderId Value="UserPnp"/>
             <EventProviderId Value="Kernel-Process"/>
             <EventProviderId Value="Surface-SerialHub"/>
             <EventProviderId Value="Surface-SmfCore"/>
             <EventProviderId Value="Surface-SmfClient"/>
+            <EventProviderId Value="Surface-Service"/>
+            <EventProviderId Value="Surface-OemPanel"/>
             <EventProviderId Value="Surface-PowerTrack"/>
             <EventProviderId Value="Surface-HidMini"/>
             <EventProviderId Value="Surface-HotPlug"/>
             <EventProviderId Value="SPB-ClassExtension"/>
             <EventProviderId Value="GPIO-ClassExtension"/>
             <EventProviderId Value="Input-HIDCLASS"/>
-          </EventProviders>
-        </EventCollectorId>
-        <EventCollectorId Value="EC_Touch_User">
-          <EventProviders>
-            <EventProviderId Value="UserPnp"/>
-            <EventProviderId Value="Surface-Service"/>
-            <EventProviderId Value="Surface-OemPanel"/>
             <EventProviderId Value="Surface-TouchAndPen-Prod"/>
           </EventProviders>
         </EventCollectorId>
