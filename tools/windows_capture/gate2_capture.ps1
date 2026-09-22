@@ -278,8 +278,20 @@ Power the Surface back on, sign in, then run the same script with -Phase Resume 
         Remove-Item -Force -ErrorAction SilentlyContinue (Join-Path $OutRoot "POSTCHECK-FAIL.txt")
         Remove-Item -Force -ErrorAction SilentlyContinue (Join-Path $OutRoot "BOOTTRACE-NOT-ACTIVE.txt")
 
-        & wpr.exe -boottrace -cancelboot 2>&1 |
-            Out-File -Encoding utf8 (Join-Path $OutRoot "wpr-cancelboot-before-arm.txt")
+        # Best-effort stale boot-trace cleanup. WPR returns an error when
+        # there is no boot autologger/recording to cancel; that is harmless
+        # here and must not abort Arm.
+        $savedEap = $ErrorActionPreference
+        try {
+            $ErrorActionPreference = "Continue"
+            & wpr.exe -boottrace -cancelboot 2>&1 |
+                Out-File -Encoding utf8 (Join-Path $OutRoot "wpr-cancelboot-before-arm.txt")
+            $cancelBootExit = $LASTEXITCODE
+            "exit_code=$cancelBootExit" |
+                Add-Content (Join-Path $OutRoot "wpr-cancelboot-before-arm.txt")
+        } finally {
+            $ErrorActionPreference = $savedEap
+        }
 
         Run-Exe wpr.exe @(
             "-boottrace",
