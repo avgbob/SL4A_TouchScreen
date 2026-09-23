@@ -54,6 +54,11 @@ _Static_assert(sizeof(hardcoded_report_descriptor) == HARDCODED_RD_SIZE,
 int sl4a_debug_level;
 static int getfeat_delay_ms;  /* RPT_DESC → GET_FEATURE settle time (0 = immediate, safe default) */
 static bool skip_getfeat = false;
+
+/* First Gate-3 hardware checkpoint: do not let legacy watchdog recovery
+ * rewrite the golden transaction stream after a failed first attempt. */
+static bool gate3_observe_only = true;
+
 /* Wire format of the host->device sequencer frames; the frames themselves live
  * in driver/spi-hid-wire-frames.h. 0 (the default) sends the Windows-identical
  * single-opcode frame, non-zero restores the legacy doubled-opcode form. */
@@ -2336,14 +2341,6 @@ out:
 
 /* ── Operating mode ────────────────────────────────────────────── */
 static bool raw_mode;
-
-/* First Gate-3 hardware checkpoint: do not let legacy watchdog recovery
- * rewrite the golden transaction stream after a failed first attempt. */
-static bool gate3_observe_only = true;
-module_param(gate3_observe_only, bool, 0444);
-MODULE_PARM_DESC(gate3_observe_only,
-	"Gate 3 default 1: log a stalled golden handshake but do not inject legacy retries/recovery");
-
 module_param(read_frame_variant, int, 0444);
 MODULE_PARM_DESC(read_frame_variant,
 	"Read approval shape: 0=reference (register at offset 7), 1=legacy (5 bytes, register in the address field), 2=both");
@@ -2564,6 +2561,10 @@ module_param(skip_getfeat, bool, 0444);
 MODULE_PARM_DESC(skip_getfeat,
 	"Legacy A/B switch. Gate 3 default is 0 so raw startup follows the golden "
 	"0x56 -> GET_FEATURE(6)/reply -> SET_FEATURE(5=1) sequence");
+
+module_param(gate3_observe_only, bool, 0444);
+MODULE_PARM_DESC(gate3_observe_only,
+	"Gate 3 default 1: log a stalled golden handshake but do not inject legacy retries/recovery");
 
 /* July one-shot transition in standard mode: GET ID6 + SET ID5=1 after RPT,
  * then passive capture on reg 0 (raw_observed counts). Opt-in; default off
