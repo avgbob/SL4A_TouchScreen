@@ -163,7 +163,7 @@ complete rollback and upgrade procedure.
 ```
 
 The Gate-3 raw profile written by `sl4a-touch.sh install --raw` uses
-`raw_mode=Y raw_input_beta=Y skip_getfeat=N raw_no_enable=1 gate3_observe_only=1 wire_double_opcode=1`, so its first hardware checkpoint follows the accepted Windows post-RDESC sequence without legacy retry traffic. The
+`raw_mode=Y raw_input_beta=Y skip_getfeat=N raw_no_enable=1 gate3_observe_only=1 wire_double_opcode=0 read_frame_variant=0`. This is deliberately a Windows-trace parity checkpoint (single-opcode writes plus the reference read-approval shape), even though older Linux field runs needed a different dialect. The six-byte payload of report 0x56 is still unresolved and suspend/resume parity is not yet claimed; see `docs/GATE3-ARCH-A.md`. The
 targeted SL4 AMD tracker qualification instead used the manual
 standard-transport beta bridge
 `raw_mode=N raw_input_beta=Y skip_std_getfeat=1 std_raw_transition=3`;
