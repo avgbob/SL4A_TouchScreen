@@ -40,7 +40,7 @@ done
 printf 'MSHW0231 Touchscreen\n' > "$D/input/input10/name"
 ln -s "$D/input/input10" "$SB/sys/class/input/event10/device"
 head -c 48 /dev/zero > "$SB/dev/input/event10"
-printf '# SL4A_TouchScreen\noptions sl4a_spi_hid raw_mode=Y raw_input_beta=Y skip_getfeat=N raw_no_enable=1 gate3_observe_only=1 wire_double_opcode=1\n' \
+printf '# SL4A_TouchScreen\noptions sl4a_spi_hid raw_mode=Y raw_input_beta=Y skip_getfeat=N raw_no_enable=1 gate3_observe_only=1 wire_double_opcode=0 read_frame_variant=0\n' \
 	> "$SB/etc/sl4a-spi-hid.conf"
 printf '# SL4A_TouchScreen\n' > "$SB/etc/sl4a-touch-activate.service"
 : > "$SB/dmesg.txt"
@@ -156,17 +156,17 @@ git -C "$ROOT" rev-parse HEAD > "$SB/var/installed-head"
 # in this order, with exactly these parameters. Order matters — a swapped label
 # or a dropped arm would otherwise stay green.
 cat > "$SB/expected-loads.txt" <<'EOS'
-sl4a_spi_hid raw_mode=Y raw_input_beta=Y skip_getfeat=N raw_no_enable=1 gate3_observe_only=1 sl4a_debug_level=3
-sl4a_spi_hid raw_mode=Y raw_input_beta=Y skip_getfeat=N raw_no_enable=1 gate3_observe_only=1 raw_pre_desc_reg0=1 sl4a_debug_level=3
-sl4a_spi_hid raw_mode=Y raw_input_beta=Y skip_getfeat=N raw_no_enable=1 gate3_observe_only=1 raw_fallback_on_reset=1 sl4a_debug_level=3
-sl4a_spi_hid raw_mode=Y raw_input_beta=Y skip_getfeat=N raw_no_enable=1 gate3_observe_only=1 raw_pre_desc_reg0=1 raw_fallback_on_reset=1 sl4a_debug_level=3
-sl4a_spi_hid raw_mode=Y raw_input_beta=Y skip_getfeat=N raw_no_enable=1 gate3_observe_only=1 read_frame_variant=2 sl4a_debug_level=3
-sl4a_spi_hid raw_mode=Y raw_input_beta=Y skip_getfeat=N raw_no_enable=1 gate3_observe_only=1 wire_double_opcode=1 sl4a_debug_level=3
-sl4a_spi_hid raw_mode=Y raw_input_beta=Y skip_getfeat=N raw_no_enable=1 gate3_observe_only=1 raw_b1f8109_preset=1 sl4a_debug_level=3
-sl4a_spi_hid raw_mode=Y raw_input_beta=Y skip_getfeat=N raw_no_enable=1 gate3_observe_only=1 wire_double_opcode=1 read_frame_variant=2 sl4a_debug_level=3
-sl4a_spi_hid raw_mode=Y raw_input_beta=Y skip_getfeat=N raw_no_enable=1 gate3_observe_only=1 wire_double_opcode=1 raw_pre_desc_reg0=1 sl4a_debug_level=3
-sl4a_spi_hid raw_mode=Y raw_input_beta=Y skip_getfeat=N raw_no_enable=1 gate3_observe_only=1 wire_double_opcode=1 read_frame_variant=2 raw_pre_desc_reg0=1 sl4a_debug_level=3
-sl4a_spi_hid raw_mode=Y raw_input_beta=Y skip_getfeat=N raw_no_enable=1 gate3_observe_only=1 wire_double_opcode=1 skip_vendor_stop=1 sl4a_debug_level=3
+sl4a_spi_hid raw_mode=Y raw_input_beta=Y skip_getfeat=N raw_no_enable=1 gate3_observe_only=1 wire_double_opcode=0 read_frame_variant=0 sl4a_debug_level=3
+sl4a_spi_hid raw_mode=Y raw_input_beta=Y skip_getfeat=N raw_no_enable=1 gate3_observe_only=1 wire_double_opcode=0 read_frame_variant=0 raw_pre_desc_reg0=1 sl4a_debug_level=3
+sl4a_spi_hid raw_mode=Y raw_input_beta=Y skip_getfeat=N raw_no_enable=1 gate3_observe_only=1 wire_double_opcode=0 read_frame_variant=0 raw_fallback_on_reset=1 sl4a_debug_level=3
+sl4a_spi_hid raw_mode=Y raw_input_beta=Y skip_getfeat=N raw_no_enable=1 gate3_observe_only=1 wire_double_opcode=0 read_frame_variant=0 raw_pre_desc_reg0=1 raw_fallback_on_reset=1 sl4a_debug_level=3
+sl4a_spi_hid raw_mode=Y raw_input_beta=Y skip_getfeat=N raw_no_enable=1 gate3_observe_only=1 wire_double_opcode=0 read_frame_variant=0 read_frame_variant=2 sl4a_debug_level=3
+sl4a_spi_hid raw_mode=Y raw_input_beta=Y skip_getfeat=N raw_no_enable=1 gate3_observe_only=1 wire_double_opcode=0 read_frame_variant=0 wire_double_opcode=1 sl4a_debug_level=3
+sl4a_spi_hid raw_mode=Y raw_input_beta=Y skip_getfeat=N raw_no_enable=1 gate3_observe_only=1 wire_double_opcode=0 read_frame_variant=0 raw_b1f8109_preset=1 sl4a_debug_level=3
+sl4a_spi_hid raw_mode=Y raw_input_beta=Y skip_getfeat=N raw_no_enable=1 gate3_observe_only=1 wire_double_opcode=0 read_frame_variant=0 wire_double_opcode=1 read_frame_variant=2 sl4a_debug_level=3
+sl4a_spi_hid raw_mode=Y raw_input_beta=Y skip_getfeat=N raw_no_enable=1 gate3_observe_only=1 wire_double_opcode=0 read_frame_variant=0 wire_double_opcode=1 raw_pre_desc_reg0=1 sl4a_debug_level=3
+sl4a_spi_hid raw_mode=Y raw_input_beta=Y skip_getfeat=N raw_no_enable=1 gate3_observe_only=1 wire_double_opcode=0 read_frame_variant=0 wire_double_opcode=1 read_frame_variant=2 raw_pre_desc_reg0=1 sl4a_debug_level=3
+sl4a_spi_hid raw_mode=Y raw_input_beta=Y skip_getfeat=N raw_no_enable=1 gate3_observe_only=1 wire_double_opcode=0 read_frame_variant=0 wire_double_opcode=1 skip_vendor_stop=1 sl4a_debug_level=3
 sl4a_spi_hid raw_mode=N sl4a_debug_level=3
 sl4a_spi_hid raw_mode=N wire_double_opcode=1 sl4a_debug_level=3
 sl4a_spi_hid raw_mode=N skip_std_getfeat=1 sl4a_debug_level=3
