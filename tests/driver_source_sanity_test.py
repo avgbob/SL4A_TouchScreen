@@ -1140,6 +1140,30 @@ def check_control_flow_pins():
                   "freshly validated ID6 response")
             failures += 1
 
+    # 7j. The low-level raw_request is the Architecture-A userspace control
+    # boundary. Numbered GET_REPORT replies must return [report_id][payload],
+    # and the current V0 implementation must not silently encode INPUT/OUTPUT
+    # raw requests as feature commands.
+    _rr = core_code.rsplit("static int spi_hid_ll_raw_request", 1)
+    if len(_rr) != 2:
+        print("FAIL driver/spi-hid-core.c: spi_hid_ll_raw_request() is gone")
+        failures += 1
+    else:
+        _rr = _rr[1].split("\n}", 1)[0]
+        for _needle, _why in (
+                ("if (rtype != HID_FEATURE_REPORT)",
+                 "raw_request no longer rejects unsupported non-feature report types"),
+                ("buf[0] = response_id",
+                 "GET_REPORT no longer returns the numbered-report ID in byte 0"),
+                ("memcpy(&buf[1], &shid->response.content, payload_len)",
+                 "GET_REPORT payload is no longer returned after the report ID"),
+                ("response_id != reportnum",
+                 "GET_REPORT no longer verifies the response report ID"),
+        ):
+            if _needle not in _rr:
+                print(f"FAIL driver/spi-hid-core.c: {_why}")
+                failures += 1
+
     # 8. the segmented read in spi-amd.c. The FIFO holds the request, the
     # answer and the controller's extra byte, so a chunk that does not fit is
     # rejected outright (tx + rx + 1 > 70) — a fixed 64-byte first chunk only
