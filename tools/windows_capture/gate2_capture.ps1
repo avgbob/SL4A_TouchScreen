@@ -409,65 +409,46 @@ After the machine boots:
         & wpr.exe -status 2>&1 |
             Out-File -Encoding utf8 (Join-Path $OutRoot "wpr-status-after-stop.txt")
 
-        $postSummary = Join-Path $OutRoot "gate2-postcheck-summary.txt"
-        $postXml = Join-Path $OutRoot "gate2-postcheck.xml"
-        Run-Exe tracerpt.exe @(
-            $etlPath,
-            "-o",$postXml,
-            "-of","XML",
-            "-lr",
-            "-summary",$postSummary,
-            "-y"
-        ) (Join-Path $OutRoot "tracerpt-postcheck.log")
-
-        $summaryText = Get-Content -Raw $postSummary
-        $elapsedSeconds = $null
-        if ($summaryText -match "Elapsed Time\s+(\d+)\s+sec") {
-            $elapsedSeconds = [int]$Matches[1]
-        }
-        if ($null -eq $elapsedSeconds -or $elapsedSeconds -lt 60) {
-            ("Gate 2 structural postcheck failed. Expected >=60 seconds spanning boot through T6." + [Environment]::NewLine + [Environment]::NewLine + $summaryText) |
-                Set-Content -Encoding utf8 (Join-Path $OutRoot "POSTCHECK-FAIL.txt")
-            throw "Gate 2 rejected: ETL does not span the full lifecycle. See POSTCHECK-FAIL.txt"
-        }
-
-        $postXmlText = Get-Content -Raw $postXml
-        $postSummaryText = if (Test-Path $postSummary) { Get-Content -Raw $postSummary } else { "" }
-        $postHaystack = ($postXmlText + [Environment]::NewLine + $postSummaryText).ToLowerInvariant()
-
-        $requiredEvidenceProviders = [ordered]@{
-            "ACPI-Method"    = "dab01d4d-2d48-477d-b1c3-daad0ce6f06b"
-            "Kernel-Acpi"    = "c514638f-7723-485b-bcfc-96565d735d4a"
-            "Kernel-Power"   = "331c3b3a-2005-44c2-ac5e-77220c37d6b4"
-            "Kernel-PnP"     = "9c205a39-1250-487d-abd7-e831c6290539"
-            "Kernel-Process" = "22fb2cd6-0e7b-422b-a0c7-2fad1fd0e716"
-            "SPB"            = "72cd9ff7-4af8-4b89-aede-5f26fda13567"
-            "GPIO"           = "55ab77f6-fa04-43ef-af45-688fbf500482"
-            "HIDCLASS"       = "6465da78-e7a0-4f39-b084-8f53c7c30dc6"
-        }
-
-        $providerRows = foreach ($kv in $requiredEvidenceProviders.GetEnumerator()) {
-            [pscustomobject]@{
-                provider = $kv.Key
-                guid = $kv.Value
-                observed = $postHaystack.Contains($kv.Value)
-            }
-        }
-        $providerRows |
-            Format-Table -AutoSize |
-            Out-String |
-            Set-Content -Encoding utf8 (Join-Path $OutRoot "gate2-provider-presence.txt")
-
-        $missingEvidenceProviders = @($providerRows | Where-Object { -not $_.observed } | ForEach-Object provider)
-        if ($missingEvidenceProviders.Count -gt 0) {
-            ("Gate 2 provider-coverage postcheck failed. Missing:" + [Environment]::NewLine +
-             ($missingEvidenceProviders -join [Environment]::NewLine)) |
-                Set-Content -Encoding utf8 (Join-Path $OutRoot "POSTCHECK-FAIL.txt")
-            throw "Gate 2 rejected: required evidence providers are missing from the final ETL. See gate2-provider-presence.txt"
-        }
-
+        # Do not expand the full ETL to XML here. Rich Gate 2 traces can
+        # produce multi-gigabyte XML and PowerShell cannot safely load that
+        # artifact with Get-Content -Raw. Structural validation is marker-
+        # based; provider/event coverage is performed by the bounded-memory
+        # decode_gate2_stream_xml.ps1 decoder against the saved ETL.
         $markerPath = Join-Path $OutRoot "markers.tsv"
         $markerText = if (Test-Path $markerPath) { Get-Content -Raw $markerPath } else { "" }
+
+        $markerRows = @()
+        if (Test-Path $markerPath) {
+            foreach ($line in Get-Content $markerPath) {
+                if ($line -match '^\s*(\S+)\s+(\S+)(?:\s+(.*))?$') {
+                    try {
+                        $markerRows += [pscustomobject]@{
+                            time = [DateTimeOffset]::Parse($Matches[1]).ToUniversalTime()
+                            step = $Matches[2]
+                        }
+                    } catch {}
+                }
+            }
+        }
+
+        $t0 = $markerRows | Where-Object step -eq "T0_PRE_BOOT" | Select-Object -First 1
+        $t6 = $markerRows | Where-Object step -eq "T6_STOP" | Select-Object -Last 1
+        if ($null -eq $t0 -or $null -eq $t6) {
+            "Gate 2 structural postcheck failed: T0_PRE_BOOT or T6_STOP timestamp missing." |
+                Set-Content -Encoding utf8 (Join-Path $OutRoot "POSTCHECK-FAIL.txt")
+            throw "Gate 2 rejected: lifecycle boundary timestamps are missing."
+        }
+
+        $elapsedSeconds = ($t6.time - $t0.time).TotalSeconds
+        if ($elapsedSeconds -lt 60) {
+            ("Gate 2 structural postcheck failed. Marker span was {0:N1}s; expected >=60s." -f $elapsedSeconds) |
+                Set-Content -Encoding utf8 (Join-Path $OutRoot "POSTCHECK-FAIL.txt")
+            throw "Gate 2 rejected: marker timeline does not span the full lifecycle."
+        }
+
+        ("Marker lifecycle span seconds={0:N3}" -f $elapsedSeconds) |
+            Set-Content -Encoding ascii (Join-Path $OutRoot "gate2-marker-span.txt")
+
         $requiredLocalMarkers = @(
             "T0_PRE_BOOT",
             "T0_BOOTTRACE_ACTIVE",
