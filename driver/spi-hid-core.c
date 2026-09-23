@@ -766,6 +766,10 @@ static int spi_hid_seq_write_get_feature6(struct spi_hid *shid)
 	struct spi_hid_wire_frame frame =
 		spi_hid_wire_get_feature6(spi_hid_wire_doubled());
 
+	/* A new GET6 transaction must not inherit validity from an earlier
+	 * lifecycle. Gate 3 treats a freshly validated ID6 reply as a prerequisite
+	 * for ID5 in observe-only mode. */
+	shid->getfeat6.valid = false;
 	shid->read_resp_type = SPI_HID_CONTENT_TYPE_GET_FEATURE;
 	shid->read_resp_content_id = SPI_HID_GETFEAT6_REPORT_ID;
 
@@ -2485,6 +2489,15 @@ static void spi_hid_getfeat6_retain(struct spi_hid *shid, const u8 *body, u32 bo
 		seq_dbg(shid, 1, "SEQ: GET_FEATURE(6) reply not parseable, ignored\n");
 		return;
 	}
+	if (content.content_id != SPI_HID_GETFEAT6_REPORT_ID ||
+	    content.total_length != SPI_HID_GETFEAT6_CONTENT_LEN ||
+	    content.data_length != SPI_HID_GETFEAT6_PAYLOAD_LEN) {
+		shid->getfeat6.valid = false;
+		dev_warn(&shid->spi->dev,
+			 "GATE3: GET_FEATURE(6) reply rejected: id=%u total=%u payload=%u\n",
+			 content.content_id, content.total_length, content.data_length);
+		return;
+	}
 	if (shid->getfeat6.valid)
 		seq_dbg(shid, 2, "SEQ: GET_FEATURE(6) reply replaced\n");
 
@@ -3587,13 +3600,23 @@ static void seq_handle_feat(struct spi_hid *shid, int type, u16 blen)
 
 		shid->stat_getfeat_resp++;
 		seq_dbg(shid, 1, "SEQ: GET_FEAT_RESP! reading body (%u bytes)...\n", blen);
-		/* A failed read is logged and the handshake still completes: the
-		 * Report ID 6 payload is diagnostic only, so probing must not be
-		 * held up by it. */
 		if (rblen >= 3 && !spi_hid_seq_read(shid, body, rblen))
 			spi_hid_getfeat6_retain(shid, body, rblen);
 		else
-			dev_warn(&shid->spi->dev, "SEQ: GET_FEATURE response read failed or was truncated, continuing\n");
+			dev_warn(&shid->spi->dev,
+				 "SEQ: GET_FEATURE response read failed or was truncated\n");
+
+		/* The Gate-3 checkpoint is a parity measurement, not a recovery
+		 * experiment. Windows T2 consumed a valid ID6 reply before sending
+		 * ID5. If that reply is absent or malformed, stop at the first
+		 * divergence so later traffic cannot make the trace look healthier
+		 * than it is. Legacy diagnostic mode retains the old continue-on-error
+		 * behavior when gate3_observe_only=0. */
+		if (gate3_observe_only && !shid->getfeat6.valid) {
+			dev_warn(&shid->spi->dev,
+				 "GATE3: ID6 response invalid; stopping before SET_FEATURE ID5=1\n");
+			return;
+		}
 		{
 			int ret;
 
