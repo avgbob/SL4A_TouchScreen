@@ -53,7 +53,7 @@ _Static_assert(sizeof(hardcoded_report_descriptor) == HARDCODED_RD_SIZE,
 
 int sl4a_debug_level;
 static int getfeat_delay_ms;  /* RPT_DESC → GET_FEATURE settle time (0 = immediate, safe default) */
-static bool skip_getfeat = true;
+static bool skip_getfeat = false;
 /* Wire format of the host->device sequencer frames; the frames themselves live
  * in driver/spi-hid-wire-frames.h. 0 (the default) sends the Windows-identical
  * single-opcode frame, non-zero restores the legacy doubled-opcode form. */
@@ -1263,10 +1263,10 @@ static int spi_hid_raw_enable_stream(struct spi_hid *shid)
  * 1616 valid bodies); the 0x56 frame moves the stream to 0x0A (boot #0531 ->
  * 0x0A idle), so sending it after ID5 kills the 0x04 stream this driver
  * reads. */
-static int raw_no_enable;
+static int raw_no_enable = 1;
 module_param(raw_no_enable, int, 0444);
 MODULE_PARM_DESC(raw_no_enable,
-	"Skip the 0x56 stream enable at DONE (SET_FEATURE ID5 owns the stream)");
+	"Gate 3 default 1: do not emit a second 0x56 at DONE; golden startup sends it once before GET6");
 
 static void spi_hid_raw_stream_arm(struct spi_hid *shid)
 {
@@ -2349,7 +2349,7 @@ MODULE_PARM_DESC(raw_input_beta,
 static bool acpi_probe_power_cycle = false;
 module_param(acpi_probe_power_cycle, bool, 0444);
 MODULE_PARM_DESC(acpi_probe_power_cycle,
-	"Experimental ACPI _PS3->_PS0 power cycle at probe (default disabled)");
+	"Deprecated on gate3-arch-A: ignored; Gate 2 golden lifecycle is _PS0->_RST");
 
 module_param(sync_timeout_ms, int, 0444);
 
@@ -2550,8 +2550,8 @@ static void spi_hid_getfeat6_read(struct spi_hid *shid)
 
 module_param(skip_getfeat, bool, 0444);
 MODULE_PARM_DESC(skip_getfeat,
-	"Skip the standard-mode feature-read handshake (no WAIT_FEATURE state). "
-	"The raw-mode Report ID 6 configuration read still runs");
+	"Legacy A/B switch. Gate 3 default is 0 so raw startup follows the golden "
+	"0x56 -> GET_FEATURE(6)/reply -> SET_FEATURE(5=1) sequence");
 
 /* July one-shot transition in standard mode: GET ID6 + SET ID5=1 after RPT,
  * then passive capture on reg 0 (raw_observed counts). Opt-in; default off
@@ -4456,41 +4456,61 @@ static void spi_hid_probe_gpio(struct spi_hid *shid, unsigned long irqflags)
 	seq_dbg(shid, 1, "GPIO dance complete\n");
 }
 
-/* Opt-in probe-time power cycle (_PS3 → _PS0). A device-specific legacy
- * experiment, not generic power management: keep it behind
- * acpi_probe_power_cycle until cold-boot A/B traces prove it required.
- * Never wait as if a failed AML transition had succeeded. */
-static int spi_hid_probe_acpi_cycle(struct spi_hid *shid)
+/* Gate 3 Architecture A lifecycle.
+ *
+ * Gate 2 observed the Windows golden path on this exact machine:
+ *   activation: _PS0 -> _RST
+ *   deactivation/sleep: _PS3
+ *
+ * _RST itself contains the board's required ~300 ms GPIO reset interval.
+ * Do not add the old _PS3->_PS0 probe experiment here: that was a Linux
+ * hypothesis, not an observed Windows activation transition.
+ */
+static int spi_hid_acpi_eval(struct spi_hid *shid, const char *method)
 {
 	struct device *dev = &shid->spi->dev;
 	acpi_handle h = ACPI_HANDLE(dev);
+	acpi_status status;
 
-	if (!acpi_probe_power_cycle)
+	if (dev->of_node)
 		return 0;
-	if (h) {
-		acpi_status status;
-
-		dev_info(dev, "SEQ: Power cycling device via ACPI _PS3 -> _PS0...\n");
-		seq_dbg(shid, 1, "ACPI _PS3 begin\n");
-		status = acpi_evaluate_object(h, "_PS3", NULL, NULL);
-		if (ACPI_FAILURE(status)) {
-			dev_err(dev, "SEQ: ACPI _PS3 failed: %s\n",
-				acpi_format_exception(status));
-			return -EIO;
-		}
-		seq_dbg(shid, 1, "ACPI _PS3 complete\n");
-		msleep(50);
-		seq_dbg(shid, 1, "ACPI _PS0 begin\n");
-		status = acpi_evaluate_object(h, "_PS0", NULL, NULL);
-		if (ACPI_FAILURE(status)) {
-			dev_err(dev, "SEQ: ACPI _PS0 failed: %s\n",
-				acpi_format_exception(status));
-			return -EIO;
-		}
-		seq_dbg(shid, 1, "ACPI _PS0 complete\n");
-		msleep(100);
+	if (!h) {
+		dev_err(dev, "GATE3: no ACPI handle for %s\n", method);
+		return -ENODEV;
 	}
+
+	seq_dbg(shid, 1, "GATE3: ACPI %s begin\n", method);
+	status = acpi_evaluate_object(h, (acpi_string)method, NULL, NULL);
+	if (ACPI_FAILURE(status)) {
+		dev_err(dev, "GATE3: ACPI %s failed: %s\n",
+			method, acpi_format_exception(status));
+		return -EIO;
+	}
+	seq_dbg(shid, 1, "GATE3: ACPI %s complete\n", method);
 	return 0;
+}
+
+static int spi_hid_acpi_activate_golden(struct spi_hid *shid)
+{
+	int ret;
+
+	if (shid->spi->dev.of_node)
+		return 0;
+
+	dev_info(&shid->spi->dev, "GATE3: activation _PS0 -> _RST\n");
+	ret = spi_hid_acpi_eval(shid, "_PS0");
+	if (ret)
+		return ret;
+	return spi_hid_acpi_eval(shid, "_RST");
+}
+
+static int spi_hid_acpi_deactivate_golden(struct spi_hid *shid)
+{
+	if (shid->spi->dev.of_node)
+		return 0;
+
+	dev_info(&shid->spi->dev, "GATE3: deactivation _PS3\n");
+	return spi_hid_acpi_eval(shid, "_PS3");
 }
 
 /**
@@ -4517,8 +4537,10 @@ static int spi_hid_probe(struct spi_device *spi)
 	unsigned long irqflags;
 	int ret;
 
-	dev_info(dev, "TRACE[hid] probe begin irq=%d raw_mode=%u acpi_power_cycle=%u\n",
-		 spi->irq, raw_mode, acpi_probe_power_cycle);
+	dev_info(dev, "TRACE[hid] probe begin irq=%d raw_mode=%u gate3_golden_lifecycle=1\n",
+		 spi->irq, raw_mode);
+	if (acpi_probe_power_cycle)
+		dev_warn(dev, "GATE3: acpi_probe_power_cycle is deprecated and ignored\n");
 
 	/* A negative delay would be added to the raw handshake timeout and wrap
 	 * msecs_to_jiffies() into the far future: the watchdog would stay armed
@@ -4665,27 +4687,24 @@ static int spi_hid_probe(struct spi_device *spi)
 	if (!dev->of_node)
 		spi_hid_probe_gpio(shid, irqflags);
 
-	ret = spi_hid_probe_acpi_cycle(shid);
+	/* ACPI core has already evaluated _INI before probe. Gate 2 proves the
+	 * next Windows activation transitions are _PS0 then _RST. Keep the IRQ
+	 * unrequested during the reset; after it completes we arm IRQ and issue
+	 * DESCREQ directly, so discovery does not depend on catching a transient
+	 * RESET_RSP edge generated inside _RST. */
+	ret = spi_hid_acpi_activate_golden(shid);
 	if (ret)
 		goto err1;
 
 	mutex_lock(&shid->seq_lock);
 	shid->seq_enabled = true;
 	spi_hid_seq_set_state(shid, SPI_HID_SEQ_WAIT_RESET, SPI_HID_SEQ_PROBE);
-	shid->ready = shid->seq_state >= SPI_HID_SEQ_DONE;
+	shid->ready = false;
 	mutex_unlock(&shid->seq_lock);
 
-	/* Wait for device to stabilize after ACPI _INI power-on.
-	 * _INI is called by the ACPI subsystem before probe() and handles
-	 * GPIO power sequencing. The device is already powered and sending
-	 * RESET_RSP. Do NOT call _RST/M009/M010 — power cycle kills the
-	 * The _RST method calls M010 which destroys the device until cold reboot. */
-	seq_dbg(shid, 1, "probe settling delay begin\n");
-	msleep(300);
-	seq_dbg(shid, 1, "probe settling delay complete\n");
 	shid->desc.input_register = SPI_HID_DEFAULT_INPUT_REGISTER;
 
-	dev_info(dev, "SEQ: device powered by ACPI _INI, arming IRQ\n");
+	dev_info(dev, "GATE3: ACPI activation complete; arming IRQ before DESCREQ\n");
 
 	/* Create the heatmap-backed MT input device only when it can receive
 	 * frames: native raw mode, or the opt-in standard-transport SET5
@@ -4747,12 +4766,18 @@ static int spi_hid_probe(struct spi_device *spi)
 	}
 	shid->irq_requested = true;
 	shid->irq_enabled = true;
-	/* Only now can an edge be counted, so only now does the backstop's "no IRQ
-	 * at all" clock mean anything (issue #4). */
+
+	/* Gate 2 does not require a RESET_RSP between _RST and descriptor
+	 * discovery. Start the observed discovery phase explicitly now that an
+	 * IRQ generated by the response can be serviced. */
 	mutex_lock(&shid->seq_lock);
-	spi_hid_arm_wait_reset_watchdog(shid);
+	ret = spi_hid_seq_restart_discovery(shid, SPI_HID_SEQ_PROBE);
 	mutex_unlock(&shid->seq_lock);
-	dev_info(dev, "SEQ: IRQ armed (state=WAIT_RESET, zero touch)\n");
+	if (ret) {
+		dev_err(dev, "GATE3: initial DESCREQ failed after _PS0->_RST: %d\n", ret);
+		goto err1_touch;
+	}
+	dev_info(dev, "GATE3: IRQ armed; DESCREQ sent after _PS0->_RST\n");
 	trace_spi_hid_lifecycle(shid, SPI_HID_LIFECYCLE_IRQ_ARMED, 0);
 	dev_info(dev, "TRACE[hid] probe complete: d3 -> %s\n",
 		spi_hid_power_mode_string(shid->power_state));
@@ -4880,6 +4905,14 @@ static int spi_hid_suspend(struct device *dev)
 	/* No reply can arrive now: release a synchronous caller immediately
 	 * instead of letting it sit out the full sync timeout. */
 	spi_hid_abort_pending_sync(shid);
+
+	/* Windows golden suspend/disable transition. The transport is quiesced
+	 * before AML powers the panel down, so no SPI request can race _PS3. */
+	{
+		int ret = spi_hid_acpi_deactivate_golden(shid);
+		if (ret)
+			return ret;
+	}
 	return 0;
 }
 
@@ -4887,8 +4920,17 @@ static int spi_hid_resume(struct device *dev)
 {
 	struct spi_device *spi = to_spi_device(dev);
 	struct spi_hid *shid = spi_get_drvdata(spi);
+	int ret;
 
 	seq_dbg(shid, 1, "PM: resume\n");
+
+	/* Gate 2 golden activation: _PS0 -> _RST. IRQ is still disabled from
+	 * suspend and seq_enabled is still false, so no stale edge can advance
+	 * the sequencer while AML owns the device. */
+	ret = spi_hid_acpi_activate_golden(shid);
+	if (ret)
+		return ret;
+
 	mutex_lock(&shid->seq_lock);
 	if (shid->ready) {
 		shid->ready = false;
@@ -4910,38 +4952,15 @@ static int spi_hid_resume(struct device *dev)
 	shid->done_latched = false;
 	shid->feat_delay_pending = false;
 	shid->std_liveness_recovered = false;
+	shid->raw_stream_armed = false;
 	mshw0231_raw_reset(shid);
-	WRITE_ONCE(shid->seq_enabled, true);
 	shid->seq_state = SPI_HID_SEQ_WAIT_RESET;
+	WRITE_ONCE(shid->seq_enabled, true);
 	WRITE_ONCE(shid->suspended, false);
-	/* Standard mode: the device now owes us a RESET_RSP and nothing else is
-	 * armed if it stays quiet. */
-	spi_hid_arm_wait_reset_watchdog(shid);
-	/* Raw mode: that arm returns immediately there, so a controller coming
-	 * back from resume without a RESET_RSP had no timer at all and the panel
-	 * stayed dead until the next suspend/resume. The raw watchdog is a no-op
-	 * once the handshake is confirmed, so arming it here is safe. */
-	if (shid->raw_mode_active && !shid->raw_handshake_confirmed)
-		schedule_delayed_work(&shid->raw_handshake_watchdog,
-				      msecs_to_jiffies(RAW_HANDSHAKE_TIMEOUT_MS));
 	mutex_unlock(&shid->seq_lock);
 
-	/* Vendor init before the IRQ is re-enabled: it writes the D2/D0 pair and
-	 * sleeps between the frames, and an IRQ processed in between would let
-	 * the sequencer advance mid-init (a failed init also went unnoticed). */
-	if (shid->raw_mode_active) {
-		int vret = 0;
-
-		mutex_lock(&shid->seq_lock);
-		if (!READ_ONCE(shid->removing) && !READ_ONCE(shid->suspended) &&
-		    READ_ONCE(shid->seq_enabled))
-			vret = spi_hid_vendor_init(shid);
-		mutex_unlock(&shid->seq_lock);
-		if (vret)
-			dev_warn(&spi->dev, "SEQ: resume vendor init failed: %d\n",
-				 vret);
-	}
-
+	/* Re-enable IRQ before DESCREQ so the descriptor response cannot race an
+	 * IRQ-disabled interval. The reset response itself is not required. */
 	{
 		bool arm;
 
@@ -4954,7 +4973,15 @@ static int spi_hid_resume(struct device *dev)
 			enable_irq(shid->irq);
 	}
 
-	return 0;
+	mutex_lock(&shid->seq_lock);
+	ret = spi_hid_seq_restart_discovery(shid, SPI_HID_SEQ_DEVICE_RESET);
+	mutex_unlock(&shid->seq_lock);
+	if (ret)
+		dev_err(dev, "GATE3: resume DESCREQ failed after _PS0->_RST: %d\n", ret);
+	else
+		dev_info(dev, "GATE3: resume _PS0->_RST complete; DESCREQ sent\n");
+
+	return ret;
 }
 
 static const struct dev_pm_ops spi_hid_pm_ops = {
