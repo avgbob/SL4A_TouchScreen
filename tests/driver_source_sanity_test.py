@@ -1164,6 +1164,31 @@ def check_control_flow_pins():
                 print(f"FAIL driver/spi-hid-core.c: {_why}")
                 failures += 1
 
+    # 7k. V0 live-body reads carry the request context that staged them.
+    # A userspace HID SET_FEATURE must therefore update read_resp_type/id just
+    # like the old special ID5 helper, and standard transition code must not
+    # erase that context before the first 0x0c body.
+    _setreq = core_code.rsplit("static int spi_hid_set_request", 1)
+    if len(_setreq) != 2:
+        print("FAIL driver/spi-hid-core.c: spi_hid_set_request() is gone")
+        failures += 1
+    else:
+        _setreq = _setreq[1].split("\n}", 1)[0]
+        for _needle in (
+                "shid->read_resp_type = SPI_HID_CONTENT_TYPE_SET_FEATURE",
+                "shid->read_resp_content_id = content_id",
+        ):
+            if _needle not in _setreq:
+                print("FAIL driver/spi-hid-core.c: generic SET_FEATURE no longer "
+                      "preserves V0 read context")
+                failures += 1
+                break
+
+    if "shid->transition_done = true;\n\n\t\t\t\tshid->read_resp_type = 0;" in core_code:
+        print("FAIL driver/spi-hid-core.c: standard transition erases the "
+              "feature context needed by live V0 reads")
+        failures += 1
+
     # 8. the segmented read in spi-amd.c. The FIFO holds the request, the
     # answer and the controller's extra byte, so a chunk that does not fit is
     # rejected outright (tx + rx + 1 > 70) — a fixed 64-byte first chunk only
