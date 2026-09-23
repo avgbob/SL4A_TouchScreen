@@ -312,15 +312,26 @@ def check_control_flow_pins():
               "the unchanged-state return, so a re-entered WAIT_DESC never arms it")
         failures += 1
 
-    # 3. spi_hid_resume(): it assigns the state directly instead of going
-    # through spi_hid_seq_set_state(), and the standard-mode arm it does call is
-    # a no-op in raw mode — so without its own arm a controller that comes back
-    # from resume without a RESET_RSP has no timer at all and stays dead.
+    # 3. spi_hid_resume(): raw mode still needs a bounded observation timer
+    # after resume. Gate 3 no longer waits for RESET_RSP; it enters descriptor
+    # discovery explicitly through spi_hid_seq_restart_discovery(), and the
+    # WAIT_DESC transition is already checked above to arm raw_handshake_watchdog
+    # before the unchanged-state return. Accept either that path or a direct arm.
     body = core_code.split("static int spi_hid_resume", 1)[1].split("\n}", 1)[0]
-    if "raw_handshake_watchdog" not in body:
-        print("FAIL driver/spi-hid-core.c: spi_hid_resume() no longer arms the raw "
-              "watchdog (raw mode has no timer for a silent post-resume controller)")
+    if ("raw_handshake_watchdog" not in body and
+            "spi_hid_seq_restart_discovery" not in body):
+        print("FAIL driver/spi-hid-core.c: spi_hid_resume() neither directly arms "
+              "the raw watchdog nor restarts discovery through WAIT_DESC")
         failures += 1
+
+    # Gate 3's first hardware checkpoint must remain observation-only: a failed
+    # golden handshake must not be overwritten by the legacy D2/D0 retry path.
+    if "gate3_observe_only = true" in core_code:
+        _wd_gate3 = core_code.split("static void spi_hid_raw_handshake_watchdog", 1)[1].split("\n}", 1)[0]
+        if "if (gate3_observe_only)" not in _wd_gate3 or "goto out;" not in _wd_gate3:
+            print("FAIL driver/spi-hid-core.c: Gate-3 observe-only mode no longer "
+                  "exits the raw watchdog before legacy recovery traffic")
+            failures += 1
 
     # 4. spi_hid_raw_handshake_watchdog(): its "fall back to standard HID" branch
     # must install the hardcoded descriptors first. Without them
