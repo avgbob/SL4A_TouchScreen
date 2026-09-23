@@ -1866,9 +1866,9 @@ hunt_evdev_read() {
 # goes through /sys/module (scoped to the sandbox's stub sysfs under test).
 hunt_param_readback() {
 	local p out=""
-	for p in raw_mode raw_input_beta skip_getfeat read_frame_variant wire_double_opcode \
-	         raw_pre_desc_reg0 raw_fallback_on_reset skip_vendor_stop \
-	         raw_b1f8109_preset; do
+	for p in raw_mode raw_input_beta skip_getfeat raw_no_enable gate3_observe_only \
+	         read_frame_variant wire_double_opcode raw_pre_desc_reg0 \
+	         raw_fallback_on_reset skip_vendor_stop raw_b1f8109_preset; do
 		out="$out$p=$(cat "/sys/module/sl4a_spi_hid/parameters/$p" 2>/dev/null || echo '?') "
 	done
 	printf '%s' "$out"
