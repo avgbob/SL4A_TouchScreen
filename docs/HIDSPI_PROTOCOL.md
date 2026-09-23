@@ -110,21 +110,38 @@ Read from the `report_descriptor_register` at the address reported
 in the hardware descriptor. The device returns a RPT_DESC (0x0B) frame
 containing the 936-byte HID report descriptor.
 
-### 4. SET_FEATURE ID5 (Raw Mode Activation)
+### 4. Observed post-RDESC feature traffic
+
+Gate 2 T2 directly observed this order after the 936-byte report descriptor:
+
+```text
+SET_FEATURE 0x56
+GET_FEATURE ID6
+ID6 response (content ID 6, total content length 122)
+SET_FEATURE ID5=1
+live 0x0C bodies
+```
+
+The T2 ID5 transfer was:
 
 ```
-Host sends: 02 00 00 03 82 00 03 04 00 05 01 0C EE 5B   (14 bytes)
+02 00 00 03 82 00 03 04 00 05 01 D7 FC 6E
 ```
 
-`0F` is the content-layer id, not a wire opcode. The frame is built by
-`spi_hid_wire_set_feature5()` (`driver/spi-hid-wire-frames.h`) and pinned byte
-for byte by `tests/wire_frames_test.c`.
+Only `01` is the one-byte ID5 payload: the content-length field is 4 bytes
+(three-byte content header plus one payload byte). The final three bytes are
+alignment/padding and are **not** a universal key/check trailer. Gate 2 observed
+other ID5 transfers ending in `00 00 00` and `A1 01 00`.
 
-This command is part of the observed raw-mode sequence. It is not yet proven
-that ID5 alone establishes a reliable stream, and the frame layout is still
-under reconciliation. The current parser accepts byte-indexed CapImg bodies of
-roughly 4304 bytes; older documentation described a 16-bit 6912-byte raster.
-See `docs/EVIDENCE.md` before using either interpretation as a protocol change.
+Report `0x56` is different: its six bytes after the report ID are semantic
+payload. An older capture contains `BD 0C EE 5B 44 4C`; Gate 2 contains
+`D9 D7 FC 6E 79 4C`. The source/generation rule for that six-byte payload is
+currently unknown, so the checked-in builder is a historical capture fixture,
+not a proven per-boot Windows constant.
+
+The current parser accepts byte-indexed CapImg bodies of roughly 4304 bytes;
+older documentation described a 16-bit 6912-byte raster. See
+`docs/EVIDENCE.md` before using either interpretation as a protocol change.
 
 ### 5. Input Report Processing
 
@@ -148,22 +165,22 @@ for the exact firmware and profile.
 
 ### Opcode Doubling
 
-A single write opcode (`0x02`) starts each command frame. Windows sends it once
-and pads the short command bodies with the constant `0C EE 5B` trailer; the
-Linux driver sent it twice (`02 02 ..`) with a zeroed trailer until the frames
-were reconciled against `captures/wintrace/surface_init.csv`. The Windows form is
-now the default (`wire_double_opcode=0`) and the doubled form is behind
-`wire_double_opcode=1`. The frames themselves are defined in
-`driver/spi-hid-wire-frames.h` and asserted byte for byte by
-`tests/wire_frames_test.c`.
+A single write opcode (`0x02`) starts each command frame in the Windows Gate-2
+trace. The older Linux doubled form (`02 02 ..`) remains behind
+`wire_double_opcode=1`. Do not infer semantic meaning from alignment bytes
+after a short content payload: Gate 2 shows those bytes vary between otherwise
+equivalent ID5 commands.
 
-> Field note (MSHW0231, 2026-09-19): this panel never answers the
-> single-opcode DESCREQ — discovery reset-loops (~9 RESET_RSP/s,
-> `device_desc=0`) until the doubled form is used, so both installed profiles
-> ship `wire_double_opcode=1`. Likewise, sixteen-byte header reads over-clock
-> the bare nine-byte handshake answers and stall discovery; pre-DONE header
-> reads are nine bytes in both modes (sixteen only for the raw DONE stream).
-> See `spi_hid_hdr_len()` and the CHANGELOG Unreleased entry.
+The standard installed profile remains on the older field-qualified doubled
+Linux dialect. The Gate-3 raw checkpoint intentionally overrides it with
+`wire_double_opcode=0 read_frame_variant=0` to measure the Windows-captured
+shape. Older field evidence that this panel did not answer that Linux shape is
+still important; the checkpoint is designed to expose that divergence rather
+than hide it with a fallback.
+
+The frame builders remain in `driver/spi-hid-wire-frames.h`, but the
+`0x56` builder's six-byte payload is currently a historical-capture fixture,
+not a universally established Windows constant.
 
 ### TX_COUNT Quirk
 
@@ -182,12 +199,16 @@ also `docs/FRAME-MATRIX.md`).
 After a cold boot, the first DESCREQ attempt may fail. Recovery timing and
 power sequencing are experimental and require target-machine evidence.
 
-### GET_FEATURE Delay
+### GET_FEATURE Timing
 
-Windows traces measure a ~3.6 s gap between RPT_DESC and GET_FEATURE
-(`surface_init.csv` rows 6195→6431: 3.623 s); the original protocol
-documentation cited ~5.9 s, which is not reproducible from the trace rows.
-The Linux delay is configuration-dependent; with `skip_getfeat=1`, the
+The accepted Gate-2 T2 capture measured approximately 123 ms from the report
+descriptor response to SET_FEATURE 0x56, 84.6 ms from 0x56 to GET_FEATURE ID6,
+and 17.3 ms from the ID6 response to ID5. These are observed timings for that
+lifecycle, not protocol requirements.
+
+An older `surface_init.csv` capture contains a ~3.6 s RPT_DESC→GET_FEATURE gap.
+Treat that as historical capture behavior rather than a universal Windows
+settle rule. The Linux delay is configuration-dependent; with `skip_getfeat=1`, the
 experimental vendor-init path (0xC2 opcode) does not park in `WAIT_FEATURE`
 waiting for the GET_FEATURE reply, and no `skip_getfeat` value suppresses the
 raw-mode Report ID 6 configuration read that Windows performs between RPT_DESC
