@@ -1,153 +1,131 @@
-# Gate 3 — Architecture A transport checkpoint
+# Gate 3 — Architecture A split checkpoint
 
-Gate 2 is closed PASS. The accepted Windows capture is the evidence source, but
-this branch also carries this audit because the first Gate-2 normalization
-compressed several lifecycle details.
+Gate 2 is closed PASS. The post-Gate-2 audit is in
+`docs/GATE3-AUDIT.md`.
 
-## Scope of the first checkpoint
+## Goal
 
-The first hardware checkpoint is **enumeration / disable->enable parity**. It is
-not yet a suspend/resume qualification run.
+Gate 3 is the **architecture split**, not Windows byte-for-byte qualification.
+The kernel should become a V0 HID-SPI transport and userspace should own Heat
+processing.
 
-Observed Windows T2 activation target:
-
-```text
-_PS0
-_RST
-DEVICE_DESC
-936-byte RPT_DESC
-SET_FEATURE 0x56
-GET_FEATURE ID6
-read and validate ID6 response
-SET_FEATURE ID5=1
-live 0x0C transport
-```
-
-The Gate-3 raw profile therefore explicitly requests:
+Target:
 
 ```text
-wire_double_opcode=0
-read_frame_variant=0
-skip_getfeat=0
-raw_no_enable=1
-gate3_observe_only=1
+ACPI HSPI / MSHW0231
+        |
+   AMDI0060
+   sl4a-spi-amd.ko
+        |
+   V0 HID-SPI transport
+   sl4a-spi-hid.ko
+        |
+   one Linux HID device
+   936-byte report descriptor
+        |
+   HID core + hidraw
+        |
+   sl4a-heat
+   Col02 GET6 / SET5
+   input 0x0C -> CapImg -> contacts
+        |
+   uinput -> libinput / Wayland
 ```
 
-This intentionally differs from the older Linux field-qualified raw dialect.
-A failure is useful evidence: the point is to measure the Windows-observed
-shape without a fallback silently replacing it.
+Linux does not need to recreate Windows child PDOs. Hidraw exposes the raw
+reports of the physical HID device; userspace filters report IDs belonging to
+the reconstructed Col02 collection.
 
-## What Gate 2 actually established
+## Why this changed
 
-### ACPI
+The Gate-2 bus chronology was initially read as one kernel startup handshake:
 
-Cold boot contained two `_PS0` evaluations; the second is immediately followed
-by `_RST`. T2 disable/enable also contains an earlier `_PS0` before disable,
-then `_PS3`, and later enable `_PS0 -> _RST`.
+`0x56 -> GET6 -> ID5 -> 0x0C`.
 
-The activation transition this checkpoint copies is therefore specifically the
-observed **activation `_PS0 -> _RST` pair**, not a claim that those are the only
-ACPI calls Windows makes.
+The 936-byte descriptor shows that interpretation is wrong:
 
-### T2 post-RDESC sequence
+- GET6, ID5 and 0x0C belong to top-level collection 2 (Windows Col02 / Heat).
+- 0x40 belongs to top-level collection 6 (Windows touchscreen).
+- 0x56 belongs to top-level collection 7, not Col02.
 
-For the disable->enable lifecycle, the captured order is:
+Gate 2 also shows different submitting PIDs for 0x56 versus GET6/ID5. Therefore
+chronological interleaving on one SPI bus is not proof of one owner.
 
-1. 936-byte report descriptor
-2. `SET_FEATURE 0x56`
-3. `GET_FEATURE ID6`
-4. valid ID6 response (content ID 6, total content length 122)
-5. `SET_FEATURE ID5=1`
-6. live `0x0C` bodies
+## Gate-3 kernel requirements
 
-Gate 3 stops before ID5 in observe-only mode if the ID6 reply is absent or does
-not match that observed response shape.
+1. Standard V0 discovery creates the normal Linux HID device.
+2. The real 936-byte descriptor is supplied to HID core.
+3. Every descriptor-valid input report, including ID 0x0C, is forwarded through
+   `hid_input_report()` on the standard path.
+4. `.raw_request` exposes HID feature GET/SET semantics correctly:
+   - numbered GET returns `[report_id][payload]`;
+   - SET accepts `[report_id][payload]`;
+   - successful feature SET preserves the V0 request context used by later
+     body reads.
+5. Kernel Heat processing is optional legacy/qualification behavior only; it
+   must not steal raw reports from HID core.
+6. No Col07 0x56 policy is required for the Col02 Heat acceptance checkpoint.
+7. Suspend/resume parity is qualified separately after the split.
 
-### Command padding and the 0x56 payload
+## Gate-3 userspace checkpoint
 
-The final three bytes of the 14-byte ID5 frame are outside ID5's one-byte
-semantic payload. Gate 2 observed multiple values in those pad bytes
-(`D7 FC 6E`, `00 00 00`, and `A1 01 00`), so they are **not** a universal
-ID5 key/check trailer.
+A minimal `sl4a-heat` transport client must:
 
-The six bytes inside report `0x56` are different: they are semantic report
-payload. Older checked-in capture evidence used `BD 0C EE 5B 44 4C`; the Gate-2
-golden run used `D9 D7 FC 6E 79 4C`. The source/generation rule for those six
-bytes is currently **UNKNOWN**. The existing builder is therefore a historical
-fixture, not proven byte-exact Windows behavior for every boot.
+1. locate the MSHW0231 hidraw node (VID 045e, PID 0c19);
+2. read/verify the report descriptor;
+3. issue GET_FEATURE ID6 and receive report ID 6 + 119 data bytes;
+4. issue SET_FEATURE ID5 with one-byte payload `01`;
+5. read full 4300-byte numbered input report 0x0C from hidraw;
+6. save raw frames for replay/verification.
 
-This unresolved payload is a Gate-3 audit item; do not hide it by calling the
-current builder "Windows-identical."
+At this checkpoint it does **not** need to synthesize multitouch yet. Capturing
+correct Col02 frames through hidraw is enough to prove the architecture split.
 
-### SPB transfer sizes
+## Gate-3 PASS
 
-Gate 2 records SpbCx transfer-descriptor buffers, including 4309-byte TX and
-4309-byte RX buffers for live raw reads. It does **not** expose the AMD
-controller's physical TX_COUNT/RX_COUNT for those requests. Therefore the trace
-does not prove that 4309 request bytes were physically clocked on SPI.
+Gate 3 passes when, on the real SL4:
 
-The current Linux short-request/segmented-controller issue remains open and is
-not changed by the first checkpoint.
+- standard transport enumerates and binds a HID driver/hidraw;
+- userspace GET6 works through the generic HID LL `raw_request`;
+- userspace SET5=1 works through that same boundary;
+- sustained report-ID-0x0C frames arrive through hidraw;
+- the kernel beta Heat processor is not required for those frames to reach
+  userspace.
 
-## Suspend / resume is a separate contract
+## Legacy diagnostic paths
 
-The T5 trace is not a replay of T2:
+The following remain temporarily for comparison/replay, but are not the
+Architecture-A acceptance path:
 
-- before sleep Windows sends an all-FF `SET_FEATURE 0x56` stop frame;
-- then `_PS3` executes;
-- resume executes `_PS0 -> _RST`;
-- no 936-byte RDESC read was observed after resume;
-- no GET_FEATURE ID6 was observed after resume;
-- ID5 writes occur with differing pad bytes;
-- a keyed `0x56` appears later before the post-resume raw stream.
+- `raw_mode=Y`;
+- `std_raw_transition`;
+- `raw_input_beta`;
+- `mshw0231-raw.c` contact synthesis;
+- fused kernel 0x56/GET6/ID5 startup;
+- raw handshake retry/fallback policy.
 
-The current Linux resume implementation still forces rediscovery and therefore
-does **not** claim Windows resume parity. Do not use suspend/resume as the first
-Gate-3 acceptance test.
+Do not delete them until userspace raw-frame capture and replay are proven.
 
-## Caller ownership is still open
+## Gate 4
 
-The SPB request events around T2 show different submitting PIDs:
+After Gate 3 proves the boundary, Gate 4 qualifies lifecycle/wire behavior
+against the Windows golden evidence:
 
-- `SET_FEATURE 0x56`: PID 2216
-- GET6 / ID5 path: PID 15596
-- SpbCx buffer execution: PID 4 (System)
+- activation `_PS0 -> _RST`;
+- descriptor/discovery behavior;
+- read-approval shape and request context;
+- power/suspend/resume behavior;
+- any remaining AMD SPI transaction-shape mismatch.
 
-The names/roles of PID 2216 and PID 15596 have not yet been resolved. Until
-they are, do not assume all post-RDESC feature traffic belongs in the kernel
-HID-SPI transport. It may cross the HID/Heat software-processing boundary.
+Gate 4 must keep collection ownership separate. Col07 report 0x56 is not a
+Col02 Heat requirement unless new evidence proves a dependency.
 
-## Branch behavior for the first checkpoint
+## Open items
 
-- explicit ACPI activation `_PS0 -> _RST`;
-- IRQ is armed before direct DESCREQ;
-- raw checkpoint uses single-opcode writes and reference read-approval shape;
-- post-RDESC T2 ordering is `0x56 -> GET6/reply -> ID5=1`;
-- ID6 must validate before ID5 in observe-only mode;
-- duplicate DONE-time `0x56` is disabled;
-- legacy watchdog and generic ACPI recovery cannot rewrite a failed first trace;
-- heatmap detector/tracker stays frozen.
+See `docs/GATE3-AUDIT.md` for the full list, especially:
 
-## PASS-to-next-step evidence
-
-For a fresh activation / re-enable run:
-
-1. `GATE3: activation _PS0 -> _RST`
-2. DEVICE_DESC received
-3. 936-byte report descriptor received
-4. exactly one checkpoint `SET_FEATURE 0x56`
-5. GET_FEATURE 6 plus a valid ID6 response
-6. SET_FEATURE ID5=1 only after that response
-7. sustained live `0x0C` bodies after a finger gesture
-
-A failure at any step is the result. Do not inject a legacy fallback and then
-call the later success parity.
-
-## Do not do yet
-
-- no blob/association/ghost tuning;
-- no new retry policy;
-- no requirement for transport-level report 0x40;
-- no controller padded-read patch inferred from SpbCx buffer lengths;
-- no claim that suspend/resume matches Windows;
-- no hardcoding of the Gate-2 `0x56` six-byte payload as a universal key.
+- 0x56 six-byte payload source is unknown;
+- process names for Gate-2 request submitters remain unresolved;
+- Linux resume currently rediscovering descriptors does not match Gate-2 T5;
+- module hot-unload still uses legacy power-down traffic and should not be the
+  basis of a clean lifecycle-parity trace.
