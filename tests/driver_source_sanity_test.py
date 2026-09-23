@@ -1107,6 +1107,39 @@ def check_control_flow_pins():
                   "precede legacy ACPI recovery in spi_hid_error_handler()")
             failures += 1
 
+    # 7i. Gate-3 may not claim the golden post-RDESC sequence unless the
+    # ID6 body was freshly validated.  Pin both the strict retain predicate and
+    # the observe-only stop before ID5.
+    _g6 = core_code.rsplit("static void spi_hid_getfeat6_retain", 1)
+    if len(_g6) != 2:
+        print("FAIL driver/spi-hid-core.c: spi_hid_getfeat6_retain() is gone")
+        failures += 1
+    else:
+        _g6 = _g6[1].split("\n}", 1)[0]
+        for _needle in (
+                "content.content_id != SPI_HID_GETFEAT6_REPORT_ID",
+                "content.total_length != SPI_HID_GETFEAT6_CONTENT_LEN",
+                "content.data_length != SPI_HID_GETFEAT6_PAYLOAD_LEN",
+        ):
+            if _needle not in _g6:
+                print("FAIL driver/spi-hid-core.c: ID6 retain no longer strictly "
+                      "validates the observed reply shape")
+                failures += 1
+                break
+
+    _feat = core_code.rsplit("static void seq_handle_feat", 1)
+    if len(_feat) != 2:
+        print("FAIL driver/spi-hid-core.c: seq_handle_feat() is gone")
+        failures += 1
+    else:
+        _feat = _feat[1].split("\n}", 1)[0]
+        _stop = _feat.find("if (gate3_observe_only && !shid->getfeat6.valid)")
+        _id5 = _feat.find("spi_hid_seq_write_setfeat(shid)")
+        if _stop < 0 or _id5 < 0 or _stop > _id5:
+            print("FAIL driver/spi-hid-core.c: Gate-3 can send ID5 before a "
+                  "freshly validated ID6 response")
+            failures += 1
+
     # 8. the segmented read in spi-amd.c. The FIFO holds the request, the
     # answer and the controller's extra byte, so a chunk that does not fit is
     # rejected outright (tx + rx + 1 > 70) — a fixed 64-byte first chunk only
