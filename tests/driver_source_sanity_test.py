@@ -1189,6 +1189,26 @@ def check_control_flow_pins():
               "feature context needed by live V0 reads")
         failures += 1
 
+    # 7l. Architecture A requires descriptor-defined Col02 0x0c input to
+    # reach HID core/hidraw on the standard transport. The beta kernel Heat
+    # processor may observe the same frame, but it may not steal it.
+    if "standard-path 0x0c body held for capture" in core_text:
+        print("FAIL driver/spi-hid-core.c: standard Col02 0x0c is still "
+              "suppressed before HID core")
+        failures += 1
+    _data = core_code.rsplit("static void seq_handle_data", 1)
+    if len(_data) != 2:
+        print("FAIL driver/spi-hid-core.c: seq_handle_data() is gone")
+        failures += 1
+    else:
+        _data = _data[1].split("\n}", 1)[0]
+        _consume = _data.find("mshw0231_raw_consume_v0(")
+        _forward = _data.find("hid_input_report(shid->hid, HID_INPUT_REPORT")
+        if _consume < 0 or _forward < 0 or _forward < _consume:
+            print("FAIL driver/spi-hid-core.c: 0x0c migration path no longer "
+                  "keeps the beta consumer as a side consumer before HID forwarding")
+            failures += 1
+
     # 8. the segmented read in spi-amd.c. The FIFO holds the request, the
     # answer and the controller's extra byte, so a chunk that does not fit is
     # rejected outright (tx + rx + 1 > 70) — a fixed 64-byte first chunk only
