@@ -853,7 +853,7 @@ cmd_install() {
 	if [ "$PROFILE" = "raw" ]; then
 		cat > "$tmp_config" <<'EOF'
 # SL4A_TouchScreen experimental raw heatmap profile
-options sl4a_spi_hid raw_mode=Y raw_input_beta=Y skip_getfeat=Y wire_double_opcode=1
+options sl4a_spi_hid raw_mode=Y raw_input_beta=Y skip_getfeat=N raw_no_enable=1 gate3_observe_only=1 wire_double_opcode=1
 EOF
 	else
 		cat > "$tmp_config" <<'EOF'
@@ -1728,7 +1728,7 @@ cmd_rebuild() {
 # slice, artifact block, summary row — is driven from this array, so a new
 # variant is a one-line addition and nothing else changes.
 #
-# RAW is today's raw profile (raw_mode=Y raw_input_beta=Y skip_getfeat=Y);
+# RAW is today's Gate-3 raw profile (raw_mode=Y raw_input_beta=Y skip_getfeat=N raw_no_enable=1 gate3_observe_only=1);
 # STANDARD is the single-touch path (raw_mode=N). The retired pc/svs arms
 # (acpi_probe_power_cycle × skip_vendor_stop, the P13-P16 waves) are NOT
 # re-run: that question is answered (all four arms negative), and running it
@@ -1783,7 +1783,7 @@ hunt_summary_label_width() {
 # Base module parameters for a plan profile.
 hunt_profile_params() {
 	case "$1" in
-		raw)      printf 'raw_mode=Y raw_input_beta=Y skip_getfeat=Y' ;;
+		raw)      printf 'raw_mode=Y raw_input_beta=Y skip_getfeat=N raw_no_enable=1 gate3_observe_only=1' ;;
 		standard) printf 'raw_mode=N' ;;
 		*)        return 1 ;;
 	esac
