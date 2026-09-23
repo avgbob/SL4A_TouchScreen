@@ -4,15 +4,15 @@
  *
  * driver/spi-hid-core.c cannot be compiled on this host (no kernel headers), so
  * this test compiles the exact header the driver builds its frames from
- * (driver/spi-hid-wire-frames.h) and compares every frame against the bytes the
- * Windows stack puts on the SPB bus, taken verbatim from
- * captures/wintrace/surface_init.csv (TXN 634377432 onwards).
+ * (driver/spi-hid-wire-frames.h). Exact byte comparisons below preserve the
+ * historical surface_init.csv fixtures; structural checks separately pin the
+ * semantic fields. Gate 2 proved that alignment bytes after short payloads can
+ * differ between captures, and that report 0x56's six-byte payload is dynamic.
  *
  * It fails if anyone
- *   - sends the leading opcode twice again (the default must be the Windows
- *     single-opcode form),
- *   - changes a byte of a command frame,
- *   - replaces the constant 0C EE 5B trailer with zero padding,
+ *   - changes the historical fixture without deliberately updating its source,
+ *   - breaks the single-opcode default builder,
+ *   - changes the semantic command/content fields,
  *   - flips SPI_HID_WIRE_DOUBLE_DEFAULT, or
  *   - reintroduces a local frame table in driver/spi-hid-core.c.
  */
@@ -27,10 +27,10 @@
 #include "../driver/spi-hid-wire-frames.h"
 #include "../driver/spi-hid-protocol.h"
 
-/* The default wire mode is the whole point: the frames must be the Windows
- * ones unless wire_double_opcode is set explicitly. */
+/* Gate 2 observes one leading opcode. The global builder default therefore
+ * remains single-opcode; installed profiles may deliberately override it. */
 _Static_assert(SPI_HID_WIRE_DOUBLE_DEFAULT == 0,
-	       "the Windows-identical frames must be the default wire mode");
+	       "the single-opcode builder must remain the default wire mode");
 
 static unsigned int g_passed, g_failed;
 #define CHECK(cond, msg) do { \
@@ -38,10 +38,9 @@ static unsigned int g_passed, g_failed;
 	if (!(cond)) { g_failed++; fprintf(stderr, "FAIL: %s\n  %s:%d: %s\n", msg, __FILE__, __LINE__, #cond); } \
 } while (0)
 
-/* ── Windows reference frames ──────────────────────────────────── */
+/* ── Historical capture-A fixtures ─────────────────────────────── */
 
-/* SET_POWER D2, command register 0x000004, 14 bytes. The trace carries the D0
- * twin (TXN 634377432); the two differ only in the payload byte. */
+/* Historical inferred D2 twin. Gate 2 did not observe D2. */
 static const uint8_t ref_setpower_d2[] = {
 	0x02, 0x00, 0x00, 0x04, 0x82, 0x00, 0x00, 0x04, 0x00, 0x01, 0x02, 0x0C, 0xEE, 0x5B
 };
@@ -227,24 +226,18 @@ static void test_frame_shape(void)
 		CHECK(frames[i].bytes[1] != SPI_HID_WIRE_OPCODE,
 		      "the write opcode is not sent twice");
 	}
-	/* Trailer: the two one-byte-payload commands pad with 0C EE 5B, and the
-	 * vendor-init device key embeds the same field. */
-	for (i = 0; i < 2; i++) {
-		const struct spi_hid_wire_frame *f = &frames[i];
-
-		CHECK(f->bytes[f->len - 3] == SPI_HID_WIRE_TRAILER_0 &&
-		      f->bytes[f->len - 2] == SPI_HID_WIRE_TRAILER_1 &&
-		      f->bytes[f->len - 1] == SPI_HID_WIRE_TRAILER_2,
-		      "SET_POWER trailer is 0C EE 5B");
-	}
-	CHECK(frames[3].bytes[frames[3].len - 3] == SPI_HID_WIRE_TRAILER_0 &&
-	      frames[3].bytes[frames[3].len - 2] == SPI_HID_WIRE_TRAILER_1 &&
-	      frames[3].bytes[frames[3].len - 1] == SPI_HID_WIRE_TRAILER_2,
-	      "SET_FEATURE 5 trailer is 0C EE 5B");
-	CHECK(frames[2].bytes[11] == SPI_HID_WIRE_TRAILER_0 &&
-	      frames[2].bytes[12] == SPI_HID_WIRE_TRAILER_1 &&
-	      frames[2].bytes[13] == SPI_HID_WIRE_TRAILER_2,
-	      "vendor-init device key embeds 0C EE 5B");
+	/* Pin semantic fields, not capture-specific alignment bytes. */
+	CHECK(frames[0].bytes[7] == 0x04 && frames[0].bytes[9] == 0x01 &&
+	      frames[0].bytes[10] == 0x02,
+	      "SET_POWER D2 fixture carries selector 02");
+	CHECK(frames[1].bytes[7] == 0x04 && frames[1].bytes[9] == 0x01 &&
+	      frames[1].bytes[10] == 0x01,
+	      "SET_POWER D0 carries selector 01");
+	CHECK(frames[3].bytes[7] == 0x04 && frames[3].bytes[9] == 0x05 &&
+	      frames[3].bytes[10] == 0x01,
+	      "SET_FEATURE ID5 has one-byte payload 01");
+	CHECK(frames[2].bytes[7] == 0x0A && frames[2].bytes[9] == 0x56,
+	      "vendor-init fixture is report 0x56 on register 0x0A");
 }
 
 /* ── The declared reply layout the driver reads against ───────── */
