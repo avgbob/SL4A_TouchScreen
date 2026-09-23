@@ -506,9 +506,11 @@ static void spi_hid_stop_hid(struct spi_hid *shid)
 
 static void spi_hid_disable_irq(struct spi_hid *shid);
 
-/* _RST calls M010 which DESTROYS the device. Never call it.
- * ACPI recovery is a real _PS3->_PS0 power cycle (mirrors the
- * acpi_probe_power_cycle probe experiment). The sequencer is re-armed to
+/* Legacy ACPI recovery path retained only for non-Gate-3 diagnostic runs.
+ * Gate 2 disproved the old claim that _RST must never be called: Windows
+ * directly executes _RST after _PS0 on cold activation, re-enable and resume.
+ * This older _PS3->_PS0 recovery experiment is therefore not part of the
+ * Gate-3 golden first checkpoint and is blocked while gate3_observe_only=1. The sequencer is re-armed to
  * WAIT_RESET BEFORE the cycle so the device's power-on RESET_RSP lands
  * deterministically in WAIT_RESET and restarts descriptor discovery. If
  * the ACPI evaluation fails, the re-arm stays in place and discovery
@@ -577,6 +579,16 @@ static int spi_hid_error_handler(struct spi_hid *shid)
 
 	dev_dbg(dev, "error handler entered\n");
 	trace_spi_hid_lifecycle(shid, SPI_HID_LIFECYCLE_RECOVERY, 0);
+
+	/* Gate 3 first checkpoint is observational.  The Windows golden capture
+	 * gives us an activation/deactivation contract, but it does not define
+	 * an arbitrary in-place error-recovery sequence.  Do not let the legacy
+	 * _PS3->_PS0 recovery path rewrite the first failing trace. */
+	if (gate3_observe_only) {
+		dev_warn_ratelimited(dev,
+			"GATE3: recovery requested; observe-only mode leaves transport untouched\n");
+		goto out;
+	}
 
 	if (shid->attempts++ >= SPI_HID_MAX_RESET_ATTEMPTS) {
 		dev_err(dev, "unresponsive device, aborting.\n");
