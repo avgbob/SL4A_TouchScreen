@@ -853,7 +853,7 @@ cmd_install() {
 	if [ "$PROFILE" = "raw" ]; then
 		cat > "$tmp_config" <<'EOF'
 # SL4A_TouchScreen experimental raw heatmap profile
-options sl4a_spi_hid raw_mode=Y raw_input_beta=Y skip_getfeat=N raw_no_enable=1 gate3_observe_only=1 wire_double_opcode=1
+options sl4a_spi_hid raw_mode=Y raw_input_beta=Y skip_getfeat=N raw_no_enable=1 gate3_observe_only=1 wire_double_opcode=0 read_frame_variant=0
 EOF
 	else
 		cat > "$tmp_config" <<'EOF'
@@ -1783,7 +1783,7 @@ hunt_summary_label_width() {
 # Base module parameters for a plan profile.
 hunt_profile_params() {
 	case "$1" in
-		raw)      printf 'raw_mode=Y raw_input_beta=Y skip_getfeat=N raw_no_enable=1 gate3_observe_only=1' ;;
+		raw)      printf 'raw_mode=Y raw_input_beta=Y skip_getfeat=N raw_no_enable=1 gate3_observe_only=1 wire_double_opcode=0 read_frame_variant=0' ;;
 		standard) printf 'raw_mode=N' ;;
 		*)        return 1 ;;
 	esac
