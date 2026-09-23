@@ -1309,6 +1309,9 @@ static int spi_hid_get_request(struct spi_hid *shid, u8 content_id)
 static int spi_hid_set_request(struct spi_hid *shid,
 		u8 *arg_buf, u16 arg_len, u8 content_id)
 {
+	u8 old_type, old_id;
+	int ret;
+
 	if (arg_len > U16_MAX - 4)
 		return -EMSGSIZE;
 
@@ -1319,9 +1322,32 @@ static int spi_hid_set_request(struct spi_hid *shid,
 		.content = arg_buf,
 	};
 
+	/* V0 body reads name the request whose staged data they belong to.
+	 * Gate 2 live 0x0c reads carry SET_FEATURE/5 in the read approval after
+	 * ID5=1. Preserve the generic HID SET_REPORT in the same transport state
+	 * so a userspace Col02 client and the in-kernel helper are equivalent.
+	 * Set it before spi_sync because the device may assert its data IRQ as
+	 * soon as the command completes; restore the old context if the write
+	 * itself fails. */
+	mutex_lock(&shid->seq_lock);
+	old_type = shid->read_resp_type;
+	old_id = shid->read_resp_content_id;
+	shid->read_resp_type = SPI_HID_CONTENT_TYPE_SET_FEATURE;
+	shid->read_resp_content_id = content_id;
+	mutex_unlock(&shid->seq_lock);
 
-	return spi_hid_send_output_report(shid,
+	ret = spi_hid_send_output_report(shid,
 			shid->desc.output_register, &report);
+	if (ret) {
+		mutex_lock(&shid->seq_lock);
+		if (shid->read_resp_type == SPI_HID_CONTENT_TYPE_SET_FEATURE &&
+		    shid->read_resp_content_id == content_id) {
+			shid->read_resp_type = old_type;
+			shid->read_resp_content_id = old_id;
+		}
+		mutex_unlock(&shid->seq_lock);
+	}
+	return ret;
 }
 
 /* Which shape the read approval has. The traces put the register at offset 7
@@ -3557,8 +3583,9 @@ static void seq_handle_rpt(struct spi_hid *shid, int type, u16 blen)
 
 				shid->transition_done = true;
 
-				shid->read_resp_type = 0;
-				shid->read_resp_content_id = 0;
+				/* Keep the final request context.  In mode 3 that is
+				 * SET_FEATURE/5, exactly what Gate 2 carries in live
+				 * 0x0c read approvals. */
 			}
 			spi_hid_seq_set_state(shid, SPI_HID_SEQ_DONE, SPI_HID_SEQ_REPORT_DESCRIPTOR);
 			if (std_liveness_ms > 0) {
