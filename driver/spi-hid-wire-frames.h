@@ -49,14 +49,12 @@
 /* Write opcode (spi_hid_protocol_encode_output_header()). */
 #define SPI_HID_WIRE_OPCODE 0x02
 
-/* Constant key/check field carried in the trailer of the short command
- * bodies. It must never be "computed", derived from anything, or replaced by
- * zero padding on a whim: it is the device key material the reference uses.
- * It is NOT, however, universal — a leg found the same SET_FEATURE 5 frame on
- * the bus with the trailer (surface_init.csv) and with a zero tail
- * (surface_boot_auto.csv:3087), so "byte-identical on every reference frame"
- * was too strong and is gone. What this driver emits for those frames matches
- * the capture it was written from; the inconsistency lives in the reference. */
+/* Historical capture-A tail bytes.  They are preserved here because these
+ * builders are still fixtures for the older surface_init.csv capture, NOT
+ * because the three bytes are a protocol key. Gate 2 observed different tail
+ * bytes after the same one-byte ID5 payload and after SET_POWER D0. Treat
+ * these constants as capture padding/residue unless a command's semantic
+ * content length explicitly includes them. */
 #define SPI_HID_WIRE_TRAILER_0 0x0C
 #define SPI_HID_WIRE_TRAILER_1 0xEE
 #define SPI_HID_WIRE_TRAILER_2 0x5B
@@ -104,8 +102,9 @@ static inline struct spi_hid_wire_frame spi_hid_wire_pick(
 			  (doubled), (unsigned int)sizeof(doubled), \
 			  (double_opcode))
 
-/* SET_POWER D2 (doze), command register 0x000004, 14 bytes. Windows emits the
- * D0 twin in the trace; the two differ only in the payload byte (02 = D2). */
+/* Historical inferred SET_POWER D2 twin, command register 0x000004, 14 bytes.
+ * No D2 command was observed in Gate 2. The selector 02 is inferred from the
+ * older captured D0 command and must not be described as a Gate-2 fact. */
 static inline struct spi_hid_wire_frame spi_hid_wire_set_power_d2(int double_opcode)
 {
 	static const SPI_HID_WIRE_U8 plain[] = {
@@ -137,9 +136,10 @@ static inline struct spi_hid_wire_frame spi_hid_wire_set_power_d0(int double_opc
 	return SPI_HID_WIRE_PICK(plain, doubled, double_opcode);
 }
 
-/* SET_FEATURE Report ID 0x56 (vendor init / device key), command register
- * 0x000003, 18 bytes. The seven payload bytes are the report ID followed by
- * the six-byte device key, which embeds the same 0C EE 5B field. */
+/* SET_FEATURE Report ID 0x56, command register 0x000003, 18 bytes.
+ * This builder preserves the older capture-A six-byte payload
+ * BD 0C EE 5B 44 4C. Gate 2 observed D9 D7 FC 6E 79 4C instead, so the
+ * payload is not a universal constant; its generation/source is unresolved. */
 static inline struct spi_hid_wire_frame spi_hid_wire_vendor_init(int double_opcode)
 {
 	static const SPI_HID_WIRE_U8 plain[] = {
@@ -160,14 +160,11 @@ static inline struct spi_hid_wire_frame spi_hid_wire_vendor_init(int double_opco
  * STOP / re-enumeration teardown, byte-for-byte trace
  * captures/wintrace/surface_init.csv txn #0257:
  *   02 00 00 03 C2 00 03 0A 00 56 FF FF FF FF FF FF 00 00   (18 B)
- * It is the same frame as spi_hid_wire_vendor_init(), six bytes different where
- * that one carries the enable key BD 0C EE 5B 44 4C. The reference sends it
- * when the device is mid-raw-stream — a state that SURVIVES a host reboot, so
- * the driver meets it on every probe and must tear it down before the
- * descriptor handshake. Immediately after it the device reports type=0x3
- * (RESET_RSP) on register 0 and a fresh DESCREQ is answered with the descriptor
- * (txn #0258/#0259/#0260). Sending the enable instead leaves the device
- * streaming and the handshake never completes. Review S41-F1. */
+ * It is the same command shape as spi_hid_wire_vendor_init(), with an all-FF
+ * six-byte payload. Older capture evidence associated it with stream teardown;
+ * Gate 2 independently observed the same STOP command before sleep and then
+ * _PS3. Whether every probe/re-enumeration requires it is a separate lifecycle
+ * question; do not promote that older observation into a universal rule. */
 static inline struct spi_hid_wire_frame spi_hid_wire_vendor_stop(int double_opcode)
 {
 	static const SPI_HID_WIRE_U8 plain[] = {
@@ -182,8 +179,10 @@ static inline struct spi_hid_wire_frame spi_hid_wire_vendor_stop(int double_opco
 	return SPI_HID_WIRE_PICK(plain, doubled, double_opcode);
 }
 
-/* SET_FEATURE Report ID 5 (enables the heatmap), command register 0x000003,
- * 14 bytes: one payload byte (01 = enable) and a three-byte trailer. */
+/* SET_FEATURE Report ID 5, command register 0x000003, 14 bytes.
+ * The semantic payload is one byte (01). The final three bytes in the plain
+ * table are capture-A padding; Gate 2 observed different values in that
+ * aligned tail, so they are not part of the ID5 payload contract. */
 static inline struct spi_hid_wire_frame spi_hid_wire_set_feature5(int double_opcode)
 {
 	static const SPI_HID_WIRE_U8 plain[] = {
