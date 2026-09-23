@@ -54,25 +54,31 @@ activation guide.
 
 ## Architecture
 
+The target architecture is transport-only in kernel space, with Heat processing
+in userspace:
+
 ```
-┌──────────────────────────────────────────────────────────────┐
-│ Userspace: libinput / evdev ← hid-multitouch                 │
-├──────────────────────────────────────────────────────────────┤
-│ sl4a-spi-hid.ko (spi-hid-core.c, explicit opt-in only)        │
-│   ├─ HID LL driver (DESCREQ → DEVICE_DESC → RPT_DESC)        │
-│   ├─ IRQ-driven input (IRQ → SPI read → input_report)        │
-│   └─ Raw heatmap pipeline:                                   │
-│        baseline → peak gate → CCL → velocity → edge →        │
-│        split → centroid → Hungarian → post-assoc suppression →│
-│        EMA + deadband + stationary lock → MT emission         │
-├──────────────────────────────────────────────────────────────┤
-│ sl4a-spi-amd.ko (spi-amd.c, explicit opt-in only)            │
-│   AMD FCH SPI controller V2 PIO driver                       │
-│   TX/RX FIFO, chunked reads, opcode model                    │
-├──────────────────────────────────────────────────────────────┤
-│ Hardware: AMD FCH SPI @ 0xFEC10000 → MSHW0231 / MSHW0162       │
-└──────────────────────────────────────────────────────────────┘
+MSHW0231 / MSHW0162
+        |
+sl4a-spi-amd.ko
+  AMD FCH SPI controller
+        |
+sl4a-spi-hid.ko
+  V0 HID-SPI transport
+  descriptor + feature/raw-report plumbing
+        |
+Linux HID core + hidraw
+        |
+sl4a-heat (Gate 3 userspace target)
+  Col02 report 0x0C -> CapImg -> contacts
+        |
+uinput -> libinput / Wayland
 ```
+
+The existing in-kernel raw heatmap tracker remains a beta
+reference/qualification implementation while the userspace processor is being
+brought up. It is not the long-term product boundary. See
+[`docs/GATE3-AUDIT.md`](docs/GATE3-AUDIT.md).
 
 ### Raw Touch Pipeline
 
