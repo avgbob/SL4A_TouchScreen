@@ -162,8 +162,8 @@ complete rollback and upgrade procedure.
   options sl4a_spi_hid raw_mode=N wire_double_opcode=1
 ```
 
-The explicit raw profile written by `sl4a-touch.sh install --raw` uses
-`raw_mode=Y raw_input_beta=Y skip_getfeat=Y wire_double_opcode=1`. The
+The Gate-3 raw profile written by `sl4a-touch.sh install --raw` uses
+`raw_mode=Y raw_input_beta=Y skip_getfeat=N raw_no_enable=1 gate3_observe_only=1 wire_double_opcode=1`, so its first hardware checkpoint follows the accepted Windows post-RDESC sequence without legacy retry traffic. The
 targeted SL4 AMD tracker qualification instead used the manual
 standard-transport beta bridge
 `raw_mode=N raw_input_beta=Y skip_std_getfeat=1 std_raw_transition=3`;
