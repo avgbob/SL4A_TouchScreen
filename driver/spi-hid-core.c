@@ -1212,20 +1212,13 @@ static void spi_hid_create_device_work(struct work_struct *work)
 }
 
 /*
- * Enable the raw stream.
+ * Legacy duplicate 0x56 sender.
  *
- * The reference sends this SET_FEATURE after the handshake and before it starts
- * reading the stream — boot trace #0531, byte for byte:
- *
- *	02 00 00 03 C2 | 00 03 0A 00 56 BD 0C EE 5B 44 4C 00 00
- *	                 |  pad  |  |  |  \_____ payload (7) ____/
- *	                 |  SET_FEATURE
- *	                 |     |  content id 0x56
- *	                 |     register to stream from (0x0A)
- *	                 total content length (10 = 7 + 3)
- *
- * Without it the device does not stream and every read of that register has
- * nothing to answer with, however well formed the read is.
+ * Gate 2 established that Windows sends SET_FEATURE 0x56 exactly once after
+ * RDESC, then GET_FEATURE ID6/reply, then SET_FEATURE ID5=1. It does not send
+ * another 0x56 when the sequencer reaches DONE. raw_no_enable therefore
+ * defaults to 1 on gate3-arch-A. This helper remains only for explicit A/B
+ * rollback and must not be part of the golden checkpoint.
  */
 static int spi_hid_raw_enable_stream(struct spi_hid *shid)
 {
@@ -1893,6 +1886,17 @@ static void spi_hid_raw_handshake_watchdog(struct work_struct *work)
 	    shid->raw_handshake_confirmed)
 		goto out;
 
+	if (gate3_observe_only) {
+		shid->watchdog_fires++;
+		raw_watchdog_snapshot(shid);
+		dev_warn(dev,
+			 "GATE3: golden handshake not confirmed; observe-only mode leaves transport untouched (state=%s irq=%u data=%u raw=%u resets=%u)\n",
+			 spi_hid_seq_state_name(shid->seq_state),
+			 shid->stat_irq_count, shid->stat_data,
+			 shid->stat_raw_observed, shid->stat_reset_rsp);
+		goto out;
+	}
+
 	/* Flow beats unconfirmed (watchdog plan): see raw_watchdog_progress().
 	 * IDLE (quiet panel, nobody touching) waits the same way but counts
 	 * separately: it must never spend retries, or an untouched panel is
@@ -2332,6 +2336,14 @@ out:
 
 /* ── Operating mode ────────────────────────────────────────────── */
 static bool raw_mode;
+
+/* First Gate-3 hardware checkpoint: do not let legacy watchdog recovery
+ * rewrite the golden transaction stream after a failed first attempt. */
+static bool gate3_observe_only = true;
+module_param(gate3_observe_only, bool, 0444);
+MODULE_PARM_DESC(gate3_observe_only,
+	"Gate 3 default 1: log a stalled golden handshake but do not inject legacy retries/recovery");
+
 module_param(read_frame_variant, int, 0444);
 MODULE_PARM_DESC(read_frame_variant,
 	"Read approval shape: 0=reference (register at offset 7), 1=legacy (5 bytes, register in the address field), 2=both");
@@ -3466,7 +3478,9 @@ static void seq_handle_rpt(struct spi_hid *shid, int type, u16 blen)
 					spi_hid_seq_set_state(shid, SPI_HID_SEQ_DONE, SPI_HID_SEQ_REPORT_DESCRIPTOR);
 				}
 			} else {
-				usleep_range(1400, 1800);
+				/* Gate 2 T2: RDESC -> 0x56 was ~123 ms. Keep an
+				 * intentionally narrow neighborhood around that observed gap. */
+				usleep_range(115000, 130000);
 				if (getfeat_delay_ms > 0) {
 					seq_dbg(shid, 1, "SEQ: scheduling vendor init + GET_FEATURE after %dms...\n",
 						getfeat_delay_ms);
@@ -3474,15 +3488,15 @@ static void seq_handle_rpt(struct spi_hid *shid, int type, u16 blen)
 					schedule_delayed_work(&shid->feat_delay_work,
 							      msecs_to_jiffies(getfeat_delay_ms));
 				} else {
-					seq_dbg(shid, 1, "SEQ: vendor init + GET_FEATURE...\n");
-					usleep_range(68000, 72000);
+					seq_dbg(shid, 1, "GATE3: SET_FEATURE 0x56 -> GET_FEATURE 6\n");
 					if (spi_hid_seq_write_vendor_init(shid)) {
-						dev_warn(&shid->spi->dev, "SEQ: vendor init write failed\n");
+						dev_warn(&shid->spi->dev, "GATE3: SET_FEATURE 0x56 failed\n");
 						schedule_delayed_work(&shid->raw_handshake_watchdog,
 							msecs_to_jiffies(RAW_HANDSHAKE_TIMEOUT_MS));
 						return;
 					}
-					usleep_range(36000, 39000);
+					/* Gate 2 T2: 0x56 -> GET6 was ~84.6 ms. */
+					usleep_range(80000, 90000);
 					if (spi_hid_seq_write_get_feature6(shid)) {
 						dev_warn(&shid->spi->dev, "SEQ: GET_FEATURE write failed\n");
 						schedule_delayed_work(&shid->raw_handshake_watchdog,
@@ -3570,8 +3584,9 @@ static void seq_handle_feat(struct spi_hid *shid, int type, u16 blen)
 		{
 			int ret;
 
-			usleep_range(4500, 5500);
-			seq_dbg(shid, 1, "SEQ: sending SET_FEATURE speed=%u double=%d no_double=%d\n",
+			/* Gate 2 T2: ID6 response -> SET_FEATURE ID5=1 was ~17.3 ms. */
+			usleep_range(15000, 20000);
+			seq_dbg(shid, 1, "GATE3: sending SET_FEATURE ID5=1 speed=%u double=%d no_double=%d\n",
 				 setfeat_speed_hz, wire_double_opcode, setfeat_no_double);
 			ret = spi_hid_seq_write_setfeat(shid);
 			if (ret) {
