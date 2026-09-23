@@ -150,13 +150,17 @@ try {
     while ($reader.Read()) {
         if ($reader.NodeType -ne [System.Xml.XmlNodeType]::Element -or $reader.Name -ne "Event") { continue }
 
-        $outer = $reader.ReadOuterXml()
-        if ([string]::IsNullOrWhiteSpace($outer)) { continue }
+        $subtree = $reader.ReadSubtree()
+        try {
+            $doc = [System.Xml.XmlDocument]::new()
+            $doc.PreserveWhitespace = $false
+            $doc.Load($subtree)
+        } finally {
+            $subtree.Dispose()
+        }
 
-        $doc = [System.Xml.XmlDocument]::new()
-        $doc.PreserveWhitespace = $false
-        $doc.LoadXml($outer)
         $event = $doc.DocumentElement
+        if ($null -eq $event) { continue }
         $eventCount++
 
         $time = Extract-Time $event
