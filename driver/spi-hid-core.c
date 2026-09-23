@@ -3960,6 +3960,12 @@ static int spi_hid_ll_raw_request(struct hid_device *hid,
 
 	switch (reqtype) {
 	case HID_REQ_SET_REPORT:
+		/* This V0 callback currently implements feature control requests.
+		 * Do not silently encode an INPUT/OUTPUT raw_request as SET_FEATURE. */
+		if (rtype != HID_FEATURE_REPORT) {
+			ret = -EOPNOTSUPP;
+			break;
+		}
 		/* Same window as ll_output_report: a cheap re-check that keeps a
 		 * client from starting a transfer on a transport we already know is
 		 * going away; the flags live under seq_lock, so this does not close
@@ -3988,6 +3994,12 @@ static int spi_hid_ll_raw_request(struct hid_device *hid,
 		ret = len;
 		break;
 	case HID_REQ_GET_REPORT:
+		/* This V0 callback currently implements feature control requests.
+		 * Reject other report types rather than mis-encoding them as GET_FEATURE. */
+		if (rtype != HID_FEATURE_REPORT) {
+			ret = -EOPNOTSUPP;
+			break;
+		}
 		/* Experimental A/B switch (issue #4): with skip_std_getfeat the
 		 * standard profile answers feature reads without touching SPI at
 		 * all, so the connect-time feature query cannot leave the
@@ -4011,23 +4023,28 @@ static int spi_hid_ll_raw_request(struct hid_device *hid,
 		}
 
 		{
-			/*
-			 * NOTE: Assumes the response was populated by the
-			 * IRQ thread before ll_raw_request reads it. The
-			 * spi_hid_get_request path ensures completion via
-			 * wait_for_completion, but no explicit response_valid
-			 * flag is checked here.
-			 */
 			u16 response_len = shid->response.body[0] |
 				(shid->response.body[1] << 8);
+			u8 response_id = shid->response.body[2];
+			size_t payload_len;
 
-			if (response_len < 3) {
+			/* spi_hid_sync_request() returns success only for the current
+			 * generation with response_valid set, so the shared response
+			 * below is owned by this request. Hidraw's numbered-report ABI
+			 * requires the returned buffer to begin with the report ID. */
+			if (response_len < 3 || response_id != reportnum) {
 				ret = -EPROTO;
 				break;
 			}
-			ret = min_t(size_t, len, response_len - 3);
+			if (len < 1) {
+				ret = -EINVAL;
+				break;
+			}
+			payload_len = min_t(size_t, len - 1, response_len - 3);
+			buf[0] = response_id;
+			memcpy(&buf[1], &shid->response.content, payload_len);
+			ret = payload_len + 1;
 		}
-		memcpy(buf, &shid->response.content, ret);
 		break;
 	default:
 		dev_err(dev, "invalid request type\n");
