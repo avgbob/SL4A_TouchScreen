@@ -3807,6 +3807,10 @@ static void seq_handle_data(struct spi_hid *shid, int type, u16 blen)
 				body[7]);
 		}
 
+		/* The beta kernel processor is now a side consumer, not an alternate
+		 * transport.  A descriptor-defined report must still reach HID core
+		 * whenever a normal HID device exists so hidraw can provide the
+		 * Architecture-A userspace boundary. */
 		if ((shid->raw_mode_active ||
 		     (!shid->raw_mode_active &&
 		      std_raw_transition == 3 &&
@@ -3824,19 +3828,15 @@ static void seq_handle_data(struct spi_hid *shid, int type, u16 blen)
 			if (raw_input_beta) {
 				cret = mshw0231_raw_consume_v0(shid, &body[5], rblen - 5);
 				if (cret) {
-					dev_warn_ratelimited(dev, "SEQ: CapImg decode failed: %d (rblen=%u)\n", cret, rblen);
+					dev_warn_ratelimited(dev,
+						"SEQ: CapImg decode failed: %d (rblen=%u); raw HID report still forwarded when available\n",
+						cret, rblen);
 					shid->stat_frames_dropped++;
-					return;
 				}
 			}
-		} else if (rl >= 3 && rl - 3 <= avail) {
-			if (!shid->raw_mode_active && body[7] == 0x0C) {
-				/* Heatmap body on the standard path (July transition):
-				 * counted by the passive observer above, never
-				 * delivered as HID input. */
-				seq_dbg(shid, 2, "SEQ: standard-path 0x0c body held for capture (len=%u)\n",
-					rl);
-			} else {
+		}
+
+		if (rl >= 3 && rl - 3 <= avail) {
 			if (shid->raw_mode_active && body[7] == 0x40 && rl - 2 >= 6) {
 				/* Report 0x40: ID, one TipSwitch byte, then X and Y
 				 * as 16-bit little-endian pairs (see
@@ -3851,7 +3851,6 @@ static void seq_handle_data(struct spi_hid *shid, int type, u16 blen)
 				if (hret)
 					dev_warn(dev, "SEQ: hid_input_report failed: %d (content_id=0x%02x)\n",
 						 hret, body[7]);
-			}
 			}
 		} else if (rl < 3) {
 			dev_warn(dev, "SEQ: DATA report too short to contain a report ID (len=%u), dropped\n",
