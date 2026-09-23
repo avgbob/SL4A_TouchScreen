@@ -186,7 +186,11 @@ public static class Gate2CompactExtractor
 }
 '@
 
-Add-Type -TypeDefinition $src -Language CSharp
+Add-Type -TypeDefinition $src -Language CSharp -ReferencedAssemblies @(
+    "System.dll",
+    "System.Core.dll",
+    "System.Xml.dll"
+)
 [Gate2CompactExtractor]::Run($Xml,$Markers,$Out)
 
 Get-Item $Out | Select-Object FullName,Length,LastWriteTime
