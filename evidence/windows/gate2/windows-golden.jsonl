@@ -1,0 +1,21 @@
+{"t_ms":null,"time_utc":"2026-09-22T23:45:32.8772020Z","ev":"ACPI_METHOD","name":"_INI","dev":"\\\\_SB.SPI1.HSPI","phase":"T0_COLD_BOOT","state":"start","src":"etl_compact","status":"OBSERVED"}
+{"t_ms":null,"time_utc":"2026-09-22T23:45:36.9458979Z","ev":"ACPI_METHOD","name":"_PS0","dev":"\\\\_SB.SPI1.HSPI","phase":"T0_COLD_BOOT","state":"start","src":"etl_compact","status":"OBSERVED"}
+{"t_ms":null,"time_utc":"2026-09-22T23:45:37.4835342Z","ev":"ACPI_METHOD","name":"_RST","dev":"\\\\_SB.SPI1.HSPI","phase":"T0_COLD_BOOT","state":"start","src":"etl_compact","status":"OBSERVED"}
+{"t_ms":null,"time_utc":"2026-09-22T23:45:37.7839972Z","ev":"ACPI_METHOD","name":"_RST","dev":"\\\\_SB.SPI1.HSPI","phase":"T0_COLD_BOOT","state":"finish","elapsed_ms":306,"src":"etl_compact","status":"OBSERVED"}
+{"t_ms":null,"time_utc":"2026-09-22T23:47:39.9928489Z","ev":"ACPI_METHOD","name":"_PS3","dev":"\\\\_SB.SPI1.HSPI","phase":"T2_DISABLE","state":"start","src":"etl_compact","status":"OBSERVED"}
+{"t_ms":null,"time_utc":"2026-09-22T23:47:45.2326570Z","ev":"ACPI_METHOD","name":"_PS0","dev":"\\\\_SB.SPI1.HSPI","phase":"T2_ENABLE","state":"start","src":"etl_compact","status":"OBSERVED"}
+{"t_ms":null,"time_utc":"2026-09-22T23:47:45.5341525Z","ev":"ACPI_METHOD","name":"_RST","dev":"\\\\_SB.SPI1.HSPI","phase":"T2_ENABLE","state":"start","src":"etl_compact","status":"OBSERVED"}
+{"t_ms":null,"time_utc":"2026-09-22T23:47:45.8347428Z","ev":"ACPI_METHOD","name":"_RST","dev":"\\\\_SB.SPI1.HSPI","phase":"T2_ENABLE","state":"finish","elapsed_ms":301,"src":"etl_compact","status":"OBSERVED"}
+{"t_ms":null,"time_utc":"2026-09-22T23:47:45.9542598Z","ev":"REPORT_DESCRIPTOR","dev":"ACPI\\\\MSHW0231\\\\a","wire_bytes":945,"report_descriptor_bytes":936,"phase":"T2_ENABLE","reader_pid":4,"src":"etl_compact","status":"OBSERVED"}
+{"t_ms":null,"time_utc":"2026-09-22T23:47:46.0775664Z","ev":"HID_FEATURE","id":86,"dir":"set","wire_hex":"02000003c200030a0056d9d7fc6e794c0000","phase":"T2_ENABLE","reader_pid":4,"src":"etl_compact","status":"OBSERVED"}
+{"t_ms":null,"time_utc":"2026-09-22T23:47:46.1621671Z","ev":"HID_FEATURE","id":6,"dir":"get","wire_hex":"02000003420004030006","phase":"T2_ENABLE","reader_pid":4,"src":"etl_compact","status":"OBSERVED"}
+{"t_ms":null,"time_utc":"2026-09-22T23:47:46.1627954Z","ev":"HID_FEATURE_RESPONSE","id":6,"content_length":122,"wire_bytes":129,"phase":"T2_ENABLE","reader_pid":4,"src":"etl_compact","status":"OBSERVED"}
+{"t_ms":null,"time_utc":"2026-09-22T23:47:46.1801229Z","ev":"HID_FEATURE","id":5,"dir":"set","value":1,"wire_hex":"0200000382000304000501d7fc6e","phase":"T2_ENABLE","reader_pid":4,"src":"etl_compact","status":"OBSERVED"}
+{"t_ms":null,"time_utc":"2026-09-22T23:47:59.8330305Z","ev":"HID_INPUT","id":12,"wire_content_length":4302,"wire_bytes":4309,"coll":"Col02/raw heat path","phase":"T3_ONE_FINGER","reader_pid":4,"reader_tid":1044,"src":"etl_compact","status":"OBSERVED"}
+{"t_ms":null,"ev":"HID_INPUT_AUDIT","phase":"T3_ONE_FINGER","id12_bodies":255,"id8_bodies":12,"id64_bodies":0,"scope":"SPB bodies >20 bytes in gesture window","src":"etl_compact","status":"OBSERVED"}
+{"t_ms":null,"ev":"HID_INPUT_AUDIT","phase":"T4_TWO_FINGER","id12_bodies":376,"id8_bodies":22,"id64_bodies":0,"scope":"SPB bodies >20 bytes in gesture window","src":"etl_compact","status":"OBSERVED"}
+{"t_ms":null,"ev":"HID_INPUT_AUDIT","phase":"T5_POST_RESUME_ONE_FINGER","id12_bodies":216,"id64_bodies":0,"scope":"SPB bodies >20 bytes in gesture window","src":"etl_compact","status":"OBSERVED"}
+{"t_ms":null,"time_utc":"2026-09-22T23:48:20.7466765Z","ev":"ACPI_METHOD","name":"_PS3","dev":"\\\\_SB.SPI1.HSPI","phase":"T5_SLEEP","state":"start","src":"etl_compact","status":"OBSERVED"}
+{"t_ms":null,"time_utc":"2026-09-22T23:49:18.0377290Z","ev":"ACPI_METHOD","name":"_PS0","dev":"\\\\_SB.SPI1.HSPI","phase":"T5_RESUME","state":"start","src":"etl_compact","status":"OBSERVED"}
+{"t_ms":null,"time_utc":"2026-09-22T23:49:18.3391801Z","ev":"ACPI_METHOD","name":"_RST","dev":"\\\\_SB.SPI1.HSPI","phase":"T5_RESUME","state":"start","src":"etl_compact","status":"OBSERVED"}
+{"t_ms":null,"time_utc":"2026-09-22T23:49:18.6400543Z","ev":"ACPI_METHOD","name":"_RST","dev":"\\\\_SB.SPI1.HSPI","phase":"T5_RESUME","state":"finish","elapsed_ms":301,"src":"etl_compact","status":"OBSERVED"}
