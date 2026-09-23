@@ -36,7 +36,7 @@ function Parse-Utc([string]$s) {
 }
 
 function Extract-Guid([System.Xml.XmlElement]$event) {
-    $provider = $event.SelectSingleNode("./System/Provider")
+    $provider = $event.SelectSingleNode("./*[local-name()='System']/*[local-name()='Provider']")
     if ($null -eq $provider) { return "" }
     $g = $provider.GetAttribute("Guid")
     if ([string]::IsNullOrWhiteSpace($g)) { return "" }
@@ -44,12 +44,13 @@ function Extract-Guid([System.Xml.XmlElement]$event) {
 }
 
 function Extract-Time([System.Xml.XmlElement]$event) {
-    $node = $event.SelectSingleNode("./System/TimeCreated")
+    $node = $event.SelectSingleNode("./*[local-name()='System']/*[local-name()='TimeCreated']")
     if ($null -eq $node) { return $null }
     return Parse-Utc $node.GetAttribute("SystemTime")
 }
 
-function Get-SystemAttr([System.Xml.XmlElement]$event,[string]$xpath,[string]$attr) {
+function Get-SystemAttr([System.Xml.XmlElement]$event,[string]$name,[string]$attr) {
+    $xpath = "./*[local-name()='System']/*[local-name()='" + $name + "']"
     $n = $event.SelectSingleNode($xpath)
     if ($null -eq $n) { return $null }
     if ([string]::IsNullOrWhiteSpace($attr)) { return $n.InnerText }
@@ -58,7 +59,7 @@ function Get-SystemAttr([System.Xml.XmlElement]$event,[string]$xpath,[string]$at
 
 function Event-ToRecord([System.Xml.XmlElement]$event,[string]$window,[string]$providerName,[string]$guid,[DateTimeOffset]$time) {
     $data = @()
-    foreach ($n in @($event.SelectNodes("./EventData/Data"))) {
+    foreach ($n in @($event.SelectNodes("./*[local-name()='EventData']/*[local-name()='Data']"))) {
         $name = $n.GetAttribute("Name")
         $data += [ordered]@{
             name = $name
@@ -72,15 +73,19 @@ function Event-ToRecord([System.Xml.XmlElement]$event,[string]$window,[string]$p
         time_utc = $time.ToString("o")
         provider = $providerName
         provider_guid = $guid
-        event_id = Get-SystemAttr $event "./System/EventID" ""
-        version = Get-SystemAttr $event "./System/Version" ""
-        level = Get-SystemAttr $event "./System/Level" ""
-        task = Get-SystemAttr $event "./System/Task" ""
-        opcode = Get-SystemAttr $event "./System/Opcode" ""
-        process_id = Get-SystemAttr $event "./System/Execution" "ProcessID"
-        thread_id = Get-SystemAttr $event "./System/Execution" "ThreadID"
-        event_record_id = Get-SystemAttr $event "./System/EventRecordID" ""
+        event_id = Get-SystemAttr $event "EventID" ""
+        version = Get-SystemAttr $event "Version" ""
+        level = Get-SystemAttr $event "Level" ""
+        task = Get-SystemAttr $event "Task" ""
+        opcode = Get-SystemAttr $event "Opcode" ""
+        process_id = Get-SystemAttr $event "Execution" "ProcessID"
+        thread_id = Get-SystemAttr $event "Execution" "ThreadID"
+        event_record_id = Get-SystemAttr $event "EventRecordID" ""
         eventdata = $data
+        userdata_xml = $( 
+            $u = $event.SelectSingleNode("./*[local-name()='UserData']")
+            if ($null -ne $u) { $u.InnerXml } else { $null }
+        )
     }
 }
 
