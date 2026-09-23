@@ -1091,6 +1091,22 @@ def check_control_flow_pins():
               "on nine-byte reads again — the reference names it only on bodies")
         failures += 1
 
+    # 7h. Gate-3 first checkpoint must remain observational.  A generic
+    # error worker is another route into the legacy ACPI recovery path, so pin
+    # the guard in the real error handler rather than only in the raw watchdog.
+    _eh = core_code.split("static int spi_hid_error_handler", 1)
+    if len(_eh) != 2:
+        print("FAIL driver/spi-hid-core.c: spi_hid_error_handler() is gone")
+        failures += 1
+    else:
+        _eh = _eh[1].split("\n}", 1)[0]
+        _guard = _eh.find("if (gate3_observe_only)")
+        _legacy = _eh.find("spi_hid_reset_via_acpi(shid)")
+        if _guard < 0 or _legacy < 0 or _guard > _legacy:
+            print("FAIL driver/spi-hid-core.c: Gate-3 observe-only guard does not "
+                  "precede legacy ACPI recovery in spi_hid_error_handler()")
+            failures += 1
+
     # 8. the segmented read in spi-amd.c. The FIFO holds the request, the
     # answer and the controller's extra byte, so a chunk that does not fit is
     # rejected outright (tx + rx + 1 > 70) — a fixed 64-byte first chunk only
