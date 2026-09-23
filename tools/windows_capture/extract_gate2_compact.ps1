@@ -106,13 +106,14 @@ public static class Gate2CompactExtractor
 
         using (var input = XmlReader.Create(xmlPath, settings))
         using (var output = new StreamWriter(outPath, false, new UTF8Encoding(false))) {
-            output.WriteLine("window\ttime_utc\tprovider\tprovider_guid\tevent_id\tprocess_id\tthread_id\teventdata_xml\tuserdata_xml");
+            DateTimeOffset? finalWindowEnd = null;
+            output.WriteLine("window\ttime_utc\tprovider\tprovider_guid\tprovider_raw_name\tevent_id\tprocess_id\tthread_id\teventdata_xml\tuserdata_xml");
 
             while (input.Read()) {
                 if (input.NodeType != XmlNodeType.Element || input.LocalName != "Event") continue;
 
                 using (var sub = input.ReadSubtree()) {
-                    string providerGuid = "", eventId = "", pid = "", tid = "";
+                    string providerGuid = "", providerRawName = "", eventId = "", pid = "", tid = "";
                     string eventDataXml = "", userDataXml = "";
                     DateTimeOffset? time = null;
 
@@ -121,6 +122,7 @@ public static class Gate2CompactExtractor
 
                         if (sub.LocalName == "Provider") {
                             providerGuid = CleanGuid(sub.GetAttribute("Guid"));
+                            providerRawName = sub.GetAttribute("Name") ?? "";
                         } else if (sub.LocalName == "TimeCreated") {
                             var st = sub.GetAttribute("SystemTime");
                             if (!String.IsNullOrEmpty(st)) {
@@ -147,10 +149,30 @@ public static class Gate2CompactExtractor
                     if (!firstEvent.HasValue) {
                         firstEvent = time.Value;
                         windows = BuildWindows(markers, firstEvent.Value);
+                        foreach (var ww in windows)
+                            if (!finalWindowEnd.HasValue || ww.End > finalWindowEnd.Value)
+                                finalWindowEnd = ww.End;
                     }
 
+                    if (finalWindowEnd.HasValue && time.Value > finalWindowEnd.Value.AddSeconds(1))
+                        break;
+
                     string providerName;
-                    if (!Providers.TryGetValue(providerGuid, out providerName)) continue;
+                    bool knownProvider = Providers.TryGetValue(providerGuid, out providerName);
+
+                    // tracerpt can emit kernel providers as <Provider /> with no
+                    // Guid/Name even though the ETL contains the provider ID.
+                    // Preserve the distinctive Gate-2 kernel event families so
+                    // they can be classified from their raw payload afterward.
+                    if (!knownProvider) {
+                        int eid;
+                        bool interestingBlank = Int32.TryParse(eventId, out eid) &&
+                            (eid == 7 || eid == 20 || (eid >= 1000 && eid <= 1026));
+                        if (!interestingBlank) continue;
+                        providerName = String.IsNullOrWhiteSpace(providerRawName)
+                            ? "UNRESOLVED-KERNEL"
+                            : providerRawName;
+                    }
 
                     foreach (var w in windows) {
                         if (time.Value < w.Start || time.Value > w.End) continue;
@@ -159,6 +181,7 @@ public static class Gate2CompactExtractor
                             time.Value.ToString("o") + "\t" +
                             Esc(providerName) + "\t" +
                             providerGuid + "\t" +
+                            Esc(providerRawName) + "\t" +
                             Esc(eventId) + "\t" +
                             Esc(pid) + "\t" +
                             Esc(tid) + "\t" +
