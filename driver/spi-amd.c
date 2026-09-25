@@ -285,7 +285,8 @@ static int amd_spi_execute_opcode(struct amd_spi *amd_spi)
  */
 static int amd_spi_exec_segment(struct amd_spi *amd_spi, u8 opcode,
 				const u8 *tx_data, u32 tx_len,
-				u8 *rx_data, u32 rx_len)
+				u8 *rx_data, u32 rx_len,
+				bool continuation)
 {
 	void __iomem *base = amd_spi->io_remap_addr;
 	u32 fifo_pos = AMD_SPI_FIFO_BASE;
@@ -430,12 +431,40 @@ static int amd_spi_exec_segment(struct amd_spi *amd_spi, u8 opcode,
 	if (rx_len) {
 		u32 read_off;
 
-		if (opcode == 0x0B)
+		if (opcode == 0x0B) {
+			(void)continuation;
+			/*
+			 * The first read uses FIFO + TX_COUNT + 1, matching the
+			 * controller's leading echo/status byte.  Gate-3 hardware
+			 * proved that three-byte continuation transactions differ:
+			 * their first real response byte is at FIFO + TX_COUNT
+			 * (0x83), while 0x84 drops one byte from every 64-byte
+			 * continuation and corrupts the HID report descriptor.
+			 */
 			read_off = fifo_pos + tx_len + 1;
-		else
+		} else
 			read_off = fifo_pos + 4;
 
 		if (opcode == 0x0B && debug_trace >= 3) {
+			u8 fifo_dump[AMD_SPI_FIFO_SIZE];
+			u32 dump_i;
+
+			/*
+			 * Gate-3 diagnostic only: snapshot the entire controller FIFO
+			 * before choosing read_off.  GET_FEATURE(6) uses tx_len=9 and
+			 * previous candidate windows showed plausible response bytes
+			 * before tx_len+1.  Do not change extraction based on this trace.
+			 */
+			for (dump_i = 0; dump_i < AMD_SPI_FIFO_SIZE; dump_i++)
+				fifo_dump[dump_i] = readb(base + fifo_pos + dump_i);
+
+			pr_info("spi-amd: TRACE fifo70 tx_len=%u rx_len=%u +00=[%*ph]\n",
+				tx_len, rx_len, 32, fifo_dump);
+			pr_info("spi-amd: TRACE fifo70 +32=[%*ph]\n",
+				32, fifo_dump + 32);
+			pr_info("spi-amd: TRACE fifo70 +64=[%*ph]\n",
+				AMD_SPI_FIFO_SIZE - 64, fifo_dump + 64);
+
 			/* Where does the answer actually land? The decomp reads a fixed
 			 * 0x84, but its example command is three bytes long, where
 			 * 0x80 + 3 + 1 and 0x80 + 4 are the same address — it cannot
@@ -580,8 +609,23 @@ static int amd_spi_host_transfer(struct spi_controller *host,
 						msg->status = -EINVAL;
 						goto out;
 					}
-					first_chunk = min_t(u32, rx_remaining,
-							    AMD_SPI_FIFO_SIZE - tx_len - 1);
+					/*
+ * Gate-3 hardware capture shows the final two bytes of the nominal
+ * RX window are stale 0xff bytes.  Do not publish them as payload.
+ * Continuation reads have the same two-byte unusable tail.
+ */
+/*
+ * The FIFO may have more than 64 bytes left after a short request, but
+ * Gate-3 hardware shows that only 64 RX bytes are valid per transaction.
+ * A 66-byte first read returned 64 correct bytes followed by two stale 0xff
+ * bytes and advanced the device stream past descriptor bytes 64..65.
+ *
+ * Preserve the FIFO-capacity guard, but cap useful RX to the controller's
+ * established 64-byte transfer payload.
+ */
+first_chunk = min_t(u32, rx_remaining,
+		    min_t(u32, AMD_SPI_CHUNK_MAX,
+			  AMD_SPI_FIFO_SIZE - tx_len - 1));
 
 					/* Chunk TX if needed (FIFO size is 70 bytes) */
 					while (tx_rem > 0) {
@@ -590,7 +634,7 @@ static int amd_spi_host_transfer(struct spi_controller *host,
 
 						ret = amd_spi_exec_segment(amd_spi, opcode,
 							tx_buf + tx_sent, tx_chunk,
-							rx_now ? rx_ptr : NULL, rx_now);
+							rx_now ? rx_ptr : NULL, rx_now, false);
 						if (ret < 0) { msg->status = ret; goto out; }
 						tx_sent += tx_chunk;
 						tx_rem -= tx_chunk;
@@ -613,7 +657,7 @@ static int amd_spi_host_transfer(struct spi_controller *host,
 						 * 9 + 64 + 1 > 70). */
 						ret = amd_spi_exec_segment(amd_spi, opcode,
 							cont_cmd, sizeof(cont_cmd),
-							rx_ptr, chunk);
+							rx_ptr, chunk, true);
 						if (ret < 0) { msg->status = ret; goto out; }
 						rx_ptr += chunk;
 						rx_remaining -= chunk;
@@ -634,7 +678,7 @@ static int amd_spi_host_transfer(struct spi_controller *host,
 				u32 chunk = remaining > AMD_SPI_FIFO_SIZE ?
 					    AMD_SPI_FIFO_SIZE : remaining;
 				ret = amd_spi_exec_segment(amd_spi, opcode,
-					tx_buf + sent, chunk, NULL, 0);
+					tx_buf + sent, chunk, NULL, 0, false);
 				if (ret < 0) { msg->status = ret; goto out; }
 				sent += chunk;
 				remaining -= chunk;
@@ -644,7 +688,7 @@ static int amd_spi_host_transfer(struct spi_controller *host,
 			for (remaining = xfer->len; remaining > 0; ) {
 				u32 chunk = min_t(u32, remaining, 64);
 				ret = amd_spi_exec_segment(amd_spi, 0x0B,
-					NULL, 0, rx_ptr, chunk);
+					NULL, 0, rx_ptr, chunk, false);
 				if (ret < 0) { msg->status = ret; goto out; }
 				rx_ptr += chunk;
 				remaining -= chunk;

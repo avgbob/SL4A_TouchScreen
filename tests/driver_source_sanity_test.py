@@ -1086,9 +1086,19 @@ def check_control_flow_pins():
         print("FAIL driver/spi-hid-core.c: the fallback's max_input_length is not "
               "0x2000 — a 4096 cap truncates the 4309-byte raw frames")
         failures += 1
-    if "rx_len > SPI_HID_READ_APPROVAL_LEN ?" not in read_reg:
-        print("FAIL driver/spi-hid-core.c: spi_hid_seq_read_reg() names a content id "
-              "on nine-byte reads again — the reference names it only on bodies")
+    # Header-vs-body is semantic, not determined by RX byte count.
+    # Gate-3 hardware requires a 16-byte WAIT_FEATURE header window while
+    # retaining the reference's 9-byte header approval with no content ID.
+    # Only subsequent body reads may name read_resp_content_id.
+    if ("bool header_read = rx_len == spi_hid_hdr_len(shid);" not in read_reg or
+            "u8 approval_id = header_read ? 0 : shid->read_resp_content_id;" not in read_reg):
+        print("FAIL driver/spi-hid-core.c: read approval no longer classifies "
+              "header/body semantically — widened headers must still omit content ID")
+        failures += 1
+    if "rx_len > SPI_HID_READ_APPROVAL_LEN ?" in read_reg:
+        print("FAIL driver/spi-hid-core.c: read approval reverted to RX-length "
+              "classification — a 16-byte WAIT_FEATURE header would incorrectly "
+              "become the body form and append content ID 6")
         failures += 1
 
     # 7h. Gate-3 first checkpoint must remain observational.  A generic

@@ -1411,7 +1411,27 @@ static inline u32 spi_hid_resp_reg(struct spi_hid *shid)
  * Callers hold seq_lock. */
 static inline unsigned int spi_hid_hdr_len(struct spi_hid *shid)
 {
-	(void)shid;
+	/*
+	 * Gate-3 hardware shows the feature-response header staged at offset 8
+	 * of the controller RX window.  A nine-byte read therefore contains
+	 * only the first byte of the four-byte header and can never decode it.
+	 *
+	 * Descriptor discovery remains on its proven nine-byte window.  Widen
+	 * only WAIT_FEATURE, where the parser already accepts header offset 8.
+	 */
+	/*
+	 * Gate-3 hardware places the four-byte GET_FEATURE response header
+	 * at offset 8.  Twelve RX bytes contain exactly the 8-byte prefix
+	 * plus the complete 4-byte header.  Reading 16 clocks four bytes
+	 * beyond the header before the separate body read.
+	 */
+	/*
+	 * Gate-3 hardware places the four-byte GET_FEATURE response header
+	 * at offset 8, so twelve bytes are sufficient to contain it.
+	 */
+	if (shid->seq_state == SPI_HID_SEQ_WAIT_FEATURE)
+		return 12;
+
 	return 9;
 }
 
@@ -1453,8 +1473,45 @@ static int spi_hid_seq_read_reg(struct spi_hid *shid, u32 reg, u8 *rx, int rx_le
 	 * stream — only to this form, e541dd0 live multitouch verified). */
 	{
 		int approval_variant = read_frame_variant;
-		u8 approval_id = rx_len > SPI_HID_READ_APPROVAL_LEN ?
-			shid->read_resp_content_id : 0;
+		/*
+		 * Header-vs-body is semantic, not determined by RX byte count.
+		 *
+		 * WAIT_FEATURE uses a 16-byte RX window so this panel's delayed
+		 * four-byte header is fully visible.  That is still a HEADER read
+		 * and must use Gate-2's nine-byte approval with no content ID:
+		 *
+		 *   0B 00 00 00 FF 00 04 03 00
+		 *
+		 * Only the subsequent response BODY read names report ID 6:
+		 *
+		 *   0B 00 00 00 FF 00 04 03 00 06
+		 *
+		 * Using rx_len > 9 as the discriminator accidentally converted the
+		 * widened 16-byte header read into the body form, adding one TX byte
+		 * and shifting the valid type-5 header from offset 8 to offset 7.
+		 */
+		bool header_read = rx_len == spi_hid_hdr_len(shid);
+		/*
+	 * Gate-3 A/B: a HID-over-SPI Read Approval does not carry the
+	 * requested feature report ID.  The previous GET6 body read appended
+	 * ID6, making the approval one byte longer (controller tx_len=9).
+	 * Keep header/body selection semantic, but omit the ID from the
+	 * approval for this measurement.
+	 */
+	u8 approval_id = header_read ? 0 : shid->read_resp_content_id;
+
+	/*
+	 * Gate-3 A/B only: preserve the semantic header/body classifier,
+	 * but omit report ID 6 from the GET_FEATURE(6) BODY approval.
+	 *
+	 * Everything else keeps its existing approval_id behavior.
+	 */
+	if (!header_read &&
+	    shid->seq_state == SPI_HID_SEQ_WAIT_FEATURE &&
+	    shid->read_resp_type == SPI_HID_CONTENT_TYPE_GET_FEATURE &&
+	    shid->read_resp_content_id == SPI_HID_GETFEAT6_REPORT_ID) {
+		approval_id = 0;
+	}
 
 		/*
 		 * Keep descriptor/stream discovery on the field-qualified global
@@ -1568,7 +1625,22 @@ static int spi_hid_seq_read(struct spi_hid *shid, u8 *rx, int rx_len)
 	 * log, and pointing the stream at 0 is a poller that reads zeros forever.
 	 * The leg that checked this function's claim that "the stream uses its own
 	 * explicit calls" found no such call anywhere — the claim was mine. */
-	if (shid->seq_state != SPI_HID_SEQ_DONE) {
+	/*
+	 * A synchronous HID transaction can be issued after the sequencer has
+	 * reached DONE. Its reply is staged on the response/output register
+	 * (register 3 on MSHW0231), not on the normal DONE input-stream register.
+	 *
+	 * Without this gate, HIDIOCGFEATURE(6) sends the request successfully but
+	 * polls register 0 until timeout. output_pending is armed under seq_lock
+	 * before the request is sent, so it is the exact transaction discriminator
+	 * we need here.
+	 */
+	if (shid->seq_state == SPI_HID_SEQ_DONE && shid->output_pending) {
+		reg = spi_hid_resp_reg(shid);
+		seq_dbg(shid, 2,
+			"SEQ: pending synchronous response in DONE; reading response register 0x%06x\n",
+			reg);
+	} else if (shid->seq_state != SPI_HID_SEQ_DONE) {
 		if (shid->raw_mode_active) {
 			/* H4 falsifier: with raw_pre_desc_reg0 set (and the probe
 			 * force above skipped), every pre-DONE read goes to the
@@ -2179,6 +2251,19 @@ static void spi_hid_seq_descreq_work(struct work_struct *work)
 	const unsigned int hdr_len = spi_hid_hdr_len(shid);
 
 	mutex_lock(&shid->seq_lock);
+
+	/*
+	 * Safety invariant: hdr[] is a fixed 16-byte stack buffer.
+	 * A bad experimental header length must fail closed rather than
+	 * corrupting the kernel stack.  Exit through out: so this function
+	 * preserves its single-unlock invariant.
+	 */
+	if (WARN_ON_ONCE(hdr_len > sizeof(hdr))) {
+		dev_err(&shid->spi->dev,
+			"SEQ: refusing oversized descriptor header read %u > %zu\n",
+			hdr_len, sizeof(hdr));
+		goto out;
+	}
 	if (READ_ONCE(shid->removing) || READ_ONCE(shid->suspended) ||
 	    !READ_ONCE(shid->seq_enabled) ||
 	    (shid->seq_state != SPI_HID_SEQ_WAIT_DESC &&
@@ -2858,6 +2943,11 @@ static void spi_hid_poll_work(struct work_struct *work)
 	/* Nine pre-DONE (this poller only runs at DONE, so the helper selects on
 	 * raw_mode_active: sixteen for the raw stream, nine standard). */
 	hdr_len = spi_hid_hdr_len(shid);
+	if (WARN_ON_ONCE(hdr_len > sizeof(hdr))) {
+		dev_err(dev, "SEQ: refusing oversized header read %u > %zu\n",
+			hdr_len, sizeof(hdr));
+		goto out;
+	}
 	ret = spi_hid_seq_read(shid, hdr, hdr_len);
 	if (ret)
 		goto resched;
@@ -3171,6 +3261,12 @@ static irqreturn_t spi_hid_seq_thread(int irq, void *_shid)
 	 *
 	 * Nine pre-DONE, sixteen for the raw DONE stream: spi_hid_hdr_len(). */
 	hdr_len = spi_hid_hdr_len(shid);
+	if (WARN_ON_ONCE(hdr_len > sizeof(hdr))) {
+		dev_err(dev, "SEQ: refusing oversized IRQ header read %u > %zu\n",
+			hdr_len, sizeof(hdr));
+		shid->seq_storm_count++;
+		goto out;
+	}
 	if (spi_hid_seq_read(shid, hdr, hdr_len)) {
 		dev_dbg(dev, "sequencer header read failed\n");
 		shid->seq_storm_count++;
@@ -3479,6 +3575,38 @@ static bool seq_handle_rpt_retain(struct spi_hid *shid, u16 blen)
 	len = min_t(u32, shid->desc.report_descriptor_length,
 		    sizeof(shid->wire_report_descriptor));
 	if (off < rblen && len > 0 && off + len <= rblen) {
+		u32 diff;
+
+		dev_info(&shid->spi->dev,
+			 "GATE3 RDESC: boff=%u rblen=%u len=%u first=[%16ph]\n",
+			 off, rblen, len, body + off);
+
+		for (diff = 0; diff < len; diff++) {
+			if (body[off + diff] != hardcoded_report_descriptor[diff])
+				break;
+		}
+
+		if (diff == len) {
+			dev_info(&shid->spi->dev,
+				 "GATE3 RDESC: wire descriptor IDENTICAL to hardcoded (%u bytes)\n",
+				 len);
+		} else {
+			u32 start = diff > 8 ? diff - 8 : 0;
+			u32 span = min_t(u32, 24, len - start);
+
+			dev_info(&shid->spi->dev,
+				 "GATE3 RDESC: FIRST MISMATCH offset=%u wire=%02x expected=%02x\n",
+				 diff, body[off + diff],
+				 hardcoded_report_descriptor[diff]);
+			dev_info(&shid->spi->dev,
+				 "GATE3 RDESC: wire[%u..]=[%*ph]\n",
+				 start, span, body + off + start);
+			dev_info(&shid->spi->dev,
+				 "GATE3 RDESC: good[%u..]=[%*ph]\n",
+				 start, span,
+				 hardcoded_report_descriptor + start);
+		}
+
 		memcpy(shid->wire_report_descriptor, body + off, len);
 		shid->wire_report_descriptor_len = len;
 		shid->stat_wire_patches++;
