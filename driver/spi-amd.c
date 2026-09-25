@@ -292,6 +292,30 @@ static int amd_spi_exec_segment(struct amd_spi *amd_spi, u8 opcode,
 	u32 fifo_pos = AMD_SPI_FIFO_BASE;
 	u16 saved_0x22;
 	int i, ret;
+	bool get6_body_first;
+
+	/*
+	 * Gate-3 GET6 first-body fingerprint.
+	 *
+	 * AMD has already consumed the outer opcode before this function:
+	 *   00 00 00 ff 00 04 03 00 06
+	 */
+	get6_body_first =
+		opcode == 0x0B &&
+		!continuation &&
+		tx_data &&
+		rx_data &&
+		tx_len == 9 &&
+		rx_len == 60 &&
+		tx_data[0] == 0x00 &&
+		tx_data[1] == 0x00 &&
+		tx_data[2] == 0x00 &&
+		tx_data[3] == 0xff &&
+		tx_data[4] == 0x00 &&
+		tx_data[5] == 0x04 &&
+		tx_data[6] == 0x03 &&
+		tx_data[7] == 0x00 &&
+		tx_data[8] == 0x06;
 
 	ret = amd_spi_check_psp_ownership(amd_spi);
 	if (ret)
@@ -368,8 +392,15 @@ static int amd_spi_exec_segment(struct amd_spi *amd_spi, u8 opcode,
 	 * always transfers one extra byte (the opcode echo / status byte)
 	 * into the FIFO before the actual read data. */
 
-	writeb(opcode == 0x0B ? rx_len + 1 : rx_len,
-	       base + AMD_SPI_RX_COUNT_REG);
+	if (get6_body_first) {
+		writeb(55, base + AMD_SPI_RX_COUNT_REG);
+
+		if (debug_trace >= 1)
+			pr_info("spi-amd: GATE3 GET6 reconstruct physical_rx=55 logical_rx=60\\n");
+	} else {
+		writeb(opcode == 0x0B ? rx_len + 1 : rx_len,
+		       base + AMD_SPI_RX_COUNT_REG);
+	}
 
 	/* Windows decomp 0x4bac: re-write opcode after RX_COUNT, just before trigger.
 	 * (Needed because the 0x44 speed config writes 16 bits, clobbering 0x45.) */
@@ -502,8 +533,28 @@ static int amd_spi_exec_segment(struct amd_spi *amd_spi, u8 opcode,
 		u8 scratch[80];
 		u8 *dst = rx_data ? rx_data : scratch;
 		u32 rmax = min_t(u32, rx_len, AMD_SPI_FIFO_SIZE);
-		for (i = 0; i < rmax; i++)
-			dst[i] = readb(base + read_off + i);
+
+		if (get6_body_first && rmax == 60) {
+			/* Missing transport prefix from the AMD FIFO view. */
+			memset(dst, 0xff, 5);
+
+			/* Body bytes 5..11 are interleaved in the command area. */
+			for (i = 0; i < 7; i++)
+				dst[5 + i] =
+					readb(base + fifo_pos + 3 + (i * 2));
+
+			/* Body bytes 12..59 are contiguous. */
+			for (i = 12; i < 60; i++)
+				dst[i] =
+					readb(base + fifo_pos + 16 + (i - 12));
+
+			if (debug_trace >= 1)
+				pr_info("spi-amd: GATE3 GET6 reconstructed first60=[%*ph]\\n",
+					32, dst);
+		} else {
+			for (i = 0; i < rmax; i++)
+				dst[i] = readb(base + read_off + i);
+		}
 		if (debug_trace >= 3)
 			pr_info("spi-amd: TRACE segment data op=0x%02x rx=[%*ph]\n",
 				opcode, (int)min_t(u32, rmax, 32), dst);
