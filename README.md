@@ -168,9 +168,12 @@ complete rollback and upgrade procedure.
   options sl4a_spi_hid raw_mode=N wire_double_opcode=1
 ```
 
-The Gate-3 raw profile written by `sl4a-touch.sh install --raw` uses
-`raw_mode=Y raw_input_beta=Y skip_getfeat=N raw_no_enable=1 gate3_observe_only=1 wire_double_opcode=0 read_frame_variant=0`. This is deliberately a Windows-trace parity checkpoint (single-opcode writes plus the reference read-approval shape), even though older Linux field runs needed a different dialect. The six-byte payload of report 0x56 is still unresolved and suspend/resume parity is not yet claimed; see `docs/GATE3-ARCH-A.md`. The
-targeted SL4 AMD tracker qualification instead used the manual
+The `--raw` installer profile remains a **legacy diagnostic/reference path**;
+it is no longer the Gate-3 architecture checkpoint. Gate 3 now uses the
+standard HID transport plus `userspace/sl4a-heat/sl4a_heat.py` through hidraw.
+That keeps Col02 GET6/SET5/0x0C ownership out of the kernel and leaves Col07
+report 0x56 separate. See `docs/GATE3-ARCH-A.md` and
+`docs/GATE3-AUDIT.md`. The targeted SL4 AMD tracker qualification instead used the manual
 standard-transport beta bridge
 `raw_mode=N raw_input_beta=Y skip_std_getfeat=1 std_raw_transition=3`;
 the installer intentionally does not write that profile. Every raw/heatmap
@@ -237,6 +240,9 @@ unit that repeats the binding automatically.
 | [`docs/TESTING.md`](docs/TESTING.md) | Reproducible validation procedure |
 | [`docs/EVIDENCE.md`](docs/EVIDENCE.md) | Evidence ledger and open discrepancies |
 | [`docs/HARDWARE_VALIDATION.md`](docs/HARDWARE_VALIDATION.md) | Blinded hardware-validation protocol and bounded input captures |
+| [`docs/GATE3-ARCH-A.md`](docs/GATE3-ARCH-A.md) | Architecture-A split checkpoint and PASS criteria |
+| [`docs/GATE3-AUDIT.md`](docs/GATE3-AUDIT.md) | Post-Gate-2 collection/ownership and KEEP/MOVE/REMOVE audit |
+| [`userspace/sl4a-heat/README.md`](userspace/sl4a-heat/README.md) | Minimal hidraw GET6/SET5/0x0C userspace checkpoint |
 
 ## License
 
