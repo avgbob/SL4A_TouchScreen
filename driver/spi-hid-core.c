@@ -1490,7 +1490,12 @@ static int spi_hid_seq_read_reg(struct spi_hid *shid, u32 reg, u8 *rx, int rx_le
 		 * widened 16-byte header read into the body form, adding one TX byte
 		 * and shifting the valid type-5 header from offset 8 to offset 7.
 		 */
-		bool header_read = rx_len == spi_hid_hdr_len(shid);
+		bool header_read = rx_len == spi_hid_hdr_len(shid) ||
+			(rx_len == 12 &&
+			 shid->seq_state == SPI_HID_SEQ_DONE &&
+			 shid->output_pending &&
+			 shid->read_resp_type == SPI_HID_CONTENT_TYPE_GET_FEATURE &&
+			 shid->read_resp_content_id == SPI_HID_GETFEAT6_REPORT_ID);
 		/*
 	 * Gate-3 A/B: a HID-over-SPI Read Approval does not carry the
 	 * requested feature report ID.  The previous GET6 body read appended
@@ -3261,6 +3266,10 @@ static irqreturn_t spi_hid_seq_thread(int irq, void *_shid)
 	 *
 	 * Nine pre-DONE, sixteen for the raw DONE stream: spi_hid_hdr_len(). */
 	hdr_len = spi_hid_hdr_len(shid);
+	if (shid->seq_state == SPI_HID_SEQ_DONE && shid->output_pending &&
+	    shid->read_resp_type == SPI_HID_CONTENT_TYPE_GET_FEATURE &&
+	    shid->read_resp_content_id == SPI_HID_GETFEAT6_REPORT_ID)
+		hdr_len = 12;
 	if (WARN_ON_ONCE(hdr_len > sizeof(hdr))) {
 		dev_err(dev, "SEQ: refusing oversized IRQ header read %u > %zu\n",
 			hdr_len, sizeof(hdr));

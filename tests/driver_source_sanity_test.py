@@ -1090,7 +1090,7 @@ def check_control_flow_pins():
     # Gate-3 hardware requires a 16-byte WAIT_FEATURE header window while
     # retaining the reference's 9-byte header approval with no content ID.
     # Only subsequent body reads may name read_resp_content_id.
-    if ("bool header_read = rx_len == spi_hid_hdr_len(shid);" not in read_reg or
+    if ("bool header_read = rx_len == spi_hid_hdr_len(shid)" not in read_reg or
             "u8 approval_id = header_read ? 0 : shid->read_resp_content_id;" not in read_reg):
         print("FAIL driver/spi-hid-core.c: read approval no longer classifies "
               "header/body semantically — widened headers must still omit content ID")
