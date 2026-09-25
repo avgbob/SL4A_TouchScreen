@@ -1209,6 +1209,33 @@ def check_control_flow_pins():
                   "keeps the beta consumer as a side consumer before HID forwarding")
             failures += 1
 
+    # 7m. Gate-3 hardware proved two standard-path transport requirements:
+    # (1) a successful hid_add_device() must not be treated as failure merely
+    # because hid->driver is not populated immediately, and
+    # (2) GET_FEATURE(6) response reads must use the Gate-2 reference approval
+    # even while descriptor discovery keeps the field-qualified legacy default.
+    if 'if (!ret && !hid->driver) {' in core_code:
+        print("FAIL driver/spi-hid-core.c: successful hid_add_device() is still "
+              "being rejected on an immediate hid->driver check")
+        failures += 1
+
+    _read = core_code.rsplit("static int spi_hid_seq_read_reg", 1)
+    if len(_read) != 2:
+        print("FAIL driver/spi-hid-core.c: spi_hid_seq_read_reg() is gone")
+        failures += 1
+    else:
+        _read = _read[1].split("\n}", 1)[0]
+        for _needle in (
+                "shid->read_resp_type == SPI_HID_CONTENT_TYPE_GET_FEATURE",
+                "shid->read_resp_content_id == SPI_HID_GETFEAT6_REPORT_ID",
+                "approval_variant = 0",
+        ):
+            if _needle not in _read:
+                print("FAIL driver/spi-hid-core.c: GET_FEATURE(6) no longer "
+                      "forces the Gate-2 reference read approval")
+                failures += 1
+                break
+
     # 8. the segmented read in spi-amd.c. The FIFO holds the request, the
     # answer and the controller's extra byte, so a chunk that does not fit is
     # rejected outright (tx + rx + 1 > 70) — a fixed 64-byte first chunk only
