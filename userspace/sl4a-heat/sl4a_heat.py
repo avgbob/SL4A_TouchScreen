@@ -16,7 +16,6 @@ import glob
 import hashlib
 import os
 import pathlib
-import poll as _unused_poll_module  # type: ignore[import-not-found]
 import select
 import struct
 import sys
