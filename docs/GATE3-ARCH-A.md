@@ -81,6 +81,46 @@ A minimal `sl4a-heat` transport client must:
 At this checkpoint it does **not** need to synthesize multitouch yet. Capturing
 correct Col02 frames through hidraw is enough to prove the architecture split.
 
+## First hardware procedure
+
+Use the standard transport profile. Do **not** use `install --raw` for this
+checkpoint.
+
+Stage/install the branch, then reboot before judging the architecture boundary:
+
+```bash
+cd /home/jo/Downloads/SL4A_TouchScreen
+git fetch origin
+git checkout gate3-arch-A
+git pull
+
+./tools/sl4a-touch.sh install --check
+sudo ./tools/sl4a-touch.sh install --standard
+sudo reboot
+```
+
+After the clean boot:
+
+```bash
+cd /home/jo/Downloads/SL4A_TouchScreen
+
+sudo python3 userspace/sl4a-heat/sl4a_heat.py --list
+sudo python3 userspace/sl4a-heat/sl4a_heat.py --no-arm
+
+sudo python3 userspace/sl4a-heat/sl4a_heat.py \
+  --frames 20 \
+  --timeout 20 \
+  --output-dir /tmp/sl4a-gate3
+```
+
+Touch/drag the panel after the client prints that SET_FEATURE 5 was accepted.
+Do not enable `std_raw_transition`, `raw_input_beta`, or `raw_mode` for this
+run: the point is to prove that the ordinary HID/hidraw boundary alone can
+carry Col02.
+
+If the client fails, collect `sudo ./tools/sl4a-touch.sh logs` immediately
+afterward. Do not inject a recovery profile before saving that first failure.
+
 ## Gate-3 PASS
 
 Gate 3 passes when, on the real SL4:
