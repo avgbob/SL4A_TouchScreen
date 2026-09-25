@@ -53,7 +53,12 @@ _Static_assert(sizeof(hardcoded_report_descriptor) == HARDCODED_RD_SIZE,
 
 int sl4a_debug_level;
 static int getfeat_delay_ms;  /* RPT_DESC → GET_FEATURE settle time (0 = immediate, safe default) */
-static bool skip_getfeat = true;
+static bool skip_getfeat = false;
+
+/* First Gate-3 hardware checkpoint: do not let legacy watchdog recovery
+ * rewrite the golden transaction stream after a failed first attempt. */
+static bool gate3_observe_only = true;
+
 /* Wire format of the host->device sequencer frames; the frames themselves live
  * in driver/spi-hid-wire-frames.h. 0 (the default) sends the Windows-identical
  * single-opcode frame, non-zero restores the legacy doubled-opcode form. */
@@ -501,9 +506,11 @@ static void spi_hid_stop_hid(struct spi_hid *shid)
 
 static void spi_hid_disable_irq(struct spi_hid *shid);
 
-/* _RST calls M010 which DESTROYS the device. Never call it.
- * ACPI recovery is a real _PS3->_PS0 power cycle (mirrors the
- * acpi_probe_power_cycle probe experiment). The sequencer is re-armed to
+/* Legacy ACPI recovery path retained only for non-Gate-3 diagnostic runs.
+ * Gate 2 disproved the old claim that _RST must never be called: Windows
+ * directly executes _RST after _PS0 on cold activation, re-enable and resume.
+ * This older _PS3->_PS0 recovery experiment is therefore not part of the
+ * Gate-3 golden first checkpoint and is blocked while gate3_observe_only=1. The sequencer is re-armed to
  * WAIT_RESET BEFORE the cycle so the device's power-on RESET_RSP lands
  * deterministically in WAIT_RESET and restarts descriptor discovery. If
  * the ACPI evaluation fails, the re-arm stays in place and discovery
@@ -572,6 +579,16 @@ static int spi_hid_error_handler(struct spi_hid *shid)
 
 	dev_dbg(dev, "error handler entered\n");
 	trace_spi_hid_lifecycle(shid, SPI_HID_LIFECYCLE_RECOVERY, 0);
+
+	/* Gate 3 first checkpoint is observational.  The Windows golden capture
+	 * gives us an activation/deactivation contract, but it does not define
+	 * an arbitrary in-place error-recovery sequence.  Do not let the legacy
+	 * _PS3->_PS0 recovery path rewrite the first failing trace. */
+	if (gate3_observe_only) {
+		dev_warn_ratelimited(dev,
+			"GATE3: recovery requested; observe-only mode leaves transport untouched\n");
+		goto out;
+	}
 
 	if (shid->attempts++ >= SPI_HID_MAX_RESET_ATTEMPTS) {
 		dev_err(dev, "unresponsive device, aborting.\n");
@@ -749,6 +766,10 @@ static int spi_hid_seq_write_get_feature6(struct spi_hid *shid)
 	struct spi_hid_wire_frame frame =
 		spi_hid_wire_get_feature6(spi_hid_wire_doubled());
 
+	/* A new GET6 transaction must not inherit validity from an earlier
+	 * lifecycle. Gate 3 treats a freshly validated ID6 reply as a prerequisite
+	 * for ID5 in observe-only mode. */
+	shid->getfeat6.valid = false;
 	shid->read_resp_type = SPI_HID_CONTENT_TYPE_GET_FEATURE;
 	shid->read_resp_content_id = SPI_HID_GETFEAT6_REPORT_ID;
 
@@ -1100,14 +1121,16 @@ static int spi_hid_create_device(struct spi_hid *shid)
 
 	ret = hid_add_device(hid);
 	/*
-	 * hid_add_device() reports whether report-parsing succeeded, not
-	 * whether the device was created. The true failure signal is when
-	 * hid->driver remains NULL after the call.
+	 * hid_add_device() returning 0 means the HID device was successfully
+	 * added to the HID bus. Driver binding is a separate driver-core step and
+	 * hid->driver is not an API contract that must already be populated here.
+	 * Gate-3 hardware showed the old immediate check destroying the device-read
+	 * 936-byte descriptor and forcing a hardcoded retry even though parsing
+	 * itself had succeeded.
 	 */
-	if (!ret && !hid->driver) {
-		dev_warn(dev, "SEQ: hid_add_device succeeded but no driver bound to it\n");
-		ret = -ENODEV;
-	}
+	if (!ret && !hid->driver)
+		dev_info(dev,
+			 "SEQ: HID device added; driver binding not complete yet\n");
 	if (ret) {
 		dev_err(dev, "Failed to add hid device: %d\n", ret);
 		spi_hid_disconnect_hid(shid);
@@ -1212,20 +1235,13 @@ static void spi_hid_create_device_work(struct work_struct *work)
 }
 
 /*
- * Enable the raw stream.
+ * Legacy duplicate 0x56 sender.
  *
- * The reference sends this SET_FEATURE after the handshake and before it starts
- * reading the stream — boot trace #0531, byte for byte:
- *
- *	02 00 00 03 C2 | 00 03 0A 00 56 BD 0C EE 5B 44 4C 00 00
- *	                 |  pad  |  |  |  \_____ payload (7) ____/
- *	                 |  SET_FEATURE
- *	                 |     |  content id 0x56
- *	                 |     register to stream from (0x0A)
- *	                 total content length (10 = 7 + 3)
- *
- * Without it the device does not stream and every read of that register has
- * nothing to answer with, however well formed the read is.
+ * Gate 2 established that Windows sends SET_FEATURE 0x56 exactly once after
+ * RDESC, then GET_FEATURE ID6/reply, then SET_FEATURE ID5=1. It does not send
+ * another 0x56 when the sequencer reaches DONE. raw_no_enable therefore
+ * defaults to 1 on gate3-arch-A. This helper remains only for explicit A/B
+ * rollback and must not be part of the golden checkpoint.
  */
 static int spi_hid_raw_enable_stream(struct spi_hid *shid)
 {
@@ -1263,10 +1279,10 @@ static int spi_hid_raw_enable_stream(struct spi_hid *shid)
  * 1616 valid bodies); the 0x56 frame moves the stream to 0x0A (boot #0531 ->
  * 0x0A idle), so sending it after ID5 kills the 0x04 stream this driver
  * reads. */
-static int raw_no_enable;
+static int raw_no_enable = 1;
 module_param(raw_no_enable, int, 0444);
 MODULE_PARM_DESC(raw_no_enable,
-	"Skip the 0x56 stream enable at DONE (SET_FEATURE ID5 owns the stream)");
+	"Gate 3 default 1: do not emit a second 0x56 at DONE; golden startup sends it once before GET6");
 
 static void spi_hid_raw_stream_arm(struct spi_hid *shid)
 {
@@ -1295,6 +1311,9 @@ static int spi_hid_get_request(struct spi_hid *shid, u8 content_id)
 static int spi_hid_set_request(struct spi_hid *shid,
 		u8 *arg_buf, u16 arg_len, u8 content_id)
 {
+	u8 old_type, old_id;
+	int ret;
+
 	if (arg_len > U16_MAX - 4)
 		return -EMSGSIZE;
 
@@ -1305,9 +1324,32 @@ static int spi_hid_set_request(struct spi_hid *shid,
 		.content = arg_buf,
 	};
 
+	/* V0 body reads name the request whose staged data they belong to.
+	 * Gate 2 live 0x0c reads carry SET_FEATURE/5 in the read approval after
+	 * ID5=1. Preserve the generic HID SET_REPORT in the same transport state
+	 * so a userspace Col02 client and the in-kernel helper are equivalent.
+	 * Set it before spi_sync because the device may assert its data IRQ as
+	 * soon as the command completes; restore the old context if the write
+	 * itself fails. */
+	mutex_lock(&shid->seq_lock);
+	old_type = shid->read_resp_type;
+	old_id = shid->read_resp_content_id;
+	shid->read_resp_type = SPI_HID_CONTENT_TYPE_SET_FEATURE;
+	shid->read_resp_content_id = content_id;
+	mutex_unlock(&shid->seq_lock);
 
-	return spi_hid_send_output_report(shid,
+	ret = spi_hid_send_output_report(shid,
 			shid->desc.output_register, &report);
+	if (ret) {
+		mutex_lock(&shid->seq_lock);
+		if (shid->read_resp_type == SPI_HID_CONTENT_TYPE_SET_FEATURE &&
+		    shid->read_resp_content_id == content_id) {
+			shid->read_resp_type = old_type;
+			shid->read_resp_content_id = old_id;
+		}
+		mutex_unlock(&shid->seq_lock);
+	}
+	return ret;
 }
 
 /* Which shape the read approval has. The traces put the register at offset 7
@@ -1409,10 +1451,30 @@ static int spi_hid_seq_read_reg(struct spi_hid *shid, u32 reg, u8 *rx, int rx_le
 	 * The global variant selects the encoding (legacy five-byte default:
 	 * the panel answers descriptors — and, in raw DONE on reg 0, the
 	 * stream — only to this form, e541dd0 live multitouch verified). */
-	n = spi_hid_wire_read_approval_variant(tx, reg, shid->read_resp_type,
-					       rx_len > SPI_HID_READ_APPROVAL_LEN ?
-					       shid->read_resp_content_id : 0,
-					       read_frame_variant);
+	{
+		int approval_variant = read_frame_variant;
+		u8 approval_id = rx_len > SPI_HID_READ_APPROVAL_LEN ?
+			shid->read_resp_content_id : 0;
+
+		/*
+		 * Keep descriptor/stream discovery on the field-qualified global
+		 * variant, but use the exact Gate-2 Windows approval shape for the
+		 * Col02 GET_FEATURE(6) transaction. The failing hardware checkpoint
+		 * proved that a correct GET6 command followed by the legacy five-byte
+		 * approval never completes. Gate 2 observed:
+		 *   header: 0B 00 00 00 FF 00 04 03 00
+		 *   body:   0B 00 00 00 FF 00 04 03 00 06
+		 * where 0x04/0x06 name GET_FEATURE/report 6.
+		 */
+		if (shid->read_resp_type == SPI_HID_CONTENT_TYPE_GET_FEATURE &&
+		    shid->read_resp_content_id == SPI_HID_GETFEAT6_REPORT_ID)
+			approval_variant = 0;
+
+		n = spi_hid_wire_read_approval_variant(tx, reg,
+					       shid->read_resp_type,
+					       approval_id,
+					       approval_variant);
+	}
 	/* The request is the frame and nothing more: `tx_len = n`, the padded form
 	 * removed for reasons of THIS transport, not because the reference's own
 	 * behaviour was established. Two adversarial legs read the same capture and
@@ -1893,6 +1955,17 @@ static void spi_hid_raw_handshake_watchdog(struct work_struct *work)
 	    shid->raw_handshake_confirmed)
 		goto out;
 
+	if (gate3_observe_only) {
+		shid->watchdog_fires++;
+		raw_watchdog_snapshot(shid);
+		dev_warn(dev,
+			 "GATE3: golden handshake not confirmed; observe-only mode leaves transport untouched (state=%s irq=%u data=%u raw=%u resets=%u)\n",
+			 spi_hid_seq_state_name(shid->seq_state),
+			 shid->stat_irq_count, shid->stat_data,
+			 shid->stat_raw_observed, shid->stat_reset_rsp);
+		goto out;
+	}
+
 	/* Flow beats unconfirmed (watchdog plan): see raw_watchdog_progress().
 	 * IDLE (quiet panel, nobody touching) waits the same way but counts
 	 * separately: it must never spend retries, or an untouched panel is
@@ -2349,7 +2422,7 @@ MODULE_PARM_DESC(raw_input_beta,
 static bool acpi_probe_power_cycle = false;
 module_param(acpi_probe_power_cycle, bool, 0444);
 MODULE_PARM_DESC(acpi_probe_power_cycle,
-	"Experimental ACPI _PS3->_PS0 power cycle at probe (default disabled)");
+	"Deprecated on gate3-arch-A: ignored; Gate 2 golden lifecycle is _PS0->_RST");
 
 module_param(sync_timeout_ms, int, 0444);
 
@@ -2464,6 +2537,15 @@ static void spi_hid_getfeat6_retain(struct spi_hid *shid, const u8 *body, u32 bo
 		seq_dbg(shid, 1, "SEQ: GET_FEATURE(6) reply not parseable, ignored\n");
 		return;
 	}
+	if (content.content_id != SPI_HID_GETFEAT6_REPORT_ID ||
+	    content.total_length != SPI_HID_GETFEAT6_CONTENT_LEN ||
+	    content.data_length != SPI_HID_GETFEAT6_PAYLOAD_LEN) {
+		shid->getfeat6.valid = false;
+		dev_warn(&shid->spi->dev,
+			 "GATE3: GET_FEATURE(6) reply rejected: id=%u total=%u payload=%u\n",
+			 content.content_id, content.total_length, content.data_length);
+		return;
+	}
 	if (shid->getfeat6.valid)
 		seq_dbg(shid, 2, "SEQ: GET_FEATURE(6) reply replaced\n");
 
@@ -2550,8 +2632,12 @@ static void spi_hid_getfeat6_read(struct spi_hid *shid)
 
 module_param(skip_getfeat, bool, 0444);
 MODULE_PARM_DESC(skip_getfeat,
-	"Skip the standard-mode feature-read handshake (no WAIT_FEATURE state). "
-	"The raw-mode Report ID 6 configuration read still runs");
+	"Legacy A/B switch. Gate 3 default is 0 so raw startup follows the golden "
+	"0x56 -> GET_FEATURE(6)/reply -> SET_FEATURE(5=1) sequence");
+
+module_param(gate3_observe_only, bool, 0444);
+MODULE_PARM_DESC(gate3_observe_only,
+	"Gate 3 default 1: log a stalled golden handshake but do not inject legacy retries/recovery");
 
 /* July one-shot transition in standard mode: GET ID6 + SET ID5=1 after RPT,
  * then passive capture on reg 0 (raw_observed counts). Opt-in; default off
@@ -3466,7 +3552,9 @@ static void seq_handle_rpt(struct spi_hid *shid, int type, u16 blen)
 					spi_hid_seq_set_state(shid, SPI_HID_SEQ_DONE, SPI_HID_SEQ_REPORT_DESCRIPTOR);
 				}
 			} else {
-				usleep_range(1400, 1800);
+				/* Gate 2 T2: RDESC -> 0x56 was ~123 ms. Keep an
+				 * intentionally narrow neighborhood around that observed gap. */
+				usleep_range(115000, 130000);
 				if (getfeat_delay_ms > 0) {
 					seq_dbg(shid, 1, "SEQ: scheduling vendor init + GET_FEATURE after %dms...\n",
 						getfeat_delay_ms);
@@ -3474,15 +3562,15 @@ static void seq_handle_rpt(struct spi_hid *shid, int type, u16 blen)
 					schedule_delayed_work(&shid->feat_delay_work,
 							      msecs_to_jiffies(getfeat_delay_ms));
 				} else {
-					seq_dbg(shid, 1, "SEQ: vendor init + GET_FEATURE...\n");
-					usleep_range(68000, 72000);
+					seq_dbg(shid, 1, "GATE3: SET_FEATURE 0x56 -> GET_FEATURE 6\n");
 					if (spi_hid_seq_write_vendor_init(shid)) {
-						dev_warn(&shid->spi->dev, "SEQ: vendor init write failed\n");
+						dev_warn(&shid->spi->dev, "GATE3: SET_FEATURE 0x56 failed\n");
 						schedule_delayed_work(&shid->raw_handshake_watchdog,
 							msecs_to_jiffies(RAW_HANDSHAKE_TIMEOUT_MS));
 						return;
 					}
-					usleep_range(36000, 39000);
+					/* Gate 2 T2: 0x56 -> GET6 was ~84.6 ms. */
+					usleep_range(80000, 90000);
 					if (spi_hid_seq_write_get_feature6(shid)) {
 						dev_warn(&shid->spi->dev, "SEQ: GET_FEATURE write failed\n");
 						schedule_delayed_work(&shid->raw_handshake_watchdog,
@@ -3517,8 +3605,9 @@ static void seq_handle_rpt(struct spi_hid *shid, int type, u16 blen)
 
 				shid->transition_done = true;
 
-				shid->read_resp_type = 0;
-				shid->read_resp_content_id = 0;
+				/* Keep the final request context.  In mode 3 that is
+				 * SET_FEATURE/5, exactly what Gate 2 carries in live
+				 * 0x0c read approvals. */
 			}
 			spi_hid_seq_set_state(shid, SPI_HID_SEQ_DONE, SPI_HID_SEQ_REPORT_DESCRIPTOR);
 			if (std_liveness_ms > 0) {
@@ -3560,18 +3649,29 @@ static void seq_handle_feat(struct spi_hid *shid, int type, u16 blen)
 
 		shid->stat_getfeat_resp++;
 		seq_dbg(shid, 1, "SEQ: GET_FEAT_RESP! reading body (%u bytes)...\n", blen);
-		/* A failed read is logged and the handshake still completes: the
-		 * Report ID 6 payload is diagnostic only, so probing must not be
-		 * held up by it. */
 		if (rblen >= 3 && !spi_hid_seq_read(shid, body, rblen))
 			spi_hid_getfeat6_retain(shid, body, rblen);
 		else
-			dev_warn(&shid->spi->dev, "SEQ: GET_FEATURE response read failed or was truncated, continuing\n");
+			dev_warn(&shid->spi->dev,
+				 "SEQ: GET_FEATURE response read failed or was truncated\n");
+
+		/* The Gate-3 checkpoint is a parity measurement, not a recovery
+		 * experiment. Windows T2 consumed a valid ID6 reply before sending
+		 * ID5. If that reply is absent or malformed, stop at the first
+		 * divergence so later traffic cannot make the trace look healthier
+		 * than it is. Legacy diagnostic mode retains the old continue-on-error
+		 * behavior when gate3_observe_only=0. */
+		if (gate3_observe_only && !shid->getfeat6.valid) {
+			dev_warn(&shid->spi->dev,
+				 "GATE3: ID6 response invalid; stopping before SET_FEATURE ID5=1\n");
+			return;
+		}
 		{
 			int ret;
 
-			usleep_range(4500, 5500);
-			seq_dbg(shid, 1, "SEQ: sending SET_FEATURE speed=%u double=%d no_double=%d\n",
+			/* Gate 2 T2: ID6 response -> SET_FEATURE ID5=1 was ~17.3 ms. */
+			usleep_range(15000, 20000);
+			seq_dbg(shid, 1, "GATE3: sending SET_FEATURE ID5=1 speed=%u double=%d no_double=%d\n",
 				 setfeat_speed_hz, wire_double_opcode, setfeat_no_double);
 			ret = spi_hid_seq_write_setfeat(shid);
 			if (ret) {
@@ -3729,6 +3829,10 @@ static void seq_handle_data(struct spi_hid *shid, int type, u16 blen)
 				body[7]);
 		}
 
+		/* The beta kernel processor is now a side consumer, not an alternate
+		 * transport.  A descriptor-defined report must still reach HID core
+		 * whenever a normal HID device exists so hidraw can provide the
+		 * Architecture-A userspace boundary. */
 		if ((shid->raw_mode_active ||
 		     (!shid->raw_mode_active &&
 		      std_raw_transition == 3 &&
@@ -3746,19 +3850,15 @@ static void seq_handle_data(struct spi_hid *shid, int type, u16 blen)
 			if (raw_input_beta) {
 				cret = mshw0231_raw_consume_v0(shid, &body[5], rblen - 5);
 				if (cret) {
-					dev_warn_ratelimited(dev, "SEQ: CapImg decode failed: %d (rblen=%u)\n", cret, rblen);
+					dev_warn_ratelimited(dev,
+						"SEQ: CapImg decode failed: %d (rblen=%u); raw HID report still forwarded when available\n",
+						cret, rblen);
 					shid->stat_frames_dropped++;
-					return;
 				}
 			}
-		} else if (rl >= 3 && rl - 3 <= avail) {
-			if (!shid->raw_mode_active && body[7] == 0x0C) {
-				/* Heatmap body on the standard path (July transition):
-				 * counted by the passive observer above, never
-				 * delivered as HID input. */
-				seq_dbg(shid, 2, "SEQ: standard-path 0x0c body held for capture (len=%u)\n",
-					rl);
-			} else {
+		}
+
+		if (rl >= 3 && rl - 3 <= avail) {
 			if (shid->raw_mode_active && body[7] == 0x40 && rl - 2 >= 6) {
 				/* Report 0x40: ID, one TipSwitch byte, then X and Y
 				 * as 16-bit little-endian pairs (see
@@ -3773,7 +3873,6 @@ static void seq_handle_data(struct spi_hid *shid, int type, u16 blen)
 				if (hret)
 					dev_warn(dev, "SEQ: hid_input_report failed: %d (content_id=0x%02x)\n",
 						 hret, body[7]);
-			}
 			}
 		} else if (rl < 3) {
 			dev_warn(dev, "SEQ: DATA report too short to contain a report ID (len=%u), dropped\n",
@@ -3909,6 +4008,12 @@ static int spi_hid_ll_raw_request(struct hid_device *hid,
 
 	switch (reqtype) {
 	case HID_REQ_SET_REPORT:
+		/* This V0 callback currently implements feature control requests.
+		 * Do not silently encode an INPUT/OUTPUT raw_request as SET_FEATURE. */
+		if (rtype != HID_FEATURE_REPORT) {
+			ret = -EOPNOTSUPP;
+			break;
+		}
 		/* Same window as ll_output_report: a cheap re-check that keeps a
 		 * client from starting a transfer on a transport we already know is
 		 * going away; the flags live under seq_lock, so this does not close
@@ -3937,6 +4042,12 @@ static int spi_hid_ll_raw_request(struct hid_device *hid,
 		ret = len;
 		break;
 	case HID_REQ_GET_REPORT:
+		/* This V0 callback currently implements feature control requests.
+		 * Reject other report types rather than mis-encoding them as GET_FEATURE. */
+		if (rtype != HID_FEATURE_REPORT) {
+			ret = -EOPNOTSUPP;
+			break;
+		}
 		/* Experimental A/B switch (issue #4): with skip_std_getfeat the
 		 * standard profile answers feature reads without touching SPI at
 		 * all, so the connect-time feature query cannot leave the
@@ -3960,23 +4071,28 @@ static int spi_hid_ll_raw_request(struct hid_device *hid,
 		}
 
 		{
-			/*
-			 * NOTE: Assumes the response was populated by the
-			 * IRQ thread before ll_raw_request reads it. The
-			 * spi_hid_get_request path ensures completion via
-			 * wait_for_completion, but no explicit response_valid
-			 * flag is checked here.
-			 */
 			u16 response_len = shid->response.body[0] |
 				(shid->response.body[1] << 8);
+			u8 response_id = shid->response.body[2];
+			size_t payload_len;
 
-			if (response_len < 3) {
+			/* spi_hid_sync_request() returns success only for the current
+			 * generation with response_valid set, so the shared response
+			 * below is owned by this request. Hidraw's numbered-report ABI
+			 * requires the returned buffer to begin with the report ID. */
+			if (response_len < 3 || response_id != reportnum) {
 				ret = -EPROTO;
 				break;
 			}
-			ret = min_t(size_t, len, response_len - 3);
+			if (len < 1) {
+				ret = -EINVAL;
+				break;
+			}
+			payload_len = min_t(size_t, len - 1, response_len - 3);
+			buf[0] = response_id;
+			memcpy(&buf[1], &shid->response.content, payload_len);
+			ret = payload_len + 1;
 		}
-		memcpy(buf, &shid->response.content, ret);
 		break;
 	default:
 		dev_err(dev, "invalid request type\n");
@@ -4456,41 +4572,61 @@ static void spi_hid_probe_gpio(struct spi_hid *shid, unsigned long irqflags)
 	seq_dbg(shid, 1, "GPIO dance complete\n");
 }
 
-/* Opt-in probe-time power cycle (_PS3 → _PS0). A device-specific legacy
- * experiment, not generic power management: keep it behind
- * acpi_probe_power_cycle until cold-boot A/B traces prove it required.
- * Never wait as if a failed AML transition had succeeded. */
-static int spi_hid_probe_acpi_cycle(struct spi_hid *shid)
+/* Gate 3 Architecture A lifecycle.
+ *
+ * Gate 2 observed the Windows golden path on this exact machine:
+ *   activation: _PS0 -> _RST
+ *   deactivation/sleep: _PS3
+ *
+ * _RST itself contains the board's required ~300 ms GPIO reset interval.
+ * Do not add the old _PS3->_PS0 probe experiment here: that was a Linux
+ * hypothesis, not an observed Windows activation transition.
+ */
+static int spi_hid_acpi_eval(struct spi_hid *shid, const char *method)
 {
 	struct device *dev = &shid->spi->dev;
 	acpi_handle h = ACPI_HANDLE(dev);
+	acpi_status status;
 
-	if (!acpi_probe_power_cycle)
+	if (dev->of_node)
 		return 0;
-	if (h) {
-		acpi_status status;
-
-		dev_info(dev, "SEQ: Power cycling device via ACPI _PS3 -> _PS0...\n");
-		seq_dbg(shid, 1, "ACPI _PS3 begin\n");
-		status = acpi_evaluate_object(h, "_PS3", NULL, NULL);
-		if (ACPI_FAILURE(status)) {
-			dev_err(dev, "SEQ: ACPI _PS3 failed: %s\n",
-				acpi_format_exception(status));
-			return -EIO;
-		}
-		seq_dbg(shid, 1, "ACPI _PS3 complete\n");
-		msleep(50);
-		seq_dbg(shid, 1, "ACPI _PS0 begin\n");
-		status = acpi_evaluate_object(h, "_PS0", NULL, NULL);
-		if (ACPI_FAILURE(status)) {
-			dev_err(dev, "SEQ: ACPI _PS0 failed: %s\n",
-				acpi_format_exception(status));
-			return -EIO;
-		}
-		seq_dbg(shid, 1, "ACPI _PS0 complete\n");
-		msleep(100);
+	if (!h) {
+		dev_err(dev, "GATE3: no ACPI handle for %s\n", method);
+		return -ENODEV;
 	}
+
+	seq_dbg(shid, 1, "GATE3: ACPI %s begin\n", method);
+	status = acpi_evaluate_object(h, (acpi_string)method, NULL, NULL);
+	if (ACPI_FAILURE(status)) {
+		dev_err(dev, "GATE3: ACPI %s failed: %s\n",
+			method, acpi_format_exception(status));
+		return -EIO;
+	}
+	seq_dbg(shid, 1, "GATE3: ACPI %s complete\n", method);
 	return 0;
+}
+
+static int spi_hid_acpi_activate_golden(struct spi_hid *shid)
+{
+	int ret;
+
+	if (shid->spi->dev.of_node)
+		return 0;
+
+	dev_info(&shid->spi->dev, "GATE3: activation _PS0 -> _RST\n");
+	ret = spi_hid_acpi_eval(shid, "_PS0");
+	if (ret)
+		return ret;
+	return spi_hid_acpi_eval(shid, "_RST");
+}
+
+static int spi_hid_acpi_deactivate_golden(struct spi_hid *shid)
+{
+	if (shid->spi->dev.of_node)
+		return 0;
+
+	dev_info(&shid->spi->dev, "GATE3: deactivation _PS3\n");
+	return spi_hid_acpi_eval(shid, "_PS3");
 }
 
 /**
@@ -4517,8 +4653,10 @@ static int spi_hid_probe(struct spi_device *spi)
 	unsigned long irqflags;
 	int ret;
 
-	dev_info(dev, "TRACE[hid] probe begin irq=%d raw_mode=%u acpi_power_cycle=%u\n",
-		 spi->irq, raw_mode, acpi_probe_power_cycle);
+	dev_info(dev, "TRACE[hid] probe begin irq=%d raw_mode=%u gate3_golden_lifecycle=1\n",
+		 spi->irq, raw_mode);
+	if (acpi_probe_power_cycle)
+		dev_warn(dev, "GATE3: acpi_probe_power_cycle is deprecated and ignored\n");
 
 	/* A negative delay would be added to the raw handshake timeout and wrap
 	 * msecs_to_jiffies() into the far future: the watchdog would stay armed
@@ -4665,27 +4803,24 @@ static int spi_hid_probe(struct spi_device *spi)
 	if (!dev->of_node)
 		spi_hid_probe_gpio(shid, irqflags);
 
-	ret = spi_hid_probe_acpi_cycle(shid);
+	/* ACPI core has already evaluated _INI before probe. Gate 2 proves the
+	 * next Windows activation transitions are _PS0 then _RST. Keep the IRQ
+	 * unrequested during the reset; after it completes we arm IRQ and issue
+	 * DESCREQ directly, so discovery does not depend on catching a transient
+	 * RESET_RSP edge generated inside _RST. */
+	ret = spi_hid_acpi_activate_golden(shid);
 	if (ret)
 		goto err1;
 
 	mutex_lock(&shid->seq_lock);
 	shid->seq_enabled = true;
 	spi_hid_seq_set_state(shid, SPI_HID_SEQ_WAIT_RESET, SPI_HID_SEQ_PROBE);
-	shid->ready = shid->seq_state >= SPI_HID_SEQ_DONE;
+	shid->ready = false;
 	mutex_unlock(&shid->seq_lock);
 
-	/* Wait for device to stabilize after ACPI _INI power-on.
-	 * _INI is called by the ACPI subsystem before probe() and handles
-	 * GPIO power sequencing. The device is already powered and sending
-	 * RESET_RSP. Do NOT call _RST/M009/M010 — power cycle kills the
-	 * The _RST method calls M010 which destroys the device until cold reboot. */
-	seq_dbg(shid, 1, "probe settling delay begin\n");
-	msleep(300);
-	seq_dbg(shid, 1, "probe settling delay complete\n");
 	shid->desc.input_register = SPI_HID_DEFAULT_INPUT_REGISTER;
 
-	dev_info(dev, "SEQ: device powered by ACPI _INI, arming IRQ\n");
+	dev_info(dev, "GATE3: ACPI activation complete; arming IRQ before DESCREQ\n");
 
 	/* Create the heatmap-backed MT input device only when it can receive
 	 * frames: native raw mode, or the opt-in standard-transport SET5
@@ -4747,12 +4882,18 @@ static int spi_hid_probe(struct spi_device *spi)
 	}
 	shid->irq_requested = true;
 	shid->irq_enabled = true;
-	/* Only now can an edge be counted, so only now does the backstop's "no IRQ
-	 * at all" clock mean anything (issue #4). */
+
+	/* Gate 2 does not require a RESET_RSP between _RST and descriptor
+	 * discovery. Start the observed discovery phase explicitly now that an
+	 * IRQ generated by the response can be serviced. */
 	mutex_lock(&shid->seq_lock);
-	spi_hid_arm_wait_reset_watchdog(shid);
+	ret = spi_hid_seq_restart_discovery(shid, SPI_HID_SEQ_PROBE);
 	mutex_unlock(&shid->seq_lock);
-	dev_info(dev, "SEQ: IRQ armed (state=WAIT_RESET, zero touch)\n");
+	if (ret) {
+		dev_err(dev, "GATE3: initial DESCREQ failed after _PS0->_RST: %d\n", ret);
+		goto err1_touch;
+	}
+	dev_info(dev, "GATE3: IRQ armed; DESCREQ sent after _PS0->_RST\n");
 	trace_spi_hid_lifecycle(shid, SPI_HID_LIFECYCLE_IRQ_ARMED, 0);
 	dev_info(dev, "TRACE[hid] probe complete: d3 -> %s\n",
 		spi_hid_power_mode_string(shid->power_state));
@@ -4880,6 +5021,14 @@ static int spi_hid_suspend(struct device *dev)
 	/* No reply can arrive now: release a synchronous caller immediately
 	 * instead of letting it sit out the full sync timeout. */
 	spi_hid_abort_pending_sync(shid);
+
+	/* Windows golden suspend/disable transition. The transport is quiesced
+	 * before AML powers the panel down, so no SPI request can race _PS3. */
+	{
+		int ret = spi_hid_acpi_deactivate_golden(shid);
+		if (ret)
+			return ret;
+	}
 	return 0;
 }
 
@@ -4887,8 +5036,17 @@ static int spi_hid_resume(struct device *dev)
 {
 	struct spi_device *spi = to_spi_device(dev);
 	struct spi_hid *shid = spi_get_drvdata(spi);
+	int ret;
 
 	seq_dbg(shid, 1, "PM: resume\n");
+
+	/* Gate 2 golden activation: _PS0 -> _RST. IRQ is still disabled from
+	 * suspend and seq_enabled is still false, so no stale edge can advance
+	 * the sequencer while AML owns the device. */
+	ret = spi_hid_acpi_activate_golden(shid);
+	if (ret)
+		return ret;
+
 	mutex_lock(&shid->seq_lock);
 	if (shid->ready) {
 		shid->ready = false;
@@ -4910,38 +5068,15 @@ static int spi_hid_resume(struct device *dev)
 	shid->done_latched = false;
 	shid->feat_delay_pending = false;
 	shid->std_liveness_recovered = false;
+	shid->raw_stream_armed = false;
 	mshw0231_raw_reset(shid);
-	WRITE_ONCE(shid->seq_enabled, true);
 	shid->seq_state = SPI_HID_SEQ_WAIT_RESET;
+	WRITE_ONCE(shid->seq_enabled, true);
 	WRITE_ONCE(shid->suspended, false);
-	/* Standard mode: the device now owes us a RESET_RSP and nothing else is
-	 * armed if it stays quiet. */
-	spi_hid_arm_wait_reset_watchdog(shid);
-	/* Raw mode: that arm returns immediately there, so a controller coming
-	 * back from resume without a RESET_RSP had no timer at all and the panel
-	 * stayed dead until the next suspend/resume. The raw watchdog is a no-op
-	 * once the handshake is confirmed, so arming it here is safe. */
-	if (shid->raw_mode_active && !shid->raw_handshake_confirmed)
-		schedule_delayed_work(&shid->raw_handshake_watchdog,
-				      msecs_to_jiffies(RAW_HANDSHAKE_TIMEOUT_MS));
 	mutex_unlock(&shid->seq_lock);
 
-	/* Vendor init before the IRQ is re-enabled: it writes the D2/D0 pair and
-	 * sleeps between the frames, and an IRQ processed in between would let
-	 * the sequencer advance mid-init (a failed init also went unnoticed). */
-	if (shid->raw_mode_active) {
-		int vret = 0;
-
-		mutex_lock(&shid->seq_lock);
-		if (!READ_ONCE(shid->removing) && !READ_ONCE(shid->suspended) &&
-		    READ_ONCE(shid->seq_enabled))
-			vret = spi_hid_vendor_init(shid);
-		mutex_unlock(&shid->seq_lock);
-		if (vret)
-			dev_warn(&spi->dev, "SEQ: resume vendor init failed: %d\n",
-				 vret);
-	}
-
+	/* Re-enable IRQ before DESCREQ so the descriptor response cannot race an
+	 * IRQ-disabled interval. The reset response itself is not required. */
 	{
 		bool arm;
 
@@ -4954,7 +5089,15 @@ static int spi_hid_resume(struct device *dev)
 			enable_irq(shid->irq);
 	}
 
-	return 0;
+	mutex_lock(&shid->seq_lock);
+	ret = spi_hid_seq_restart_discovery(shid, SPI_HID_SEQ_DEVICE_RESET);
+	mutex_unlock(&shid->seq_lock);
+	if (ret)
+		dev_err(dev, "GATE3: resume DESCREQ failed after _PS0->_RST: %d\n", ret);
+	else
+		dev_info(dev, "GATE3: resume _PS0->_RST complete; DESCREQ sent\n");
+
+	return ret;
 }
 
 static const struct dev_pm_ops spi_hid_pm_ops = {

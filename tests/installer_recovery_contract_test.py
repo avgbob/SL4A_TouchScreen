@@ -265,16 +265,17 @@ assert "cmd_hunt" in tool and "hunt_verdict" in tool and \
     "the frame hunt is gone: the battery would need hand commands"
 assert "HUNT_VARIANTS=(" in tool and "hunt_profile_params()" in tool, \
     "the variant plan is gone: the battery would no longer be data-driven"
-assert "raw_mode=Y raw_input_beta=Y skip_getfeat=Y" in tool, \
-    "the raw profile's base parameters are gone from the battery"
-# Field bisect 2026-09-19 (MSHW0231): the single-opcode DESCREQ is never
-# answered by this panel, so both installed profiles ship wire_double_opcode=1.
-# Reverting either heredoc re-wedges standard (and raw) discovery into the
-# WAIT_DESC reset-loop.
+assert "raw_mode=Y raw_input_beta=Y skip_getfeat=N raw_no_enable=1 gate3_observe_only=1 wire_double_opcode=0 read_frame_variant=0" in tool, \
+    "the Gate-3 raw battery base no longer requests the Windows-observed frame shapes"
+# Keep the release/standard profile on the field-qualified doubled dialect.
+# Gate 3 raw is different on purpose: it is a parity checkpoint against the
+# accepted Windows trace, so it must request the observed single-opcode writes
+# and reference read-approval shape even though the older Linux field sweep
+# found those shapes unsuccessful.
 assert "options sl4a_spi_hid raw_mode=N wire_double_opcode=1" in tool, \
-    "the installed standard profile lost wire_double_opcode=1 — single-opcode DESCREQ loops"
-assert "options sl4a_spi_hid raw_mode=Y raw_input_beta=Y skip_getfeat=Y wire_double_opcode=1" in tool, \
-    "the installed raw profile lost wire_double_opcode=1 — single-opcode DESCREQ loops"
+    "the installed standard profile lost its field-qualified doubled dialect"
+assert "options sl4a_spi_hid raw_mode=Y raw_input_beta=Y skip_getfeat=N raw_no_enable=1 gate3_observe_only=1 wire_double_opcode=0 read_frame_variant=0" in tool, \
+    "the installed Gate-3 raw profile no longer requests the Windows-observed frame shapes"
 assert "sl4a_debug_level=3" in tool, \
     "hunt no longer raises the debug level, so the read bytes are not captured"
 assert ">>> TOUCH THE PANEL NOW" in tool, \

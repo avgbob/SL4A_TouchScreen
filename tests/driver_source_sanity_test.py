@@ -312,15 +312,26 @@ def check_control_flow_pins():
               "the unchanged-state return, so a re-entered WAIT_DESC never arms it")
         failures += 1
 
-    # 3. spi_hid_resume(): it assigns the state directly instead of going
-    # through spi_hid_seq_set_state(), and the standard-mode arm it does call is
-    # a no-op in raw mode — so without its own arm a controller that comes back
-    # from resume without a RESET_RSP has no timer at all and stays dead.
+    # 3. spi_hid_resume(): raw mode still needs a bounded observation timer
+    # after resume. Gate 3 no longer waits for RESET_RSP; it enters descriptor
+    # discovery explicitly through spi_hid_seq_restart_discovery(), and the
+    # WAIT_DESC transition is already checked above to arm raw_handshake_watchdog
+    # before the unchanged-state return. Accept either that path or a direct arm.
     body = core_code.split("static int spi_hid_resume", 1)[1].split("\n}", 1)[0]
-    if "raw_handshake_watchdog" not in body:
-        print("FAIL driver/spi-hid-core.c: spi_hid_resume() no longer arms the raw "
-              "watchdog (raw mode has no timer for a silent post-resume controller)")
+    if ("raw_handshake_watchdog" not in body and
+            "spi_hid_seq_restart_discovery" not in body):
+        print("FAIL driver/spi-hid-core.c: spi_hid_resume() neither directly arms "
+              "the raw watchdog nor restarts discovery through WAIT_DESC")
         failures += 1
+
+    # Gate 3's first hardware checkpoint must remain observation-only: a failed
+    # golden handshake must not be overwritten by the legacy D2/D0 retry path.
+    if "gate3_observe_only = true" in core_code:
+        _wd_gate3 = core_code.split("static void spi_hid_raw_handshake_watchdog", 1)[1].split("\n}", 1)[0]
+        if "if (gate3_observe_only)" not in _wd_gate3 or "goto out;" not in _wd_gate3:
+            print("FAIL driver/spi-hid-core.c: Gate-3 observe-only mode no longer "
+                  "exits the raw watchdog before legacy recovery traffic")
+            failures += 1
 
     # 4. spi_hid_raw_handshake_watchdog(): its "fall back to standard HID" branch
     # must install the hardcoded descriptors first. Without them
@@ -1080,6 +1091,151 @@ def check_control_flow_pins():
               "on nine-byte reads again — the reference names it only on bodies")
         failures += 1
 
+    # 7h. Gate-3 first checkpoint must remain observational.  A generic
+    # error worker is another route into the legacy ACPI recovery path, so pin
+    # the guard in the real error handler rather than only in the raw watchdog.
+    _eh = core_code.split("static int spi_hid_error_handler", 1)
+    if len(_eh) != 2:
+        print("FAIL driver/spi-hid-core.c: spi_hid_error_handler() is gone")
+        failures += 1
+    else:
+        _eh = _eh[1].split("\n}", 1)[0]
+        _guard = _eh.find("if (gate3_observe_only)")
+        _legacy = _eh.find("spi_hid_reset_via_acpi(shid)")
+        if _guard < 0 or _legacy < 0 or _guard > _legacy:
+            print("FAIL driver/spi-hid-core.c: Gate-3 observe-only guard does not "
+                  "precede legacy ACPI recovery in spi_hid_error_handler()")
+            failures += 1
+
+    # 7i. Gate-3 may not claim the golden post-RDESC sequence unless the
+    # ID6 body was freshly validated.  Pin both the strict retain predicate and
+    # the observe-only stop before ID5.
+    _g6 = core_code.rsplit("static void spi_hid_getfeat6_retain", 1)
+    if len(_g6) != 2:
+        print("FAIL driver/spi-hid-core.c: spi_hid_getfeat6_retain() is gone")
+        failures += 1
+    else:
+        _g6 = _g6[1].split("\n}", 1)[0]
+        for _needle in (
+                "content.content_id != SPI_HID_GETFEAT6_REPORT_ID",
+                "content.total_length != SPI_HID_GETFEAT6_CONTENT_LEN",
+                "content.data_length != SPI_HID_GETFEAT6_PAYLOAD_LEN",
+        ):
+            if _needle not in _g6:
+                print("FAIL driver/spi-hid-core.c: ID6 retain no longer strictly "
+                      "validates the observed reply shape")
+                failures += 1
+                break
+
+    _feat = core_code.rsplit("static void seq_handle_feat", 1)
+    if len(_feat) != 2:
+        print("FAIL driver/spi-hid-core.c: seq_handle_feat() is gone")
+        failures += 1
+    else:
+        _feat = _feat[1].split("\n}", 1)[0]
+        _stop = _feat.find("if (gate3_observe_only && !shid->getfeat6.valid)")
+        _id5 = _feat.find("spi_hid_seq_write_setfeat(shid)")
+        if _stop < 0 or _id5 < 0 or _stop > _id5:
+            print("FAIL driver/spi-hid-core.c: Gate-3 can send ID5 before a "
+                  "freshly validated ID6 response")
+            failures += 1
+
+    # 7j. The low-level raw_request is the Architecture-A userspace control
+    # boundary. Numbered GET_REPORT replies must return [report_id][payload],
+    # and the current V0 implementation must not silently encode INPUT/OUTPUT
+    # raw requests as feature commands.
+    _rr = core_code.rsplit("static int spi_hid_ll_raw_request", 1)
+    if len(_rr) != 2:
+        print("FAIL driver/spi-hid-core.c: spi_hid_ll_raw_request() is gone")
+        failures += 1
+    else:
+        _rr = _rr[1].split("\n}", 1)[0]
+        for _needle, _why in (
+                ("if (rtype != HID_FEATURE_REPORT)",
+                 "raw_request no longer rejects unsupported non-feature report types"),
+                ("buf[0] = response_id",
+                 "GET_REPORT no longer returns the numbered-report ID in byte 0"),
+                ("memcpy(&buf[1], &shid->response.content, payload_len)",
+                 "GET_REPORT payload is no longer returned after the report ID"),
+                ("response_id != reportnum",
+                 "GET_REPORT no longer verifies the response report ID"),
+        ):
+            if _needle not in _rr:
+                print(f"FAIL driver/spi-hid-core.c: {_why}")
+                failures += 1
+
+    # 7k. V0 live-body reads carry the request context that staged them.
+    # A userspace HID SET_FEATURE must therefore update read_resp_type/id just
+    # like the old special ID5 helper, and standard transition code must not
+    # erase that context before the first 0x0c body.
+    _setreq = core_code.rsplit("static int spi_hid_set_request", 1)
+    if len(_setreq) != 2:
+        print("FAIL driver/spi-hid-core.c: spi_hid_set_request() is gone")
+        failures += 1
+    else:
+        _setreq = _setreq[1].split("\n}", 1)[0]
+        for _needle in (
+                "shid->read_resp_type = SPI_HID_CONTENT_TYPE_SET_FEATURE",
+                "shid->read_resp_content_id = content_id",
+        ):
+            if _needle not in _setreq:
+                print("FAIL driver/spi-hid-core.c: generic SET_FEATURE no longer "
+                      "preserves V0 read context")
+                failures += 1
+                break
+
+    if "shid->transition_done = true;\n\n\t\t\t\tshid->read_resp_type = 0;" in core_code:
+        print("FAIL driver/spi-hid-core.c: standard transition erases the "
+              "feature context needed by live V0 reads")
+        failures += 1
+
+    # 7l. Architecture A requires descriptor-defined Col02 0x0c input to
+    # reach HID core/hidraw on the standard transport. The beta kernel Heat
+    # processor may observe the same frame, but it may not steal it.
+    if "standard-path 0x0c body held for capture" in core_text:
+        print("FAIL driver/spi-hid-core.c: standard Col02 0x0c is still "
+              "suppressed before HID core")
+        failures += 1
+    _data = core_code.rsplit("static void seq_handle_data", 1)
+    if len(_data) != 2:
+        print("FAIL driver/spi-hid-core.c: seq_handle_data() is gone")
+        failures += 1
+    else:
+        _data = _data[1].split("\n}", 1)[0]
+        _consume = _data.find("mshw0231_raw_consume_v0(")
+        _forward = _data.find("hid_input_report(shid->hid, HID_INPUT_REPORT")
+        if _consume < 0 or _forward < 0 or _forward < _consume:
+            print("FAIL driver/spi-hid-core.c: 0x0c migration path no longer "
+                  "keeps the beta consumer as a side consumer before HID forwarding")
+            failures += 1
+
+    # 7m. Gate-3 hardware proved two standard-path transport requirements:
+    # (1) a successful hid_add_device() must not be treated as failure merely
+    # because hid->driver is not populated immediately, and
+    # (2) GET_FEATURE(6) response reads must use the Gate-2 reference approval
+    # even while descriptor discovery keeps the field-qualified legacy default.
+    if 'if (!ret && !hid->driver) {' in core_code:
+        print("FAIL driver/spi-hid-core.c: successful hid_add_device() is still "
+              "being rejected on an immediate hid->driver check")
+        failures += 1
+
+    _read = core_code.rsplit("static int spi_hid_seq_read_reg", 1)
+    if len(_read) != 2:
+        print("FAIL driver/spi-hid-core.c: spi_hid_seq_read_reg() is gone")
+        failures += 1
+    else:
+        _read = _read[1].split("\n}", 1)[0]
+        for _needle in (
+                "shid->read_resp_type == SPI_HID_CONTENT_TYPE_GET_FEATURE",
+                "shid->read_resp_content_id == SPI_HID_GETFEAT6_REPORT_ID",
+                "approval_variant = 0",
+        ):
+            if _needle not in _read:
+                print("FAIL driver/spi-hid-core.c: GET_FEATURE(6) no longer "
+                      "forces the Gate-2 reference read approval")
+                failures += 1
+                break
+
     # 8. the segmented read in spi-amd.c. The FIFO holds the request, the
     # answer and the controller's extra byte, so a chunk that does not fit is
     # rejected outright (tx + rx + 1 > 70) — a fixed 64-byte first chunk only
@@ -1168,17 +1324,17 @@ def check_control_flow_pins():
                   f"back to being settled by argument")
             failures += 1
 
-    # 11. A per-frame failure may not be a per-frame log line: the CapImg
-    # decode failures fire once per received frame (up to ~100 Hz on a
-    # wrong-SKU or truncated stream), and an unratelimited dev_warn would
-    # flood the ring buffer the field bundles are read from. Both paths.
-    for needle in (
-        'dev_warn_ratelimited(dev, "SEQ: CapImg decode failed',
-        'dev_warn_ratelimited(dev, "SEQ: poller CapImg decode failed',
+    # 11. A per-frame failure may not become a per-frame log line. Match the
+    # actual ratelimited call shape with whitespace tolerance; do not couple the
+    # safety pin to line wrapping or to a guessed function-text boundary.
+    for label, pattern in (
+        ("IRQ CapImg decode",
+         r'dev_warn_ratelimited\s*\(\s*dev\s*,\s*"SEQ: CapImg decode failed:'),
+        ("poller CapImg decode",
+         r'dev_warn_ratelimited\s*\(\s*dev\s*,\s*"SEQ: poller CapImg decode failed:'),
     ):
-        if needle not in core_text:          # message text: strings-kept view
-            print(f"FAIL driver/spi-hid-core.c: {needle!r} missing — a per-frame "
-                  f"CapImg decode failure is back to flooding the log")
+        if not re.search(pattern, core_text):
+            print(f"FAIL driver/spi-hid-core.c: {label} failures are no longer rate-limited")
             failures += 1
 
     return failures

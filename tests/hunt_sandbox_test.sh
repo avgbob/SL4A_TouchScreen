@@ -40,7 +40,7 @@ done
 printf 'MSHW0231 Touchscreen\n' > "$D/input/input10/name"
 ln -s "$D/input/input10" "$SB/sys/class/input/event10/device"
 head -c 48 /dev/zero > "$SB/dev/input/event10"
-printf '# SL4A_TouchScreen\noptions sl4a_spi_hid raw_mode=Y raw_input_beta=Y skip_getfeat=Y\n' \
+printf '# SL4A_TouchScreen\noptions sl4a_spi_hid raw_mode=Y raw_input_beta=Y skip_getfeat=N raw_no_enable=1 gate3_observe_only=1 wire_double_opcode=0 read_frame_variant=0\n' \
 	> "$SB/etc/sl4a-spi-hid.conf"
 printf '# SL4A_TouchScreen\n' > "$SB/etc/sl4a-touch-activate.service"
 : > "$SB/dmesg.txt"
@@ -156,17 +156,17 @@ git -C "$ROOT" rev-parse HEAD > "$SB/var/installed-head"
 # in this order, with exactly these parameters. Order matters — a swapped label
 # or a dropped arm would otherwise stay green.
 cat > "$SB/expected-loads.txt" <<'EOS'
-sl4a_spi_hid raw_mode=Y raw_input_beta=Y skip_getfeat=Y sl4a_debug_level=3
-sl4a_spi_hid raw_mode=Y raw_input_beta=Y skip_getfeat=Y raw_pre_desc_reg0=1 sl4a_debug_level=3
-sl4a_spi_hid raw_mode=Y raw_input_beta=Y skip_getfeat=Y raw_fallback_on_reset=1 sl4a_debug_level=3
-sl4a_spi_hid raw_mode=Y raw_input_beta=Y skip_getfeat=Y raw_pre_desc_reg0=1 raw_fallback_on_reset=1 sl4a_debug_level=3
-sl4a_spi_hid raw_mode=Y raw_input_beta=Y skip_getfeat=Y read_frame_variant=2 sl4a_debug_level=3
-sl4a_spi_hid raw_mode=Y raw_input_beta=Y skip_getfeat=Y wire_double_opcode=1 sl4a_debug_level=3
-sl4a_spi_hid raw_mode=Y raw_input_beta=Y skip_getfeat=Y raw_b1f8109_preset=1 sl4a_debug_level=3
-sl4a_spi_hid raw_mode=Y raw_input_beta=Y skip_getfeat=Y wire_double_opcode=1 read_frame_variant=2 sl4a_debug_level=3
-sl4a_spi_hid raw_mode=Y raw_input_beta=Y skip_getfeat=Y wire_double_opcode=1 raw_pre_desc_reg0=1 sl4a_debug_level=3
-sl4a_spi_hid raw_mode=Y raw_input_beta=Y skip_getfeat=Y wire_double_opcode=1 read_frame_variant=2 raw_pre_desc_reg0=1 sl4a_debug_level=3
-sl4a_spi_hid raw_mode=Y raw_input_beta=Y skip_getfeat=Y wire_double_opcode=1 skip_vendor_stop=1 sl4a_debug_level=3
+sl4a_spi_hid raw_mode=Y raw_input_beta=Y skip_getfeat=N raw_no_enable=1 gate3_observe_only=1 wire_double_opcode=0 read_frame_variant=0 sl4a_debug_level=3
+sl4a_spi_hid raw_mode=Y raw_input_beta=Y skip_getfeat=N raw_no_enable=1 gate3_observe_only=1 wire_double_opcode=0 read_frame_variant=0 raw_pre_desc_reg0=1 sl4a_debug_level=3
+sl4a_spi_hid raw_mode=Y raw_input_beta=Y skip_getfeat=N raw_no_enable=1 gate3_observe_only=1 wire_double_opcode=0 read_frame_variant=0 raw_fallback_on_reset=1 sl4a_debug_level=3
+sl4a_spi_hid raw_mode=Y raw_input_beta=Y skip_getfeat=N raw_no_enable=1 gate3_observe_only=1 wire_double_opcode=0 read_frame_variant=0 raw_pre_desc_reg0=1 raw_fallback_on_reset=1 sl4a_debug_level=3
+sl4a_spi_hid raw_mode=Y raw_input_beta=Y skip_getfeat=N raw_no_enable=1 gate3_observe_only=1 wire_double_opcode=0 read_frame_variant=0 read_frame_variant=2 sl4a_debug_level=3
+sl4a_spi_hid raw_mode=Y raw_input_beta=Y skip_getfeat=N raw_no_enable=1 gate3_observe_only=1 wire_double_opcode=0 read_frame_variant=0 wire_double_opcode=1 sl4a_debug_level=3
+sl4a_spi_hid raw_mode=Y raw_input_beta=Y skip_getfeat=N raw_no_enable=1 gate3_observe_only=1 wire_double_opcode=0 read_frame_variant=0 raw_b1f8109_preset=1 sl4a_debug_level=3
+sl4a_spi_hid raw_mode=Y raw_input_beta=Y skip_getfeat=N raw_no_enable=1 gate3_observe_only=1 wire_double_opcode=0 read_frame_variant=0 wire_double_opcode=1 read_frame_variant=2 sl4a_debug_level=3
+sl4a_spi_hid raw_mode=Y raw_input_beta=Y skip_getfeat=N raw_no_enable=1 gate3_observe_only=1 wire_double_opcode=0 read_frame_variant=0 wire_double_opcode=1 raw_pre_desc_reg0=1 sl4a_debug_level=3
+sl4a_spi_hid raw_mode=Y raw_input_beta=Y skip_getfeat=N raw_no_enable=1 gate3_observe_only=1 wire_double_opcode=0 read_frame_variant=0 wire_double_opcode=1 read_frame_variant=2 raw_pre_desc_reg0=1 sl4a_debug_level=3
+sl4a_spi_hid raw_mode=Y raw_input_beta=Y skip_getfeat=N raw_no_enable=1 gate3_observe_only=1 wire_double_opcode=0 read_frame_variant=0 wire_double_opcode=1 skip_vendor_stop=1 sl4a_debug_level=3
 sl4a_spi_hid raw_mode=N sl4a_debug_level=3
 sl4a_spi_hid raw_mode=N wire_double_opcode=1 sl4a_debug_level=3
 sl4a_spi_hid raw_mode=N skip_std_getfeat=1 sl4a_debug_level=3
@@ -377,9 +377,11 @@ mv "$SB/class-input-away" "$SB/sys/class/input"
 # /sys/module instead — on a module-less CI host it would print MODULE NOT
 # LOADED and still pass, so only the stub values pin it.
 mkdir -p "$SB/sys/module/sl4a_spi_hid/parameters" "$SB/sys/module/sl4a_spi_amd/parameters"
-for p in raw_mode raw_input_beta skip_getfeat read_frame_variant wire_double_opcode; do
+for p in raw_mode raw_input_beta read_frame_variant wire_double_opcode gate3_observe_only; do
 	printf 'Y\n' > "$SB/sys/module/sl4a_spi_hid/parameters/$p"
 done
+printf 'N\n' > "$SB/sys/module/sl4a_spi_hid/parameters/skip_getfeat"
+printf '1\n' > "$SB/sys/module/sl4a_spi_hid/parameters/raw_no_enable"
 for p in raw_pre_desc_reg0 raw_fallback_on_reset skip_vendor_stop raw_b1f8109_preset; do
 	printf 'N\n' > "$SB/sys/module/sl4a_spi_hid/parameters/$p"
 done
@@ -389,7 +391,7 @@ git -C "$ROOT" rev-parse HEAD > "$SB/var/installed-head"
 PATH="$SB/bin:$PATH" bash "$SB/tool.sh" hunt -o "$SB/out7.txt" > "$SB/run7.txt" 2>&1
 rc=$?
 [ "$rc" -eq 0 ] || { sed -n '1,40p' "$SB/run7.txt"; fail "hunt exited $rc with a stubbed module present"; }
-grep -q 'loaded params (read back): raw_mode=Y raw_input_beta=Y skip_getfeat=Y read_frame_variant=Y wire_double_opcode=Y raw_pre_desc_reg0=N raw_fallback_on_reset=N skip_vendor_stop=N raw_b1f8109_preset=N' "$SB/out7.txt" \
+grep -q 'loaded params (read back): raw_mode=Y raw_input_beta=Y skip_getfeat=N raw_no_enable=1 gate3_observe_only=Y read_frame_variant=Y wire_double_opcode=Y raw_pre_desc_reg0=N raw_fallback_on_reset=N skip_vendor_stop=N raw_b1f8109_preset=N' "$SB/out7.txt" \
 	|| fail "the readback did not quote the scoped sysfs — the staging sed lost the /sys/module/ rewrite and the host is being read"
 
 # ── the whole battery, every sweep, in aggregate ───────────────────────────

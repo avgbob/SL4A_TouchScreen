@@ -853,7 +853,7 @@ cmd_install() {
 	if [ "$PROFILE" = "raw" ]; then
 		cat > "$tmp_config" <<'EOF'
 # SL4A_TouchScreen experimental raw heatmap profile
-options sl4a_spi_hid raw_mode=Y raw_input_beta=Y skip_getfeat=Y wire_double_opcode=1
+options sl4a_spi_hid raw_mode=Y raw_input_beta=Y skip_getfeat=N raw_no_enable=1 gate3_observe_only=1 wire_double_opcode=0 read_frame_variant=0
 EOF
 	else
 		cat > "$tmp_config" <<'EOF'
@@ -1728,7 +1728,7 @@ cmd_rebuild() {
 # slice, artifact block, summary row — is driven from this array, so a new
 # variant is a one-line addition and nothing else changes.
 #
-# RAW is today's raw profile (raw_mode=Y raw_input_beta=Y skip_getfeat=Y);
+# RAW is today's Gate-3 raw profile (raw_mode=Y raw_input_beta=Y skip_getfeat=N raw_no_enable=1 gate3_observe_only=1);
 # STANDARD is the single-touch path (raw_mode=N). The retired pc/svs arms
 # (acpi_probe_power_cycle × skip_vendor_stop, the P13-P16 waves) are NOT
 # re-run: that question is answered (all four arms negative), and running it
@@ -1783,7 +1783,7 @@ hunt_summary_label_width() {
 # Base module parameters for a plan profile.
 hunt_profile_params() {
 	case "$1" in
-		raw)      printf 'raw_mode=Y raw_input_beta=Y skip_getfeat=Y' ;;
+		raw)      printf 'raw_mode=Y raw_input_beta=Y skip_getfeat=N raw_no_enable=1 gate3_observe_only=1 wire_double_opcode=0 read_frame_variant=0' ;;
 		standard) printf 'raw_mode=N' ;;
 		*)        return 1 ;;
 	esac
@@ -1866,9 +1866,9 @@ hunt_evdev_read() {
 # goes through /sys/module (scoped to the sandbox's stub sysfs under test).
 hunt_param_readback() {
 	local p out=""
-	for p in raw_mode raw_input_beta skip_getfeat read_frame_variant wire_double_opcode \
-	         raw_pre_desc_reg0 raw_fallback_on_reset skip_vendor_stop \
-	         raw_b1f8109_preset; do
+	for p in raw_mode raw_input_beta skip_getfeat raw_no_enable gate3_observe_only \
+	         read_frame_variant wire_double_opcode raw_pre_desc_reg0 \
+	         raw_fallback_on_reset skip_vendor_stop raw_b1f8109_preset; do
 		out="$out$p=$(cat "/sys/module/sl4a_spi_hid/parameters/$p" 2>/dev/null || echo '?') "
 	done
 	printf '%s' "$out"

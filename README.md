@@ -54,25 +54,31 @@ activation guide.
 
 ## Architecture
 
+The target architecture is transport-only in kernel space, with Heat processing
+in userspace:
+
 ```
-┌──────────────────────────────────────────────────────────────┐
-│ Userspace: libinput / evdev ← hid-multitouch                 │
-├──────────────────────────────────────────────────────────────┤
-│ sl4a-spi-hid.ko (spi-hid-core.c, explicit opt-in only)        │
-│   ├─ HID LL driver (DESCREQ → DEVICE_DESC → RPT_DESC)        │
-│   ├─ IRQ-driven input (IRQ → SPI read → input_report)        │
-│   └─ Raw heatmap pipeline:                                   │
-│        baseline → peak gate → CCL → velocity → edge →        │
-│        split → centroid → Hungarian → post-assoc suppression →│
-│        EMA + deadband + stationary lock → MT emission         │
-├──────────────────────────────────────────────────────────────┤
-│ sl4a-spi-amd.ko (spi-amd.c, explicit opt-in only)            │
-│   AMD FCH SPI controller V2 PIO driver                       │
-│   TX/RX FIFO, chunked reads, opcode model                    │
-├──────────────────────────────────────────────────────────────┤
-│ Hardware: AMD FCH SPI @ 0xFEC10000 → MSHW0231 / MSHW0162       │
-└──────────────────────────────────────────────────────────────┘
+MSHW0231 / MSHW0162
+        |
+sl4a-spi-amd.ko
+  AMD FCH SPI controller
+        |
+sl4a-spi-hid.ko
+  V0 HID-SPI transport
+  descriptor + feature/raw-report plumbing
+        |
+Linux HID core + hidraw
+        |
+sl4a-heat (Gate 3 userspace target)
+  Col02 report 0x0C -> CapImg -> contacts
+        |
+uinput -> libinput / Wayland
 ```
+
+The existing in-kernel raw heatmap tracker remains a beta
+reference/qualification implementation while the userspace processor is being
+brought up. It is not the long-term product boundary. See
+[`docs/GATE3-AUDIT.md`](docs/GATE3-AUDIT.md).
 
 ### Raw Touch Pipeline
 
@@ -162,9 +168,12 @@ complete rollback and upgrade procedure.
   options sl4a_spi_hid raw_mode=N wire_double_opcode=1
 ```
 
-The explicit raw profile written by `sl4a-touch.sh install --raw` uses
-`raw_mode=Y raw_input_beta=Y skip_getfeat=Y wire_double_opcode=1`. The
-targeted SL4 AMD tracker qualification instead used the manual
+The `--raw` installer profile remains a **legacy diagnostic/reference path**;
+it is no longer the Gate-3 architecture checkpoint. Gate 3 now uses the
+standard HID transport plus `userspace/sl4a-heat/sl4a_heat.py` through hidraw.
+That keeps Col02 GET6/SET5/0x0C ownership out of the kernel and leaves Col07
+report 0x56 separate. See `docs/GATE3-ARCH-A.md` and
+`docs/GATE3-AUDIT.md`. The targeted SL4 AMD tracker qualification instead used the manual
 standard-transport beta bridge
 `raw_mode=N raw_input_beta=Y skip_std_getfeat=1 std_raw_transition=3`;
 the installer intentionally does not write that profile. Every raw/heatmap
@@ -231,6 +240,9 @@ unit that repeats the binding automatically.
 | [`docs/TESTING.md`](docs/TESTING.md) | Reproducible validation procedure |
 | [`docs/EVIDENCE.md`](docs/EVIDENCE.md) | Evidence ledger and open discrepancies |
 | [`docs/HARDWARE_VALIDATION.md`](docs/HARDWARE_VALIDATION.md) | Blinded hardware-validation protocol and bounded input captures |
+| [`docs/GATE3-ARCH-A.md`](docs/GATE3-ARCH-A.md) | Architecture-A split checkpoint and PASS criteria |
+| [`docs/GATE3-AUDIT.md`](docs/GATE3-AUDIT.md) | Post-Gate-2 collection/ownership and KEEP/MOVE/REMOVE audit |
+| [`userspace/sl4a-heat/README.md`](userspace/sl4a-heat/README.md) | Minimal hidraw GET6/SET5/0x0C userspace checkpoint |
 
 ## License
 

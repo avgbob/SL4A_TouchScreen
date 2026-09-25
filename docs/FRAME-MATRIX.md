@@ -41,34 +41,32 @@ never in doubt after the parser learned to print bytes.
 
 ## Feature commands
 
-| frame | bytes | source |
+The rows below distinguish **capture fixtures** from semantic fields. Gate 2
+showed that bytes outside a short content payload can vary, so matching one old
+14-byte buffer does not make its padding a protocol constant.
+
+| frame | observed bytes | source / status |
 |---|---|---|
-| GET_FEATURE 6 | `02 00 00 03 42 00 04 03 00 06` (10B) | both: the boot trace's own bytes, and Clock-Time `134276314683821940` (len 10, prefix `02 00 00 03 42`) |
-| SET_FEATURE 5 | `02 00 00 03 82 00 03 04 00 05 01 0C EE 5B` (14B) | capture: Clock-Time `134276314683843667` (len 14, prefix `02 00 00 03 82`) |
-* SET_FEATURE 0x56 enable | `02 00 00 03 C2 00 03 0A 00 56 BD 0C EE 5B 44 4C 00 00` (18B) | capture: Clock-Time `134276314683446347`, `captures/wintrace/surface_init.csv` (row shows len 18 and the `02 00 00 03 C2` prefix) |
-| SET_FEATURE 0x56 stop | same with payload all-`FF` | ETW capture; this is what stops the device before the power sequence |
+| GET_FEATURE 6 | `02 00 00 03 42 00 04 03 00 06` (10B) | older capture and Gate-2 T2 agree byte-for-byte |
+| SET_FEATURE ID5=1 | old: `02 00 00 03 82 00 03 04 00 05 01 0C EE 5B`; Gate-2 T2: `... 05 01 D7 FC 6E`; resume also showed `...05 01 00 00 00` and `...05 01 A1 01 00` | semantic payload is only the one byte `01`; the last three bytes are alignment/padding, not a universal key |
+| SET_FEATURE 0x56 enable | older: `02 00 00 03 C2 00 03 0A 00 56 BD 0C EE 5B 44 4C 00 00`; Gate 2: `02 00 00 03 C2 00 03 0A 00 56 D9 D7 FC 6E 79 4C 00 00` | the six bytes after `56` are semantic payload and vary between captures; generation/source is **UNKNOWN** |
+| SET_FEATURE 0x56 stop | `02 00 00 03 C2 00 03 0A 00 56 FF FF FF FF FF FF 00 00` | observed before Gate-2 sleep, followed later by `_PS3` |
+
+Gate-2 T2 order was RDESC -> 0x56 -> GET6/reply -> ID5. Gate-2 resume did
+**not** replay that sequence: no RDESC or GET6 was observed after resume.
 
 ## Power frames
 
-| frame | bytes | source |
+| frame | observed bytes | source / status |
 |---|---|---|
-| SET_POWER D0 | `02 00 00 04 82 00 00 04 00 01 01 0C EE 5B` (14B) | capture: Clock-Time `134276314634377432`, `captures/wintrace/surface_init.csv` (prefix `02 00 00 04 82`, payload byte `01`) |
-| SET_POWER D2 | same with `02` in the payload byte | **inferred from the D0 twin** — no D2 row exists in any capture (case-insensitive search over `captures/` and `traces/`); the single-byte delta is the whole evidence |
+| SET_POWER D0 | older capture: `... 01 0C EE 5B`; Gate-2 T2 before disable: `02 00 00 04 82 00 00 04 00 01 01 D7 FC 6E` | selector/payload byte `01` is stable across those observations; the final three bytes are not established as semantic |
+| SET_POWER D2 | older documentation inferred a twin with selector `02` | **not observed** in Gate 2; exact Gate-2 search found no D2 twin |
 
-**An apparent conflict, resolved.** V0's `ConfigurePowerTransfer` builds a frame
-in a zeroed buffer — `02 <reg> 82 00 00 04 00 01 <D0\|D2>` at length 14, tail
-zeros — which looks like a contradiction with the ETW-cited `0C EE 5B`. It is
-not — and this paragraph said the opposite until a leg reconstructed both
-frames from their bytes: the two functions build the **same command**. Indices
-0..10 are identical in V0's form and this driver's shipped form; they differ
-only in the three tail bytes. V0 allocates a zeroed buffer and never writes a
-tail, which is why its excerpt ends in zeros; the capture shows the tail this
-device is actually sent (TXN 634377432, the 14-byte SET_POWER D0 buffer), and the
-capture wins for what reaches the device. The same leg found the one open
-point the old sentence hid: the **suspend** path (`spi_hid_set_power`) still
-sends the V0 zero tail for the same opcode, register and selector, and no
-sleep/resume capture exists to adjudicate — do not align one with the other
-without that capture.
+Gate 2 now includes an actual sleep/resume lifecycle. It observed an all-FF
+0x56 stop before sleep, then `_PS3`; resume used `_PS0 -> _RST`. No wire-level
+D2 command was found in the captured Gate-2 windows. Therefore the legacy
+Linux D2->D0 "vendor init" remains a historical/recovery experiment, not a
+Gate-2-derived Windows lifecycle rule.
 
 ## The honest limit of every register claim here
 
