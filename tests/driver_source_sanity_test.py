@@ -1297,21 +1297,17 @@ def check_control_flow_pins():
                   f"back to being settled by argument")
             failures += 1
 
-    # 11. A per-frame failure may not become a per-frame log line. Pin the
-    # ratelimited call sites independently from their exact message wording so
-    # Architecture-A logging edits do not turn this into a stale string test.
-    for fn, message in (
-        ("seq_handle_data", "SEQ: CapImg decode failed:"),
-        ("spi_hid_poll_work", "SEQ: poller CapImg decode failed:"),
+    # 11. A per-frame failure may not become a per-frame log line. Match the
+    # actual ratelimited call shape with whitespace tolerance; do not couple the
+    # safety pin to line wrapping or to a guessed function-text boundary.
+    for label, pattern in (
+        ("IRQ CapImg decode",
+         r'dev_warn_ratelimited\s*\(\s*dev\s*,\s*"SEQ: CapImg decode failed:'),
+        ("poller CapImg decode",
+         r'dev_warn_ratelimited\s*\(\s*dev\s*,\s*"SEQ: poller CapImg decode failed:'),
     ):
-        part = core_text.rsplit(fn, 1)
-        if len(part) != 2:
-            print(f"FAIL driver/spi-hid-core.c: {fn} missing — cannot verify CapImg ratelimit")
-            failures += 1
-            continue
-        body = part[1].split("\n}", 1)[0]
-        if "dev_warn_ratelimited(dev," not in body or message not in body:
-            print(f"FAIL driver/spi-hid-core.c: {fn} no longer rate-limits CapImg decode failures")
+        if not re.search(pattern, core_text):
+            print(f"FAIL driver/spi-hid-core.c: {label} failures are no longer rate-limited")
             failures += 1
 
     return failures
