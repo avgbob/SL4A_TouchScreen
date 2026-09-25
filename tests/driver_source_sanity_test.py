@@ -1297,17 +1297,21 @@ def check_control_flow_pins():
                   f"back to being settled by argument")
             failures += 1
 
-    # 11. A per-frame failure may not be a per-frame log line: the CapImg
-    # decode failures fire once per received frame (up to ~100 Hz on a
-    # wrong-SKU or truncated stream), and an unratelimited dev_warn would
-    # flood the ring buffer the field bundles are read from. Both paths.
-    for needle in (
-        'dev_warn_ratelimited(dev, "SEQ: CapImg decode failed',
-        'dev_warn_ratelimited(dev, "SEQ: poller CapImg decode failed',
+    # 11. A per-frame failure may not become a per-frame log line. Pin the
+    # ratelimited call sites independently from their exact message wording so
+    # Architecture-A logging edits do not turn this into a stale string test.
+    for fn, message in (
+        ("seq_handle_data", "SEQ: CapImg decode failed:"),
+        ("spi_hid_poll_work", "SEQ: poller CapImg decode failed:"),
     ):
-        if needle not in core_text:          # message text: strings-kept view
-            print(f"FAIL driver/spi-hid-core.c: {needle!r} missing — a per-frame "
-                  f"CapImg decode failure is back to flooding the log")
+        part = core_text.rsplit(fn, 1)
+        if len(part) != 2:
+            print(f"FAIL driver/spi-hid-core.c: {fn} missing — cannot verify CapImg ratelimit")
+            failures += 1
+            continue
+        body = part[1].split("\n}", 1)[0]
+        if "dev_warn_ratelimited(dev," not in body or message not in body:
+            print(f"FAIL driver/spi-hid-core.c: {fn} no longer rate-limits CapImg decode failures")
             failures += 1
 
     return failures
