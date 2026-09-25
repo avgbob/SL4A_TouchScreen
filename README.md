@@ -52,6 +52,13 @@ activation guide.
 | Cold-boot retry and recovery | Implemented | Hardware matrix required |
 | Candidate classification and per-cycle gain | Not implemented | Not planned for v1.x |
 
+> **Research checkpoint (2026-09-25):** on the recorded Surface Laptop 4 AMD
+> test unit, the Gate-3 standard-transport `GET_FEATURE` request for HID report
+> ID 6 now returns a 120-byte report that matches the Windows reference capture
+> byte-for-byte. This is targeted transport qualification, not a release-default
+> claim and not proof of raw-mode activation. See
+> [`docs/GATE3_GET6_TRANSPORT.md`](docs/GATE3_GET6_TRANSPORT.md).
+
 ## Architecture
 
 ```
@@ -218,6 +225,7 @@ unit that repeats the binding automatically.
 | [Upstream Wiki](https://github.com/Syax89/SL4A_TouchScreen/wiki) | Upstream project wiki: protocol, pipeline, config, hardware |
 | [`docs/QUICKSTART.md`](docs/QUICKSTART.md) | 5-step install and activation guide |
 | [`docs/HIDSPI_PROTOCOL.md`](docs/HIDSPI_PROTOCOL.md) | HID-over-SPI V0 wire protocol |
+| [`docs/GATE3_GET6_TRANSPORT.md`](docs/GATE3_GET6_TRANSPORT.md) | Gate 3 GET_FEATURE(6) AMD FIFO qualification and byte-perfect Windows comparison |
 | [`docs/PIPELINE.md`](docs/PIPELINE.md) | Touch pipeline specification |
 | [`docs/SPI_REGISTERS.md`](docs/SPI_REGISTERS.md) | AMD FCH SPI controller registers |
 | [`docs/AMDI0060_CONTRACT.md`](docs/AMDI0060_CONTRACT.md) | AMDI0060 controller boundary and safety contract |
