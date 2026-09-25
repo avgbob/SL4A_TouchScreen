@@ -852,11 +852,14 @@ static int spi_hid_send_output_report(struct spi_hid *shid, u32 output_register,
 		struct spi_hid_output_report *report)
 {
 	u8 *raw_buf;
+	u8 *frame;
 	u16 payload_len = report->content_length;
 	u16 total_content_len;
 	u16 body_len;
 	u32 body_len_u32;
 	size_t total_len;
+	size_t wire_len;
+	bool doubled_get6;
 	int ret;
 
 	if (payload_len && !report->content)
@@ -873,21 +876,41 @@ static int spi_hid_send_output_report(struct spi_hid *shid, u32 output_register,
 	body_len = body_len_u32;
 	total_len = SPI_HID_OUTPUT_HEADER_LEN + body_len;
 
-	raw_buf = kzalloc(total_len, GFP_KERNEL);
+	/*
+	 * Gate-3 A/B: the AMD controller consumes tx_buf[0] as the
+	 * controller opcode. Generic HID GET_FEATURE(6) therefore needs
+	 * the same doubled leading 0x02 as the sequencer GET6 helper so
+	 * the complete ten-byte Windows request enters the FIFO.
+	 *
+	 * Keep this scoped strictly to zero-payload GET_FEATURE report 6.
+	 */
+	doubled_get6 = spi_hid_wire_doubled() &&
+		report->content_type == SPI_HID_CONTENT_TYPE_GET_FEATURE &&
+		report->content_id == SPI_HID_GETFEAT6_REPORT_ID &&
+		report->content_length == 0;
+
+	wire_len = total_len + (doubled_get6 ? 1 : 0);
+
+	raw_buf = kzalloc(wire_len, GFP_KERNEL);
 	if (!raw_buf)
 		return -ENOMEM;
 
-	ret = spi_hid_protocol_encode_output_header(raw_buf, output_register, body_len);
+	frame = raw_buf + (doubled_get6 ? 1 : 0);
+
+	ret = spi_hid_protocol_encode_output_header(frame, output_register, body_len);
 	if (ret) {
 		kfree(raw_buf);
 		return ret;
 	}
-	raw_buf[6] = report->content_type;
-	raw_buf[7] = total_content_len & 0xff;
-	raw_buf[8] = total_content_len >> 8;
-	raw_buf[9] = report->content_id;
+	frame[6] = report->content_type;
+	frame[7] = total_content_len & 0xff;
+	frame[8] = total_content_len >> 8;
+	frame[9] = report->content_id;
 	if (payload_len)
-		memcpy(&raw_buf[10], report->content, payload_len);
+		memcpy(&frame[10], report->content, payload_len);
+
+	if (doubled_get6)
+		raw_buf[0] = frame[0];
 
 	mutex_lock(&shid->output_lock);
 	{
@@ -896,7 +919,7 @@ static int spi_hid_send_output_report(struct spi_hid *shid, u32 output_register,
 
 		memset(&transfer, 0, sizeof(transfer));
 		transfer.tx_buf = raw_buf;
-		transfer.len = total_len;
+		transfer.len = wire_len;
 
 		spi_message_init_with_transfers(&message, &transfer, 1);
 		ret = spi_sync(shid->spi, &message);
