@@ -2,6 +2,26 @@
 
 ## Unreleased
 
+### Gate 3 GET_FEATURE(6): byte-perfect SL4 AMD transport qualification
+
+Targeted 2026-09-25 hardware qualification closed the standard-transport
+GET_FEATURE report-ID-6 blocker on the recorded Surface Laptop 4 AMD test unit.
+The generic HID ioctl returns 120 bytes (report ID 6 + 119 data bytes) and the
+complete HID report matches the Windows reference capture byte-for-byte.
+
+The root cause was not request framing, the V0 parser, response-header
+selection, FIFO saturation, or the generic RX_COUNT +1 convention. The AMD
+controller exposes a special initial FIFO layout for this 129-byte GET6 body.
+The qualified mapping uses physical RX_COUNT 52, reconstructs the first 64
+logical body bytes from the initial FIFO, then reads the first GET6 continuation
+from FIFO + TX_COUNT. The exception is scoped to the exact GET6 transaction;
+the generic report-descriptor continuation path remains unchanged.
+
+The investigation and closed negative experiments are recorded in
+`docs/GATE3_GET6_TRANSPORT.md`. This qualification does not by itself close
+SET_FEATURE(5), raw CapImg streaming, suspend/resume, or the broader hardware
+matrix.
+
 ### HID-mode cleanup: probe decomposition, one header-length rule, kernel-doc
 
 Readability pass over the standard path, no behaviour change (live-verified:

@@ -25,6 +25,7 @@ wire protocol.
 | The host protocol and CapImg decoder have executable bounds coverage. | E3 | `tests/protocol_test.c`, `tests/capimg_decoder_host_test.c` |
 | Eight retained V0 raw-slot bodies have checksum-validated decoder replay coverage, including deterministic malformed-input rejection. | E3 | `tests/fixtures/replay/v1/manifest.json`, `tests/replay_fixture_test.py` |
 | The merged post-association tracker tree passes the complete local host/sanitizer validation, deterministic 469-assertion panel emulator, and kernel-module build; GitHub Actions run `35678885908` also passed whitespace, host tests, Ubuntu kernel build, and current-kernel build. | E3 | `tools/validate-tracker-pr4.sh`, `.github/workflows/ci.yml`, GitHub Actions run `35678885908` |
+| On the recorded Surface Laptop 4 AMD test unit (BIOS 4.501.140, Ubuntu 24.04, kernel `7.0.0-31-generic`), a generic HID `GET_FEATURE` for report ID 6 returned 120 bytes whose report ID and 119 data bytes matched the Windows reference capture byte-for-byte under the Gate-3 observe-only qualification profile. | E1 | `docs/GATE3_GET6_TRANSPORT.md`, `captures/wintrace/surface_init.csv` |
 
 ## Observations Not Yet Release Evidence
 
