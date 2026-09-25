@@ -393,10 +393,10 @@ static int amd_spi_exec_segment(struct amd_spi *amd_spi, u8 opcode,
 	 * into the FIFO before the actual read data. */
 
 	if (get6_body_first) {
-		writeb(55, base + AMD_SPI_RX_COUNT_REG);
+		writeb(52, base + AMD_SPI_RX_COUNT_REG);
 
 		if (debug_trace >= 1)
-			pr_info("spi-amd: GATE3 GET6 reconstruct physical_rx=55 logical_rx=60\\n");
+			pr_info("spi-amd: GATE3 GET6 reconstruct physical_rx=52 logical_rx=60\\n");
 	} else {
 		writeb(opcode == 0x0B ? rx_len + 1 : rx_len,
 		       base + AMD_SPI_RX_COUNT_REG);
@@ -653,6 +653,8 @@ static int amd_spi_host_transfer(struct spi_controller *host,
 					 * nine or ten, and a chunk that does not fit is
 					 * rejected outright (tx + rx + 1 > FIFO). */
 					u32 first_chunk = 0;
+					bool get6_body = false;
+					bool get6_first_cont = false;
 
 					if (tx_len + 1 >= AMD_SPI_FIFO_SIZE) {
 						pr_err("spi-amd: request %u does not fit the FIFO %u\n",
@@ -678,6 +680,24 @@ first_chunk = min_t(u32, rx_remaining,
 		    min_t(u32, AMD_SPI_CHUNK_MAX,
 			  AMD_SPI_FIFO_SIZE - tx_len - 1));
 
+					get6_body =
+						opcode == 0x0B &&
+						tx_len == 9 &&
+						next->len == 129 &&
+						tx_buf[0] == 0x00 &&
+						tx_buf[1] == 0x00 &&
+						tx_buf[2] == 0x00 &&
+						tx_buf[3] == 0xff &&
+						tx_buf[4] == 0x00 &&
+						tx_buf[5] == 0x04 &&
+						tx_buf[6] == 0x03 &&
+						tx_buf[7] == 0x00 &&
+						tx_buf[8] == 0x06;
+
+					if (get6_body && debug_trace >= 1)
+						pr_info("spi-amd: GATE3 GET6 host-map first64 continuation=FIFO+3\n");
+
+
 					/* Chunk TX if needed (FIFO size is 70 bytes) */
 					while (tx_rem > 0) {
 						u32 tx_chunk = min_t(u32, tx_rem, AMD_SPI_FIFO_SIZE);
@@ -690,8 +710,34 @@ first_chunk = min_t(u32, rx_remaining,
 						tx_sent += tx_chunk;
 						tx_rem -= tx_chunk;
 						if (rx_now) {
-							rx_ptr += rx_now;
-							rx_remaining -= rx_now;
+							if (get6_body &&
+							    rx_now == 60 &&
+							    rx_remaining >= 64) {
+								void __iomem *base =
+									amd_spi->io_remap_addr;
+								u32 j;
+
+								/*
+								 * RX52 physical map:
+								 * FIFO[64..67] = GET6 body[60..63].
+								 */
+								for (j = 0; j < 4; j++)
+									rx_ptr[60 + j] =
+										readb(base +
+										      AMD_SPI_FIFO_BASE +
+										      64 + j);
+
+								if (debug_trace >= 1)
+									pr_info("spi-amd: GATE3 GET6 extended first64 tail=[%*ph]\n",
+										4, rx_ptr + 60);
+
+								rx_ptr += 64;
+								rx_remaining -= 64;
+								get6_first_cont = true;
+							} else {
+								rx_ptr += rx_now;
+								rx_remaining -= rx_now;
+							}
 						}
 					}
 
@@ -710,6 +756,32 @@ first_chunk = min_t(u32, rx_remaining,
 							cont_cmd, sizeof(cont_cmd),
 							rx_ptr, chunk, true);
 						if (ret < 0) { msg->status = ret; goto out; }
+
+						if (get6_body &&
+						    get6_first_cont &&
+						    chunk == AMD_SPI_CHUNK_MAX) {
+							void __iomem *base =
+								amd_spi->io_remap_addr;
+							u32 j;
+
+							/*
+							 * RX52 continuation map:
+							 * FIFO[3] == GET6 body[64].
+							 */
+							for (j = 0; j < chunk; j++)
+								rx_ptr[j] =
+									readb(base +
+									      AMD_SPI_FIFO_BASE +
+									      AMD_SPI_CONT_CMD_LEN +
+									      j);
+
+							if (debug_trace >= 1)
+								pr_info("spi-amd: GATE3 GET6 continuation FIFO+3=[%*ph]\n",
+									32, rx_ptr);
+
+							get6_first_cont = false;
+						}
+
 						rx_ptr += chunk;
 						rx_remaining -= chunk;
 					}
