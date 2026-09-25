@@ -1121,14 +1121,16 @@ static int spi_hid_create_device(struct spi_hid *shid)
 
 	ret = hid_add_device(hid);
 	/*
-	 * hid_add_device() reports whether report-parsing succeeded, not
-	 * whether the device was created. The true failure signal is when
-	 * hid->driver remains NULL after the call.
+	 * hid_add_device() returning 0 means the HID device was successfully
+	 * added to the HID bus. Driver binding is a separate driver-core step and
+	 * hid->driver is not an API contract that must already be populated here.
+	 * Gate-3 hardware showed the old immediate check destroying the device-read
+	 * 936-byte descriptor and forcing a hardcoded retry even though parsing
+	 * itself had succeeded.
 	 */
-	if (!ret && !hid->driver) {
-		dev_warn(dev, "SEQ: hid_add_device succeeded but no driver bound to it\n");
-		ret = -ENODEV;
-	}
+	if (!ret && !hid->driver)
+		dev_info(dev,
+			 "SEQ: HID device added; driver binding not complete yet\n");
 	if (ret) {
 		dev_err(dev, "Failed to add hid device: %d\n", ret);
 		spi_hid_disconnect_hid(shid);
@@ -1449,10 +1451,30 @@ static int spi_hid_seq_read_reg(struct spi_hid *shid, u32 reg, u8 *rx, int rx_le
 	 * The global variant selects the encoding (legacy five-byte default:
 	 * the panel answers descriptors — and, in raw DONE on reg 0, the
 	 * stream — only to this form, e541dd0 live multitouch verified). */
-	n = spi_hid_wire_read_approval_variant(tx, reg, shid->read_resp_type,
-					       rx_len > SPI_HID_READ_APPROVAL_LEN ?
-					       shid->read_resp_content_id : 0,
-					       read_frame_variant);
+	{
+		int approval_variant = read_frame_variant;
+		u8 approval_id = rx_len > SPI_HID_READ_APPROVAL_LEN ?
+			shid->read_resp_content_id : 0;
+
+		/*
+		 * Keep descriptor/stream discovery on the field-qualified global
+		 * variant, but use the exact Gate-2 Windows approval shape for the
+		 * Col02 GET_FEATURE(6) transaction. The failing hardware checkpoint
+		 * proved that a correct GET6 command followed by the legacy five-byte
+		 * approval never completes. Gate 2 observed:
+		 *   header: 0B 00 00 00 FF 00 04 03 00
+		 *   body:   0B 00 00 00 FF 00 04 03 00 06
+		 * where 0x04/0x06 name GET_FEATURE/report 6.
+		 */
+		if (shid->read_resp_type == SPI_HID_CONTENT_TYPE_GET_FEATURE &&
+		    shid->read_resp_content_id == SPI_HID_GETFEAT6_REPORT_ID)
+			approval_variant = 0;
+
+		n = spi_hid_wire_read_approval_variant(tx, reg,
+					       shid->read_resp_type,
+					       approval_id,
+					       approval_variant);
+	}
 	/* The request is the frame and nothing more: `tx_len = n`, the padded form
 	 * removed for reasons of THIS transport, not because the reference's own
 	 * behaviour was established. Two adversarial legs read the same capture and
