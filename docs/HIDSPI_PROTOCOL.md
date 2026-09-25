@@ -110,7 +110,47 @@ Read from the `report_descriptor_register` at the address reported
 in the hardware descriptor. The device returns a RPT_DESC (0x0B) frame
 containing the 936-byte HID report descriptor.
 
-### 4. SET_FEATURE ID5 (Raw Mode Activation)
+### 4. GET_FEATURE Report ID6
+
+The standard HID path performs a synchronous GET_FEATURE request for report ID
+6 after report-descriptor discovery. On the recorded Surface Laptop 4 AMD test
+unit, the accepted request is:
+
+```text
+02 00 00 03 42 00 04 03 00 06
+```
+
+The panel answers with a genuine type-5 synchronous response. The Windows
+reference body is 129 bytes at the SpbCx buffer layer, but those 129 bytes are
+not a literal physical AMD FIFO transaction shape. Its semantic layout is:
+
+```text
+[0..4]     transport prefix: ff ff ff ff ff
+[5..6]     total_length = 0x007a
+[7]        content_id = 0x06
+[8..126]   119 report-data bytes
+[127..128] transport bytes outside the 122-byte semantic content
+```
+
+The V0 parser therefore remains correctly anchored at `body + 5`.
+
+A 2026-09-25 Gate-3 qualification on the SL4 AMD test unit established the
+AMD-controller-specific FIFO mapping needed to recover this body without
+changing generic descriptor reads: the first GET6 body segment uses a physical
+RX count of 52, reconstructs 64 logical body bytes from the initial FIFO, and
+the first GET6 continuation resumes at FIFO offset `TX_COUNT` (offset 3).
+The resulting Linux HID ioctl returns report ID 6 plus 119 data bytes that match
+the Windows reference byte-for-byte.
+
+This is a narrowly fingerprinted controller exception for this GET6
+transaction, not a generic rule for opcode 0x0b reads. In particular, globally
+changing continuation extraction from `TX_COUNT + 1` to `TX_COUNT` breaks
+the known-good 936-byte report-descriptor path.
+
+See `docs/GATE3_GET6_TRANSPORT.md` for the complete byte map, failed A/B
+experiments, qualification procedure, and scope limits.
+
+### 5. SET_FEATURE ID5 (Raw Mode Activation)
 
 ```
 Host sends: 02 00 00 03 82 00 03 04 00 05 01 0C EE 5B   (14 bytes)
@@ -126,7 +166,7 @@ under reconciliation. The current parser accepts byte-indexed CapImg bodies of
 roughly 4304 bytes; older documentation described a 16-bit 6912-byte raster.
 See `docs/EVIDENCE.md` before using either interpretation as a protocol change.
 
-### 5. Input Report Processing
+### 6. Input Report Processing
 
 After an observed raw-mode sequence, the device can assert a GPIO interrupt
 when data is available. The driver reads and validates the input before routing
@@ -194,7 +234,7 @@ raw-mode Report ID 6 configuration read that Windows performs between RPT_DESC
 and SET_FEATURE ID5. The
 driver's `sync_timeout_ms` (default 6000) bounds synchronous requests so a
 feature query issued during this settle window no longer tears the transport
-down. Neither path is a release-qualified activation contract.
+down. The 2026-09-25 Gate-3 result qualifies the report-ID-6 transport itself on one recorded SL4 AMD configuration; it does not turn either raw activation path into a release-qualified activation contract. See `docs/GATE3_GET6_TRANSPORT.md`.
 
 ## References
 
