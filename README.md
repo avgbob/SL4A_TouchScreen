@@ -187,7 +187,9 @@ DKMS rebuild/signing of both modules, post-install signer verification, reboot
 with Secure Boot still enabled, and successful automatic Gate5 activation.
 The qualification checkpoint is `e2be025fd8af8720db80f0f59cd2b48969aee777`.
 This remains a single-unit result, not a broad firmware/kernel compatibility
-claim.
+claim. The separate fresh-enrollment path (generate/import a new certificate,
+complete firmware MOK Manager enrollment, then reboot) remains implemented but
+has not yet been independently hardware-qualified.
 
 ### Status and logs
 
