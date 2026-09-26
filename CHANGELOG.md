@@ -2,7 +2,9 @@
 
 ## Unreleased
 
-### Release audit and Secure Boot activation recovery
+## 1.7.1 — Secure Boot activation recovery and release audit (2026-09-26)
+
+### Secure Boot activation recovery
 
 - `activate` now resolves the same DKMS signing identity as `install` before
   checking MOK enrollment. Ubuntu recovery no longer falls back to the
