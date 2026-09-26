@@ -19,6 +19,35 @@ Qualified target:
 
 This is not an E1/broad compatibility claim. It is one physical SL4 field unit.
 
+## Secure Boot Installer Qualification
+
+A separate installer/lifecycle qualification was completed on the same physical
+MSHW0231 Surface Laptop 4 AMD unit on 2026-09-26 at commit
+`e2be025fd8af8720db80f0f59cd2b48969aee777`.
+
+Qualified sequence:
+
+1. Secure Boot enabled before installation.
+2. Installer resolved Ubuntu's active DKMS signing identity as
+   `/var/lib/shim-signed/mok/MOK.priv` +
+   `/var/lib/shim-signed/mok/MOK.der`.
+3. Existing matching/enrolled MOK pair was reused; no rotation was performed.
+4. DKMS rebuilt and installed both `sl4a-spi-amd` and `sl4a-spi-hid`.
+5. Installer verified non-empty `modinfo -F signer` values for both modules.
+6. Machine rebooted with Secure Boot still enabled.
+7. `sl4a-touch-activate.service` completed with status 0 and the touchscreen
+   bound automatically.
+8. Production Gate5 standard-transport CapImg multitouch profile was active.
+9. Fresh-boot counters showed one RESET_RSP, one DEVICE_DESC, one RPT_DESC,
+   zero GET_FEATURE responses, zero dropped frames, and no unexpected reset.
+10. CapImg traffic resumed and the `MSHW0231 Touchscreen` input device was
+    present after boot.
+
+This qualifies the **Secure Boot install/reuse/sign/reboot/automatic-activation
+lifecycle on this one tested unit**. It does not broaden the hardware,
+firmware, kernel, stylus, palm, or E1 input-quality compatibility claims.
+
+
 ## What Gate5 Does Differently
 
 The driver does not choose between "normal HID" and "raw multitouch" as two
