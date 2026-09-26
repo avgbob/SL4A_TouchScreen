@@ -79,8 +79,8 @@ performs the sequence that survived the final lifecycle campaign:
 5. enter DONE and consume the resulting `0x0c` CapImg stream.
 
 The standard transport remains active (`raw_mode=0`). With
-`raw_input_beta=1`, CapImg frames are decoded by the existing beta heatmap
-tracker and published through `MSHW0231 Touchscreen`. The generic
+`raw_input_beta=1`, CapImg frames are decoded by the in-kernel CapImg multitouch tracker
+(input-quality beta) and published through `MSHW0231 Touchscreen`. The generic
 standard-mode HID GET_REPORT feature path is suppressed with
 `skip_std_getfeat=1` so it cannot insert a competing feature read.
 
