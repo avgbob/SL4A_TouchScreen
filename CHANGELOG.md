@@ -2,14 +2,32 @@
 
 ## Unreleased
 
+### Release audit and Secure Boot activation recovery
+
+- `activate` now resolves the same DKMS signing identity as `install` before
+  checking MOK enrollment. Ubuntu recovery no longer falls back to the
+  upstream-only `/var/lib/dkms/mok.pub` path; distro defaults and
+  `framework.conf{,.d/*.conf}` overrides are honored in both paths.
+- Current-facing docs and wiki pages now distinguish the production
+  standard-transport CapImg tracker from the legacy raw transport, document the
+  post-association coalescing order, and use the late-boot
+  `multi-user.target` activation model consistently.
+- Secure Boot documentation now distinguishes the hardware-qualified
+  existing-enrolled-MOK reuse lifecycle from the still-unqualified fresh MOK
+  enrollment lifecycle.
+- Release/compatibility metadata was reconciled with the qualified Gate5 and
+  Secure Boot checkpoints.
+
+## 1.7.0 — Gate5 production activation (2026-09-26)
+
 ### Gate5: SL4 standard profile promoted after lifecycle qualification
 
 Surface Laptop 4 AMD (`MSHW0231`) now gets a device-specific standard
 installer profile that keeps normal HID discovery but switches the panel to
 CapImg using the field-qualified mode-1 sequence: write GET_FEATURE report 6
 without synchronously reading its response, wait 4.5-5.5 ms, then send
-SET_FEATURE report 5 = 1. `raw_input_beta=Y` publishes the resulting heatmap
-contacts while `raw_mode=N` preserves the standard transport/discovery path.
+SET_FEATURE report 5 = 1. `raw_input_beta=Y` publishes the resulting CapImg contacts through the in-kernel
+multitouch tracker while `raw_mode=N` preserves the standard transport/discovery path.
 
 The promotion is intentionally scoped to MSHW0231. Surface Laptop 3 AMD
 (`MSHW0162`) keeps the previous `raw_mode=N wire_double_opcode=1` standard
@@ -631,7 +649,7 @@ open item in `docs/PARAMETERS.md`. The association radii, ghost radii, Hungarian
 costs, split constants and EMA alphas still have no source in the binary and are
 documented as invented rather than derived.
 
-## 1.7.0 — host→device frames match the Windows stack; Report ID 6 read
+### Earlier 1.7.0 development milestone — host→device frames match the Windows stack; Report ID 6 read
 
 Every command frame the sequencer puts on the bus now reproduces, byte for byte,
 what the Windows stack sends. The reference is the SPB trace
