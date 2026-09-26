@@ -450,9 +450,9 @@ quarantine_unowned() {
 mok_pair_paths_match() {
 	local key="$1" cert="$2" key_fp cert_fp
 	[ -f "$key" ] && [ -f "$cert" ] || return 1
-	openssl pkey -in "$key" -noout >/dev/null 2>&1 || return 1
+	openssl pkey -in "$key" -passin pass: -noout >/dev/null 2>&1 || return 1
 	openssl x509 -in "$cert" -inform DER -noout >/dev/null 2>&1 || return 1
-	key_fp="$(openssl pkey -in "$key" -pubout -outform DER 2>/dev/null | openssl dgst -sha256 2>/dev/null)" || return 1
+	key_fp="$(openssl pkey -in "$key" -passin pass: -pubout -outform DER 2>/dev/null | openssl dgst -sha256 2>/dev/null)" || return 1
 	cert_fp="$(openssl x509 -in "$cert" -inform DER -pubkey -noout 2>/dev/null | openssl pkey -pubin -outform DER 2>/dev/null | openssl dgst -sha256 2>/dev/null)" || return 1
 	[ -n "$key_fp" ] && [ "$key_fp" = "$cert_fp" ]
 }
@@ -485,7 +485,7 @@ install_mok_pair_from_files() {
 	[ -r "$src_cert" ] || fail "MOK certificate is not readable: $src_cert"
 	tmpdir="$(mktemp -d /var/lib/dkms/sl4a-mok-import.XXXXXX)" || fail "could not create a temporary MOK import directory"
 	chmod 0700 "$tmpdir"
-	openssl pkey -in "$src_key" -out "$tmpdir/mok.key" 2>/dev/null || { rm -rf "$tmpdir"; fail "The selected MOK private key is not a readable OpenSSL private key."; }
+	openssl pkey -in "$src_key" -passin pass: -out "$tmpdir/mok.key" 2>/dev/null || { rm -rf "$tmpdir"; fail "The selected MOK private key is not a readable OpenSSL private key."; }
 	chmod 0600 "$tmpdir/mok.key"
 	if openssl x509 -in "$src_cert" -inform DER -noout >/dev/null 2>&1; then
 		cp "$src_cert" "$tmpdir/mok.pub"
@@ -508,7 +508,6 @@ generate_fresh_mok_pair() {
 	local tmpdir backup
 	tmpdir="$(mktemp -d /var/lib/dkms/sl4a-mok-new.XXXXXX)" || fail "could not create a temporary MOK generation directory"
 	chmod 0700 "$tmpdir"
-	umask 077
 	openssl req -new -x509 -nodes -days 36500 -subj "/CN=SL4A_TouchScreen DKMS MOK/" -newkey rsa:2048 -keyout "$tmpdir/mok.key" -outform DER -out "$tmpdir/mok.pub" >/dev/null 2>&1 || { rm -rf "$tmpdir"; fail "Could not generate a new DKMS signing key pair with openssl."; }
 	chmod 0600 "$tmpdir/mok.key"; chmod 0644 "$tmpdir/mok.pub"
 	mok_pair_paths_match "$tmpdir/mok.key" "$tmpdir/mok.pub" || { rm -rf "$tmpdir"; fail "The newly generated DKMS signing key pair failed its self-check."; }
