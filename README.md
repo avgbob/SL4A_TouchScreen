@@ -180,9 +180,14 @@ rotation was explicitly requested. A newly generated or imported certificate
 that is not already enrolled is staged through `mokutil`, and driver
 activation is deferred until the MOK Manager reboot completes.
 
-The complete Secure Boot install → enrollment → reboot → automatic activation
-path is implemented but **has not yet been hardware-qualified as a compatibility
-row** on the current SL4 Gate5 campaign.
+The Secure Boot installer path is **hardware-qualified on one MSHW0231 Surface
+Laptop 4 AMD unit** with Ubuntu kernel `7.0.0-31-generic` (2026-09-26).
+Qualification covered reuse of the active Ubuntu shim-signed MOK identity,
+DKMS rebuild/signing of both modules, post-install signer verification, reboot
+with Secure Boot still enabled, and successful automatic Gate5 activation.
+The qualification checkpoint is `e2be025fd8af8720db80f0f59cd2b48969aee777`.
+This remains a single-unit result, not a broad firmware/kernel compatibility
+claim.
 
 ### Status and logs
 
