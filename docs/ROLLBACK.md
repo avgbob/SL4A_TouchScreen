@@ -55,30 +55,85 @@ from the repository checkout.
 
 ## Secure Boot and MOK
 
-Running `sudo ./tools/sl4a-touch.sh install` handles the DKMS signing key
-generation and MOK enrollment automatically — it generates the key if missing,
-tells you exactly what to do, and prompts you to enroll it right away.
+Running `sudo ./tools/sl4a-touch.sh install` manages the DKMS signing identity
+when Secure Boot is enabled.
 
-### Enroll the DKMS MOK key manually
+A usable identity is a **matching pair**:
+
+- `/var/lib/dkms/mok.key` — private key used to sign rebuilt modules;
+- `/var/lib/dkms/mok.pub` — X.509 certificate enrolled through MOK Manager.
+
+The installer validates both files, verifies that their public keys match, and
+requires the certificate in DER form for `mokutil`. A valid existing pair is
+reused by default, so normal driver upgrades do not force a new MOK enrollment.
+
+Interactive installs offer four useful paths when a valid pair exists:
+
+1. reuse the existing pair (recommended);
+2. generate a new pair;
+3. import another existing private-key/certificate pair;
+4. abort.
+
+When no pair exists, the installer first tries `dkms generate_mok`, validates
+what DKMS produced, and falls back to an OpenSSL-generated RSA key pair if
+needed.
+
+When existing MOK material is incomplete, invalid, or mismatched, the installer
+does **not** silently treat a lone certificate as usable. Interactive installs
+offer repair or import; non-interactive installs stop. To deliberately replace
+existing material from a scripted install, use:
+
+```sh
+sudo ./tools/sl4a-touch.sh install --rotate-mok
+```
+
+Before a generated or imported pair replaces anything already in the standard
+DKMS paths, the installer copies the previous material into a root-only backup
+directory:
+
+```text
+/var/lib/dkms/sl4a-mok-backup-<timestamp>-<pid>/
+```
+
+The old certificate remains enrolled in firmware unless you explicitly remove
+it with your platform's MOK tooling; rotation changes which key DKMS will use
+for future builds, not the firmware trust database by itself.
+
+### Enroll the active DKMS MOK certificate manually
 
 ```sh
 sudo mokutil --import /var/lib/dkms/mok.pub
+sudo reboot
 ```
 
-Set a temporary one-time password when prompted. Reboot; the MOK Manager
-interface will appear. Select `Enroll MOK`, confirm, enter the same
-password. Boot normally after enrollment.
+Set a temporary one-time password when prompted. At the MOK Manager screen,
+select `Enroll MOK`, continue, confirm, enter that password, and reboot.
 
-### Verify enrollment
+Until the active certificate is enrolled, the installer deliberately skips
+immediate SL4A driver activation because Secure Boot would reject the newly
+signed modules. The installed boot service retries activation after the
+enrollment reboot.
+
+### Verify the active signing identity
 
 ```sh
-mokutil --sb-state        # prints "SecureBoot enabled"
+mokutil --sb-state
 mokutil --test-key /var/lib/dkms/mok.pub
+
+sudo openssl pkey \
+  -in /var/lib/dkms/mok.key \
+  -pubout -outform DER 2>/dev/null | openssl dgst -sha256
+
+sudo openssl x509 \
+  -in /var/lib/dkms/mok.pub -inform DER \
+  -pubkey -noout 2>/dev/null |
+  openssl pkey -pubin -outform DER 2>/dev/null |
+  openssl dgst -sha256
 ```
 
-`install` generates and enrolls the signing key itself on every distro: when
-`/var/lib/dkms/mok.pub` is missing it runs `dkms generate_mok` (falling back to
-an `openssl`-generated key pair), and when the existing key is not DER-encoded
-(mokutil cannot import it) it re-encodes it. If no key is present at all,
-re-run `install` (or `sudo dkms generate_mok`) before consulting any
-distro-specific DKMS signing configuration.
+The two SHA-256 values should match. The installer performs the same key-pair
+consistency check automatically before it allows the DKMS build to continue.
+
+Secure Boot signing/enrollment support is implemented, but the complete
+install → MOK enrollment → reboot → automatic activation path remains a
+separate hardware-qualification item in the compatibility matrix.
