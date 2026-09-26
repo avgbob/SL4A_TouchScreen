@@ -1,5 +1,14 @@
 # Hardware Qualification Tracker — SL4 AMD Post-Association Tracker
 
+> **Historical tracker through 2026-09-21.** The matrix below is preserved
+> exactly as the tracker/pinch campaign recorded it. A later Gate5 transport and
+> lifecycle campaign on 2026-09-26 qualified mode 1 at commit `58f0231` for
+> one MSHW0231 field unit: cold power-on + touch PASS, warm reload + touch 3/3,
+> and s2idle resume + touch 2/2, with zero observed dropped frames and no
+> unexpected post-DONE reset. That later result is documented separately in
+> `docs/GATE5-QUALIFICATION.md`; it does not retroactively rewrite this
+> historical candidate matrix or create an E1 compatibility row.
+
 This file tracks the broader Surface Laptop 4 AMD hardware matrix for
 `main` after the targeted pinch-continuity fix was merged in PR #4.
 

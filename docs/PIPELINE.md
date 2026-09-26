@@ -98,7 +98,7 @@ Extracted from DLL `DAT_1808e0460` (file offset `0x8DF060`):
 |-----------|---------|-------------|
 | `raw_mode` | 0 | Transport mode selector: 0 = standard HID discovery/transport, 1 = explicit raw transport profile. The experimental standard-transport beta bridge keeps this at 0. |
 | `raw_input_beta` | 0 | Publish the heatmap-backed `MSHW0231 Touchscreen` MT input device when an experimental heatmap path is active. |
-| `std_raw_transition` | 0 | Standard-transport heat transition; mode 3 is the targeted SET5-only beta bridge used for the validated F108 pinch candidate. |
+| `std_raw_transition` | 0 | Standard-transport heat transition. Mode 1 (write-only GET6 -> 4.5-5.5 ms -> SET5) is the Gate5-qualified MSHW0231 installer path; mode 3 is the earlier SET5-only historical experiment. |
 | `skip_getfeat` | 1 | Skip the standard-mode feature-read handshake (no `WAIT_FEATURE`); the raw-mode Report ID 6 configuration read still runs |
 | `wire_double_opcode` | 0 | 0 = Windows-identical frames, 1 = legacy doubled opcode (see `docs/PARAMETERS.md`) |
 | `ema_alpha` | 2 | Position-smoothing EMA weight (baseline recovery uses its own fixed alpha 7) |

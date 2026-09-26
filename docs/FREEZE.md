@@ -1,5 +1,11 @@
 # Architecture A Behavior Freeze
 
+> **Historical freeze — superseded, not deleted.** This file records the
+> pre-Gate2/Gate3 behavior freeze and its then-current profiles. Gate5 has since
+> qualified a different MSHW0231 standard installer profile. Do not use the
+> frozen profile list below as current installation guidance; see
+> `docs/GATE5-QUALIFICATION.md` and `docs/SUPPORT.md`.
+
 Freeze baseline: `0c45ddbbdf8ee41af3f178b883353439d86e3562` (`main`, 2026-09-22).
 
 Intended tag: `freeze-arch-A`. The connected GitHub interface used to stage this work cannot create tag refs, so a branch with that name was created at the exact freeze SHA. Create the immutable git tag at the same SHA before or when Gate 1 is merged.

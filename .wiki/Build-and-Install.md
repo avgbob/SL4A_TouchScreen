@@ -14,7 +14,7 @@ All operations live in one tool: `tools/sl4a-touch.sh`
 `rebuild`, `hunt`, `soak`).
 
 ```bash
-git clone https://github.com/Syax89/SL4A_TouchScreen.git
+git clone https://github.com/avgbob/SL4A_TouchScreen.git
 cd SL4A_TouchScreen
 sudo ./tools/sl4a-touch.sh install
 sudo reboot
@@ -70,8 +70,9 @@ make LLVM=1 -C /lib/modules/$(uname -r)/build M=$PWD modules
 
 ## Module Parameters
 
-Profile parameters live in `/etc/modprobe.d/sl4a-spi-hid.conf`
-(standard profile: `raw_mode=N`).
+Profile parameters live in `/etc/modprobe.d/sl4a-spi-hid.conf`.
+The standard profile is device-aware: MSHW0231 uses the Gate5 mode-1 bridge
+while MSHW0162 keeps `raw_mode=N wire_double_opcode=1`.
 
 | Parameter | Default | Description |
 |-----------|---------|-------------|
@@ -144,8 +145,11 @@ the enrollment, then `sudo ./tools/sl4a-touch.sh activate`.
 
 ### No multi-touch, no contact
 
-Check that `raw_mode=Y` is set for the raw profile. The device needs
-SET_FEATURE ID5=01 to activate raw mode.
+On MSHW0231 standard installs, verify the profile contains
+`raw_input_beta=Y skip_std_getfeat=1 std_raw_transition=1`. The qualified
+sequence writes GET6, waits 4.5-5.5 ms and sends SET5. On MSHW0162 the
+standard profile remains single-touch; `--raw` is the explicit experimental
+multitouch path.
 
 ### Slow touch or stuttering
 
@@ -161,10 +165,8 @@ descriptor; override only for resolution/DPI needs.
 
 ## Known Issues
 
-1. **No `_RST` support**: The ACPI `_RST` method physically destroys
-   the device on this hardware. The driver never invokes it (recovery uses `_PS3`→`_PS0`).
+1. **Gate5 power lifecycle is SL4-qualified only**: the current MSHW0231 path uses `_PS3` on suspend and `_PS0` -> `_RST` on resume/cold activation. Do not generalize that qualification to MSHW0162.
 2. **4+ finger instability**: Without the Mahalanobis contact classifier
    and per-cycle gain adaptation (both unavailable without device firmware
    access), tracking 4+ simultaneous fingers has partial contact loss.
-3. **Raw mode is beta**: may fail to activate after a cold boot;
-   reboot and return to `raw_mode=0` after raw experiments.
+3. **Raw transport is beta**: the explicit `--raw` profile is still an experimental path even though the MSHW0231 standard installer now uses CapImg through Gate5.

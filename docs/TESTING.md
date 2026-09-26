@@ -12,8 +12,9 @@ make -C tests SANITIZE=1 test
 make -C tests clean
 ```
 
-The protocol, CapImg decoder, replay-fixture, and raw-capture-export tests are
-required host coverage. `replay_fixture_test.py` has no success-by-skip path:
+The protocol, CapImg decoder, replay-fixture, raw-capture-export, Gate4
+activation, Gate5 mode-1 publication, Gate5 DATA-drain race, and Gate5
+installer-profile source guards are required host coverage. `replay_fixture_test.py` has no success-by-skip path:
 it verifies the eight tracked V0 bodies, deterministic malformed inputs, and
 the recorded lifecycle-evidence classifications.
 
@@ -91,9 +92,10 @@ AMDI0060 or touchscreen (MSHW0231/MSHW0162) drivers and verifies both bindings;
 `sudo ./tools/sl4a-touch.sh activate` runs the same checks by hand.
 Recover with `sudo modprobe -r sl4a-spi-hid sl4a-spi-amd` followed by a reboot.
 
-The installer selects the standard profile by default. Since `raw_mode` is read
-only after module load, install the selected profile, then reboot before
-testing:
+The installer selects a device-aware standard profile by default: MSHW0231
+gets the Gate5 mode-1 bridge while MSHW0162 keeps conservative standard HID.
+Since `raw_mode` and the bridge controls are read-only after module load,
+install the selected profile, then reboot before testing:
 
 ```sh
 # Standard profile
@@ -111,7 +113,7 @@ Do not run the raw matrix unless the raw profile is recorded in the result.
 | Warm boot | Reboot without power removal. | Same as cold boot. |
 | Reload | Unload/reload only when no input client uses the device. | No kernel warning, one controller/device binding. |
 | Suspend/resume | Suspend for at least 30 seconds, resume, test input. | Lifecycle status before/after and dmesg. |
-| Standard HID reports | Exercise pen, one touch, and release if reports are emitted. | evtest/libinput record; record absence as a result. |
+| Standard/Gate5 input | On MSHW0231 exercise the beta MT node plus standard HID registration; on MSHW0162 exercise the standard coordinate path. | evtest/libinput record plus `protocol_stats`; record the exact installed profile. |
 | Raw contacts | Test one through five fingers. | Contact recording plus raw profile and frame counters. |
 | Stress | Run mixed touch input for 30 minutes. | Start/end counters, error count, and dmesg. |
 | Secure Boot | Install and reboot with Secure Boot enabled. | Signature/load result and MOK state. |

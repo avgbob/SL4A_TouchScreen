@@ -1,5 +1,11 @@
 # Standard-transport SET5 multitouch experiment
 
+> **Historical record — preserved intentionally.** This document describes the
+> mode-3 SET5-only experiment that unlocked CapImg on 2026-09-21. It is not the
+> current MSHW0231 installer contract. Gate5 later qualified
+> `std_raw_transition=1` (write-only GET6 -> 4.5-5.5 ms -> SET5) together with
+> the HID-registration DATA-drain fix. See `docs/GATE5-QUALIFICATION.md`.
+
 Status: **field-tested on one Surface Laptop 4 AMD (MSHW0231)** on 2026-09-21.
 
 This branch keeps normal HID-over-SPI discovery/transport, suppresses the generic

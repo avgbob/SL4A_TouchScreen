@@ -1,6 +1,6 @@
 # SL4A TouchScreen — Linux Kernel Driver
 
-> A reverse-engineered Linux kernel driver for the **Microsoft Surface Laptop 3/4 (AMD)** touchscreen: standard HID single-touch (pen node published, unvalidated) plus a beta raw-heatmap multi-touch pipeline.
+> A reverse-engineered Linux kernel driver for the **Microsoft Surface Laptop 3/4 (AMD)** touchscreen. The SL4/MSHW0231 standard installer now uses the Gate5 standard-transport heatmap bridge for beta multitouch; SL3/MSHW0162 keeps conservative standard HID.
 
 The driver speaks the pre-release **HID-over-SPI Version 0 (V0)** protocol that
 these panels use, over the AMD FCH SPI controller (`AMDI0060`). It is a
@@ -18,21 +18,23 @@ real hardware — not a fork of an in-tree driver.
 The driver selects device-specific tuning (grid geometry, CapImg sample count,
 baseline length) from the ACPI ID at probe time — see [Architecture](Architecture).
 
-## Two operating modes
+## Installed behavior by device
 
-| Mode | `raw_mode` | What you get | Status |
-|---|---|---|---|
-| **Standard HID** | `0` (default) | Single-touch (pen node published, unvalidated), firmware-computed coordinates, ~10 ms reports (field observation) | **Qualified profile, recommended** |
-| **Raw heatmap** | `1` | Sensor-grid data processed host-side into multi-touch | **Beta** |
+| Device | Standard installer behavior | Status |
+|---|---|---|
+| **Surface Laptop 4 AMD / MSHW0231** | Normal HID discovery, then write-only GET6 -> 4.5-5.5 ms -> SET5; beta CapImg multitouch is published while `raw_mode=0` | Gate5 field-qualified on one unit |
+| **Surface Laptop 3 AMD / MSHW0162** | Conservative standard HID coordinate path | Gate5 sequence not claimed |
+| **Either, explicit `--raw`** | Raw transport + heatmap tracker | Experimental |
 
-[Standard Touch Mode](Standard-Touch-Mode) is what you should run day to day.
-[Multi-touch (Beta)](Multi-touch-Experimental) documents the raw path and its
-caveats.
+The historical SET5-only mode-3 bridge remains reproducible but is no longer
+the MSHW0231 installer path. See [Standard Touch Mode](Standard-Touch-Mode),
+[Multi-touch (Beta)](Multi-touch-Experimental), and
+`docs/GATE5-QUALIFICATION.md`.
 
 ## Quick start
 
 ```bash
-git clone https://github.com/Syax89/SL4A_TouchScreen.git
+git clone https://github.com/avgbob/SL4A_TouchScreen.git
 cd SL4A_TouchScreen
 sudo ./tools/sl4a-touch.sh install     # hardware check, DKMS build, boot service
 sudo reboot
@@ -42,7 +44,7 @@ After reboot the driver binds automatically. Verify with:
 
 ```bash
 sudo ./tools/sl4a-touch.sh status      # hardware + runtime state
-sudo evtest                            # pick "spi 045E:0C19", touch the screen
+sudo evtest                            # on SL4 Gate5, pick "MSHW0231 Touchscreen" for beta MT
 ```
 
 Full instructions: [Build & Install](Build-and-Install) · [Usage & Troubleshooting](Building-Usage-and-Troubleshooting).
@@ -97,5 +99,6 @@ the deeper design notes. See [Further Reading](Further-Reading) for the map.
 
 ## License and status
 
-GPL-2.0, **beta software**. This is a beta, reverse-engineered driver — use at
-your own risk. The standard mode is the qualified profile; raw mode is beta.
+GPL-2.0, **beta software**. This is a reverse-engineered driver. Gate5 is a
+single-unit MSHW0231 field qualification, not a broad hardware guarantee; the
+raw transport and heatmap contact stack remain beta.

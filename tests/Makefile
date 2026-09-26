@@ -329,6 +329,10 @@ test: protocol_test capimg_decoder_host_test c590_atan2_host_test wire_frames_te
 	$(PYTHON) sl4a_heat_host_test.py
 	$(PYTHON) driver_source_sanity_test.py
 	$(PYTHON) header_read_bounds_test.py
+	$(PYTHON) gate4_activation_source_test.py
+	$(PYTHON) gate5_mode1_input_source_test.py
+	$(PYTHON) gate5_data_drain_race_source_test.py
+	$(PYTHON) gate5_installer_profile_source_test.py
 	$(PYTHON) binattr_signature_test.py
 	$(PYTHON) diagnostic_bundle_contract_test.py
 	$(PYTHON) diagnostic_bundle_frame_test.py

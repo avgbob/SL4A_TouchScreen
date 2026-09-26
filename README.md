@@ -15,18 +15,19 @@ beta raw-heatmap multitouch pipeline on the AMD Cezanne FCH SPI controller.
 
 ## What to Expect
 
-- The **standard installer profile** (default) provides **single-touch only** —
-  basic tap, drag, and single-finger interaction.
+- The **standard installer profile is device-aware**. On Surface Laptop 4 AMD
+  (`MSHW0231`) it uses the Gate5-qualified standard-transport heatmap bridge
+  and publishes beta multitouch. On Surface Laptop 3 AMD (`MSHW0162`) it keeps
+  the conservative standard-HID single-touch profile.
 - A **stylus/pen input node** is published by the HID descriptor but is
   **untested** — pen behavior has not been observed or validated.
-- The beta heatmap multitouch pipeline can be reached either through the
-  explicit raw profile (`raw_mode=Y`) or through the experimental
-  standard-transport SET5 bridge (`raw_mode=N raw_input_beta=Y
-  std_raw_transition=3`). The latter is a manually configured qualification
-  profile, not an installer default or release-qualified profile.
-- **Raw/heatmap multitouch remains beta** — targeted two-finger tracking is
-  validated on the SL4 AMD test unit, while the broader hardware matrix remains
-  incomplete.
+- On SL4 AMD, Gate5 keeps normal HID-over-SPI discovery (`raw_mode=N`), then
+  sends a write-only GET_FEATURE report 6, waits 4.5-5.5 ms, sends
+  SET_FEATURE report 5 = 1, and routes the resulting `0x0c` CapImg stream
+  through the beta multitouch tracker.
+- **Raw/heatmap multitouch remains beta** — Gate5 lifecycle/input behavior is
+  field-qualified on one SL4 AMD unit, while the broader hardware/E1 matrix,
+  pen, palm rejection and long-duration stress remain incomplete.
 
 See [`docs/QUICKSTART.md`](docs/QUICKSTART.md) for a 5-step install and
 activation guide.
@@ -126,8 +127,8 @@ cd SL4A_TouchScreen
 sudo ./tools/sl4a-touch.sh install
 ```
 
-`install` prompts interactively for a profile (standard HID, the supported
-default, or the experimental raw multitouch profile) unless `--standard` or
+`install` prompts interactively for a profile (the device-aware standard
+profile, or the experimental raw multitouch profile) unless `--standard` or
 `--raw` is given explicitly. `--check` performs a read-only ACPI and
 build-prerequisite preflight and needs no root; `--force` only to investigate
 unsupported hardware.
@@ -165,6 +166,11 @@ complete rollback and upgrade procedure.
 
 ```
 /etc/modprobe.d/sl4a-spi-hid.conf:
+
+  # Surface Laptop 4 AMD / MSHW0231
+  options sl4a_spi_hid raw_mode=N raw_input_beta=Y wire_double_opcode=1 gate3_observe_only=1 skip_std_getfeat=1 std_raw_transition=1 get_noread=0 getfeat_delay_ms=0 std_liveness_ms=0 std_liveness_recover=0 wait_reset_kick_ms=0
+
+  # Surface Laptop 3 AMD / MSHW0162
   options sl4a_spi_hid raw_mode=N wire_double_opcode=1
 ```
 
@@ -173,19 +179,19 @@ it is no longer the Gate-3 architecture checkpoint. Gate 3 now uses the
 standard HID transport plus `userspace/sl4a-heat/sl4a_heat.py` through hidraw.
 That keeps Col02 GET6/SET5/0x0C ownership out of the kernel and leaves Col07
 report 0x56 separate. See `docs/GATE3-ARCH-A.md` and
-`docs/GATE3-AUDIT.md`. The targeted SL4 AMD tracker qualification instead used the manual
-standard-transport beta bridge
-`raw_mode=N raw_input_beta=Y skip_std_getfeat=1 std_raw_transition=3`;
-the installer intentionally does not write that profile. Every raw/heatmap
-control is experimental and load-time-only. The complete release, diagnostic,
+`docs/GATE3-AUDIT.md`. For MSHW0231, the standard installer now writes the Gate5-qualified mode-1
+bridge shown above. Mode 1 performs a write-only GET6 request, waits
+4.5-5.5 ms, then sends SET5; the generic standard-mode feature GET_REPORT path
+is suppressed. MSHW0162 keeps the older conservative standard profile because
+the Gate5 activation sequence has not been qualified there. The explicit
+`--raw` profile remains experimental. The complete release, diagnostic,
 and experimental contract is in [`docs/PARAMETERS.md`](docs/PARAMETERS.md).
 
 ## What Will Not Work
 
-- **Multi-touch in the standard installer profile** — it forwards standard HID
-  reports and does not enable the heatmap bridge. An experimental manual
-  standard-transport SET5 bridge exists, but it is not a release/default
-  profile.
+- **Gate5 multitouch is not an SL3 claim.** The MSHW0231/SL4 standard profile
+  enables the heatmap bridge; MSHW0162/SL3 intentionally remains on the
+  conservative standard-HID profile until separately qualified.
 - **Pen input** — the raw input device publishes touch contacts only and the
   driver contains no pen-specific handling, so pen behavior is unvalidated.
 - **Palm rejection** — no palm/rejection stage exists in the pipeline.
@@ -199,7 +205,7 @@ and experimental contract is in [`docs/PARAMETERS.md`](docs/PARAMETERS.md).
 | No touch after cold boot | Power off → unplug AC → wait 30s → reboot |
 | No touch after cold boot, but the driver looks ready (dmesg shows the descriptor, HID registered, `ready`) | Set `std_liveness_ms=8000` (`echo 'options sl4a_spi_hid std_liveness_ms=8000' \| sudo tee /etc/modprobe.d/sl4a-liveness.conf`), cold boot, then read the `standard-mode liveness` line in dmesg: it reports the controller activity (IRQs) seen in that window, so a healthy idle device prints the alarm too (upstream issue #4) |
 | No touch after cold boot and no `RESET_RSP` in dmesg at all | Enable the backstop: `echo 'options sl4a_spi_hid wait_reset_kick_ms=4000' \| sudo tee /etc/modprobe.d/sl4a-kick.conf`, then cold boot. dmesg then shows `no RESET_RSP and no IRQ at all after 4000 ms, forcing DESCREQ`, and the descriptor poller keeps reading until the device answers. A `DESCREQ write to a silent controller failed 3 times` line instead means the SPI write itself is failing (bus level), not that the device stayed quiet. If the touchscreen never comes back, power off, unplug AC, wait 30 s, reboot and report the log in upstream issue #4 |
-| No multi-touch (only single-touch) | The standard installer profile is single-touch. Use the explicit experimental raw profile, or consult `docs/STANDARD-SET5-MULTITOUCH.md` for the manual standard-transport beta bridge used in targeted qualification. |
+| No multi-touch on SL4/MSHW0231 | Verify the installed profile contains `raw_input_beta=Y skip_std_getfeat=1 std_raw_transition=1`; see `docs/GATE5-QUALIFICATION.md`. On SL3/MSHW0162 the standard profile remains single-touch; use `--raw` only as an explicit experiment. |
 | Fingers lost during fast movement | Increase `blob_lift_frames` |
 | Jitter during pinch-to-zoom | Verify `ema_alpha=2`, stationary lock active |
 | Module rejected (Secure Boot) | Enroll DKMS signing key via distribution MOK |

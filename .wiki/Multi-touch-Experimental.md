@@ -1,17 +1,22 @@
-# Multi-touch (Beta — `raw_mode=1`)
+# Multi-touch (Beta)
 
-The raw mode streams the sensor grid to the host, where the driver runs the
-blob-detection pipeline from [Touch Pipeline](Pipeline) to produce multitouch
-contacts.
+The host-side CapImg tracker can now be reached in two ways:
 
-> **Beta feature.** Raw mode is functional but younger than the standard path.
-> It can fail to activate on a cold boot and can leave the controller silent;
-> a reboot is the supported recovery. The standard profile (`raw_mode=0`) stays
-> the qualified one.
+1. **MSHW0231 Gate5 standard profile (`raw_mode=0`)** — normal HID discovery,
+   then write-only GET6 -> 4.5-5.5 ms -> SET5. This is the current SL4
+   installer path and was field-qualified through cold boot, warm reload and
+   s2idle resume on one unit.
+2. **Explicit raw transport (`raw_mode=1`)** — the older experimental raw
+   activation/watchdog path.
 
-## Activation sequence
+> **Beta feature.** The contact-classification/heatmap pipeline remains beta
+> even when reached through the Gate5 standard transport. The Gate5 lifecycle
+> qualification does not establish pen, palm rejection, 4/5-finger or broad
+> device compatibility.
 
-Raw mode performs a vendor feature exchange before the device starts
+## Explicit raw-mode activation sequence
+
+The `raw_mode=1` profile performs a vendor feature exchange before the device starts
 streaming (details and exact frames: [Protocol](Protocol)):
 
 1. **Vendor init** — command register, content ID `0xC2`

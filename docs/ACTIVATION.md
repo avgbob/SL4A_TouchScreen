@@ -67,14 +67,38 @@ The driver uses a direct vendor-init path:
 4. Observe subsequent reports; targeted SL4 streaming has been demonstrated,
    but broader lifecycle/hardware reliability remains unqualified
 
-### `std_raw_transition=3` (Experimental Standard-Transport Beta Bridge)
+### `std_raw_transition=1` (Gate5 SL4 Standard Profile)
 
-After normal HID-over-SPI descriptor discovery, mode 3 performs the SET_FEATURE
-ID5 write without the Report-6 GET step and routes subsequent CapImg `0x0c`
-frames into the beta heatmap multitouch input path when `raw_input_beta=1`.
-The targeted SL4 AMD qualification profile used `raw_mode=0`,
-`raw_input_beta=1`, `skip_std_getfeat=1`, and `std_raw_transition=3`.
-This bridge is manual/experimental and is not written by the installer.
+After normal HID-over-SPI descriptor discovery, the MSHW0231 Gate5 profile
+performs the sequence that survived the final lifecycle campaign:
+
+1. write GET_FEATURE report ID 6;
+2. **do not synchronously read the reply** in this activation path;
+3. wait `usleep_range(4500, 5500)`;
+4. write SET_FEATURE report ID 5 with value 1;
+5. enter DONE and consume the resulting `0x0c` CapImg stream.
+
+The standard transport remains active (`raw_mode=0`). With
+`raw_input_beta=1`, CapImg frames are decoded by the existing beta heatmap
+tracker and published through `MSHW0231 Touchscreen`. The generic
+standard-mode HID GET_REPORT feature path is suppressed with
+`skip_std_getfeat=1` so it cannot insert a competing feature read.
+
+This is the current standard installer behavior for MSHW0231 only. It is not
+automatically applied to MSHW0162.
+
+### `std_raw_transition=3` (Historical SET5-Only Experiment)
+
+Mode 3 sends SET_FEATURE report ID 5 without the GET6 write. It was the
+important 2026-09-21 experiment that proved SET5 alone could enter CapImg on
+the tested SL4 and enabled the tracker work. Later warm-repeatability testing
+showed that SET5-only did not eliminate the post-activation reset by itself;
+Gate5 isolated the separate DATA-drain/HID-registration race and qualified mode
+1 instead.
+
+Keep mode 3 for historical reproduction and diagnostics. It is no longer the
+MSHW0231 installer/default qualification path; see
+`docs/STANDARD-SET5-MULTITOUCH.md` and `docs/GATE5-QUALIFICATION.md`.
 
 ### `skip_getfeat=0` (Legacy)
 
@@ -86,9 +110,9 @@ The original GET_FEATURE-based path:
 5. Send SET_FEATURE ID5=01 → observe whether a stream follows
 
 The `skip_getfeat=1` raw-transport path is selected by
-`sl4a-touch.sh install --raw`. The standard installer profile remains
-standard HID/single-touch; the standard-transport beta bridge above is an
-explicit manual qualification profile rather than an installer default.
+`sl4a-touch.sh install --raw`. For MSHW0231, the standard installer now uses
+the Gate5 mode-1 bridge above. MSHW0162 retains the conservative standard-HID
+profile until this sequence is separately qualified there.
 
 ## Debug Validation
 

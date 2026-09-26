@@ -272,8 +272,13 @@ assert "raw_mode=Y raw_input_beta=Y skip_getfeat=N raw_no_enable=1 gate3_observe
 # accepted Windows trace, so it must request the observed single-opcode writes
 # and reference read-approval shape even though the older Linux field sweep
 # found those shapes unsuccessful.
-assert "options sl4a_spi_hid raw_mode=N wire_double_opcode=1" in tool, \
-    "the installed standard profile lost its field-qualified doubled dialect"
+assert 'if acpi_device_present "MSHW0231"; then' in tool, \
+    "the installer no longer selects the Gate5 profile specifically for MSHW0231"
+assert "options sl4a_spi_hid raw_mode=N raw_input_beta=Y wire_double_opcode=1 gate3_observe_only=1 skip_std_getfeat=1 std_raw_transition=1 get_noread=0 getfeat_delay_ms=0 std_liveness_ms=0 std_liveness_recover=0 wait_reset_kick_ms=0" in tool, \
+    "the MSHW0231 standard installer profile drifted from the Gate5-qualified mode1 profile"
+assert "# SL4A_TouchScreen standard HID profile (Surface Laptop 3 AMD)" in tool and \
+    "options sl4a_spi_hid raw_mode=N wire_double_opcode=1" in tool, \
+    "the MSHW0162/SL3 conservative standard profile was not preserved"
 assert "options sl4a_spi_hid raw_mode=Y raw_input_beta=Y skip_getfeat=N raw_no_enable=1 gate3_observe_only=1 wire_double_opcode=0 read_frame_variant=0" in tool, \
     "the installed Gate-3 raw profile no longer requests the Windows-observed frame shapes"
 assert "sl4a_debug_level=3" in tool, \

@@ -856,10 +856,18 @@ cmd_install() {
 options sl4a_spi_hid raw_mode=Y raw_input_beta=Y skip_getfeat=N raw_no_enable=1 gate3_observe_only=1 wire_double_opcode=0 read_frame_variant=0
 EOF
 	else
-		cat > "$tmp_config" <<'EOF'
-# SL4A_TouchScreen standard HID profile
+		if acpi_device_present "MSHW0231"; then
+			cat > "$tmp_config" <<'EOF'
+# SL4A_TouchScreen qualified Surface Laptop 4 AMD profile
+# Gate5: write-only GET6 -> 4.5-5.5 ms -> SET5, beta MT publication.
+options sl4a_spi_hid raw_mode=N raw_input_beta=Y wire_double_opcode=1 gate3_observe_only=1 skip_std_getfeat=1 std_raw_transition=1 get_noread=0 getfeat_delay_ms=0 std_liveness_ms=0 std_liveness_recover=0 wait_reset_kick_ms=0
+EOF
+		else
+			cat > "$tmp_config" <<'EOF'
+# SL4A_TouchScreen standard HID profile (Surface Laptop 3 AMD)
 options sl4a_spi_hid raw_mode=N wire_double_opcode=1
 EOF
+		fi
 	fi
 	install -m 0644 "$tmp_config" "$MODPROBE_CONF"
 	rm -f "$tmp_config"

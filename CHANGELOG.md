@@ -2,6 +2,34 @@
 
 ## Unreleased
 
+### Gate5: SL4 standard profile promoted after lifecycle qualification
+
+Surface Laptop 4 AMD (`MSHW0231`) now gets a device-specific standard
+installer profile that keeps normal HID discovery but switches the panel to
+CapImg using the field-qualified mode-1 sequence: write GET_FEATURE report 6
+without synchronously reading its response, wait 4.5-5.5 ms, then send
+SET_FEATURE report 5 = 1. `raw_input_beta=Y` publishes the resulting heatmap
+contacts while `raw_mode=N` preserves the standard transport/discovery path.
+
+The promotion is intentionally scoped to MSHW0231. Surface Laptop 3 AMD
+(`MSHW0162`) keeps the previous `raw_mode=N wire_double_opcode=1` standard
+profile until the Gate5 sequence is separately qualified there.
+
+Gate5 also fixes a warm-reload race where the first CapImg DATA header could be
+consumed during `hid_add_device()` while its ~4304-byte body was left queued;
+the driver now drains/processes that frame while suppressing HID publication
+until registration completes. On the field SL4 unit, commit `58f0231` passed
+3/3 warm reload + touch cycles, a true cold power-on + touch cycle, and 2/2
+s2idle resume + touch cycles with zero observed dropped frames or unexpected
+post-DONE resets. These results are a field qualification, not a broad E1
+compatibility claim.
+
+The Gate4/Gate5 source guards are now part of the default host-test/CI gate, and
+the installer contract pins both the MSHW0231 Gate5 profile and the unchanged
+MSHW0162 fallback. Historical Gate4/Gate5 tags and earlier mode-3 evidence are
+preserved; see `docs/GATE5-QUALIFICATION.md`.
+
+
 ### HID-mode cleanup: probe decomposition, one header-length rule, kernel-doc
 
 Readability pass over the standard path, no behaviour change (live-verified:
