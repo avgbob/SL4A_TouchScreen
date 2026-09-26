@@ -1,0 +1,35 @@
+name: Publish v1.7.0 release
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    if: github.event.head_commit.message == 'release: publish v1.7.0'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Publish verified v1.7.0
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if gh release view v1.7.0 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release edit v1.7.0 \
+              --repo "$GITHUB_REPOSITORY" \
+              --title "SL4A_TouchScreen v1.7.0 — Gate5 Production Activation" \
+              --notes-file docs/releases/v1.7.0.md \
+              --latest
+          else
+            gh release create v1.7.0 \
+              --repo "$GITHUB_REPOSITORY" \
+              --target aaab884b2d969515b0b2c8f2a7eccf2707bc729b \
+              --title "SL4A_TouchScreen v1.7.0 — Gate5 Production Activation" \
+              --notes-file docs/releases/v1.7.0.md \
+              --latest
+          fi
