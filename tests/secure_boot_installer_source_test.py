@@ -22,6 +22,7 @@ required = {
     "incomplete material refusal": "MOK material is incomplete/invalid",
     "final pair invariant": "signing identity is not a complete matching key pair after setup",
     "enrollment test": 'mokutil --test-key "$MOK_CERT"',
+    "installed signature verification": 'modinfo -F signer "$signed_module"',
 }
 
 missing = [name for name, needle in required.items() if needle not in src]
