@@ -50,4 +50,24 @@ assert "options sl4a_spi_hid raw_mode=N wire_double_opcode=1" in fallback
 for forbidden in ("raw_input_beta=Y", "std_raw_transition=1", "skip_std_getfeat=1"):
     assert forbidden not in fallback, f"SL3 fallback unexpectedly enables {forbidden}"
 
+# User-facing installer text must describe the current architecture correctly:
+# SL4 production multitouch is the standard Gate5 transport, while --raw is a
+# legacy diagnostic/research transport.
+assert "Production/default profile. On SL4/MSHW0231:" in src
+assert "normal HID discovery + Gate5 CapImg" in src
+assert "Legacy diagnostic/research alternate" in src
+assert "Not required for SL4 multitouch" in src
+assert "Standard / production" in src
+assert "Legacy raw diagnostic" in src
+assert "production SL4 Gate5 standard-transport CapImg multitouch" in src
+
+for stale in (
+    "Single-touch + pen. Stable, supported. (default)",
+    "Beta heatmap multitouch",
+    "Raw multitouch",
+    "Beta raw multitouch profile selected",
+    "raw (Beta multitouch)",
+):
+    assert stale not in src, f"stale installer profile wording returned: {stale}"
+
 print("gate5 installer profile source test: PASS")
