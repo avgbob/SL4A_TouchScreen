@@ -282,9 +282,13 @@ Commands:
                     Nothing further to run. Prompts interactively for a
                     profile if none is given on a terminal; defaults to
                     --standard otherwise.
-                      --standard  Single-touch + pen. Stable, supported. (default)
-                      --raw       Beta heatmap multitouch. May be
-                                  unstable; no hardware-qualified result yet.
+                      --standard  Production/default profile. On SL4/MSHW0231:
+                                  normal HID discovery + Gate5 CapImg
+                                  multitouch. On SL3/MSHW0162: conservative
+                                  standard HID.
+                      --raw       Legacy diagnostic/research alternate
+                                  transport. Not required for SL4 multitouch
+                                  and not the production multitouch path.
                       --check     Validate prerequisites only, write nothing.
                       --dry-run   Validate and print the selected profile.
                       --force     Continue even if expected hardware/DMI is
@@ -584,14 +588,13 @@ cmd_install() {
 		if [ -t 0 ] && [ "$MODE" = "install" ]; then
 			echo "Which profile do you want to install?"
 			echo ""
-			echo -e "  ${GREEN}1) Standard HID${NC}   — single-touch + pen. Stable; this is the"
-			echo    "                       supported default. [recommended]"
-			echo -e "  ${YELLOW}2) Raw multitouch${NC} — Beta. Heatmap-based multi-finger"
-			echo    "                       tracking. May fail to activate after a cold"
-			echo    "                       boot, may be unstable with 3+ fingers, and has"
-			echo    "                       no hardware-qualified compatibility result yet."
-			echo    "                       Choose this only if you understand it may not"
-			echo    "                       work reliably."
+			echo -e "  ${GREEN}1) Standard / production${NC} — [recommended]"
+			echo    "                       SL4/MSHW0231: normal HID discovery + Gate5"
+			echo    "                       CapImg multitouch."
+			echo    "                       SL3/MSHW0162: conservative standard HID."
+			echo -e "  ${YELLOW}2) Legacy raw diagnostic${NC} — alternate research transport."
+			echo    "                       Not required for SL4 multitouch and not the"
+			echo    "                       production multitouch path."
 			echo ""
 			read -r -p "Select [1]: " choice
 			case "$choice" in
@@ -961,7 +964,7 @@ cmd_install() {
 	tmp_config="$(mktemp "${MODPROBE_CONF}.XXXXXX")"
 	if [ "$PROFILE" = "raw" ]; then
 		cat > "$tmp_config" <<'EOF'
-# SL4A_TouchScreen experimental raw heatmap profile
+# SL4A_TouchScreen legacy diagnostic raw-transport profile
 options sl4a_spi_hid raw_mode=Y raw_input_beta=Y skip_getfeat=N raw_no_enable=1 gate3_observe_only=1 wire_double_opcode=0 read_frame_variant=0
 EOF
 	else
@@ -1126,9 +1129,11 @@ EOF
 	echo ""
 	rule
 	if [ "$PROFILE" = "raw" ]; then
-		echo -e "${YELLOW}${BOLD}Install complete${NC} ${YELLOW}— Beta raw multitouch profile selected.${NC}"
+		echo -e "${YELLOW}${BOLD}Install complete${NC} ${YELLOW}— legacy raw diagnostic transport selected.${NC}"
+	elif acpi_device_present "MSHW0231"; then
+		echo -e "${GREEN}${BOLD}Install complete${NC} ${GREEN}— production SL4 Gate5 standard-transport CapImg multitouch profile selected.${NC}"
 	else
-		echo -e "${GREEN}${BOLD}Install complete${NC} ${GREEN}— standard HID profile selected.${NC}"
+		echo -e "${GREEN}${BOLD}Install complete${NC} ${GREEN}— conservative SL3 standard HID profile selected.${NC}"
 	fi
 	echo "  To remove:  sudo ./tools/sl4a-touch.sh uninstall"
 	rule
@@ -1428,16 +1433,26 @@ cmd_status() {
 	local profile live_raw
 	profile="$(modprobe_profile)"
 	case "$profile" in
-		raw)      warn "Modprobe profile for the next boot: raw (Beta multitouch)" ;;
-		standard) pass "Modprobe profile for the next boot: standard HID" ;;
-		none)     info "No modprobe profile configured (nothing installed)" ;;
-		*)        warn "Unrecognized contents in $MODPROBE_CONF — no profile will be applied" ;;
+		raw)
+			warn "Modprobe profile for the next boot: legacy raw diagnostic/research transport"
+			;;
+		standard)
+			if acpi_device_present "MSHW0231"; then
+				pass "Modprobe profile for the next boot: production SL4 Gate5 standard-transport CapImg multitouch"
+			else
+				pass "Modprobe profile for the next boot: conservative standard HID"
+			fi
+			;;
+		none) info "No modprobe profile configured (nothing installed)" ;;
+		*)    warn "Unrecognized contents in $MODPROBE_CONF — no profile will be applied" ;;
 	esac
 	if live_raw="$(loaded_raw_mode)"; then
 		if [ "$live_raw" = "Y" ]; then
-			warn "Profile running right now: raw (Beta multitouch) — it stays until the next boot"
+			warn "Profile running right now: legacy raw diagnostic/research transport — it stays until the next boot"
+		elif acpi_device_present "MSHW0231"; then
+			pass "Profile running right now: production SL4 Gate5 standard-transport CapImg multitouch"
 		else
-			pass "Profile running right now: standard HID"
+			pass "Profile running right now: conservative standard HID"
 		fi
 	fi
 
