@@ -15,12 +15,12 @@ _PS0 -> _RST
   -> wait 4.5-5.5 ms
   -> SET_FEATURE report 5 = 1
   -> DONE / 0x0c CapImg
-  -> beta tracker -> MSHW0231 Touchscreen MT node
+  -> in-kernel CapImg tracker (input-quality beta) -> MSHW0231 Touchscreen MT node
 ```
 
 The standard profile pins `skip_std_getfeat=1` so a generic HID feature
 GET_REPORT cannot insert a competing feature transaction. The standard HID
-device remains registered; beta heatmap contacts are published separately.
+device remains registered; CapImg multitouch contacts are published separately by the in-kernel tracker.
 
 This path was field-qualified on one SL4 unit at Gate5: true cold power-on +
 touch, 3/3 warm reload + touch, and 2/2 s2idle resume + touch, with zero
