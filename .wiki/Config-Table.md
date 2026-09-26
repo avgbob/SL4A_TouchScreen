@@ -188,7 +188,7 @@ profile is a fresh module load. The classes match the parameter contract in
 | `blob_min_weight` | Experimental raw pipeline | `1000` | Minimum blob signal rise |
 | `ema_alpha` | Experimental raw pipeline | `2` | Position EMA smoothing |
 | `dfa_data_offset` | Experimental raw pipeline | `0` | DFT antenna frame data offset in bytes (0 = decoded raster) |
-| `ghost_dist` | Experimental raw pipeline | `6` | Coalescence radius (cells) |
+| `ghost_dist` | CapImg tracker | `6` | Post-association duplicate/coalescing radius (cells) |
 | `grid_cols` | Experimental raw pipeline | `0` | Grid columns; 0 = per-device default |
 | `grid_rows` | Experimental raw pipeline | `0` | Grid rows; 0 = per-device default |
 | `blob_debounce` | Experimental raw pipeline | `3` | New-contact debounce (frames) |
