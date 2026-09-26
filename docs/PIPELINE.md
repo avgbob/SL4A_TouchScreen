@@ -97,9 +97,9 @@ Extracted from DLL `DAT_1808e0460` (file offset `0x8DF060`):
 | Parameter | Default | Description |
 |-----------|---------|-------------|
 | `raw_mode` | 0 | Legacy transport selector. Production SL4 multitouch remains on standard HID discovery/transport; the `1` setting is a separate diagnostic/research transport and is not the production multitouch path. |
-| `raw_input_beta` | 0 | Publish the heatmap-backed `MSHW0231 Touchscreen` MT input device when an experimental heatmap path is active. |
-| `std_raw_transition` | 0 | Standard-transport heat transition. Mode 1 (write-only GET6 -> 4.5-5.5 ms -> SET5) is the Gate5-qualified MSHW0231 installer path; mode 3 is the earlier SET5-only historical experiment. |
-| `skip_getfeat` | 1 | Skip the standard-mode feature-read handshake (no `WAIT_FEATURE`); the raw-mode Report ID 6 configuration read still runs |
+| `raw_input_beta` | 0 | **Legacy parameter name.** Enables publication of the heatmap-backed `MSHW0231 Touchscreen` MT device. In the production SL4 profile this operates on the standard HID transport. |
+| `std_raw_transition` | 0 | **Legacy parameter name.** Standard-transport CapImg transition selector. Mode 1 (write-only GET6 -> 4.5-5.5 ms -> SET5) is the Gate5-qualified MSHW0231 installer path; mode 3 is the earlier SET5-only historical experiment. |
+| `skip_getfeat` | 1 | Skip the older feature-read handshake (no `WAIT_FEATURE`). This is separate from the dedicated Gate5 write-only GET6 transition. |
 | `wire_double_opcode` | 0 | 0 = Windows-identical frames, 1 = legacy doubled opcode (see `docs/PARAMETERS.md`) |
 | `ema_alpha` | 2 | Position-smoothing EMA weight (baseline recovery uses its own fixed alpha 7) |
 | `blob_max_distance` | 3 | Hungarian base radius (cells) |
