@@ -34,8 +34,8 @@ PKG_VERSION="$(cat "$REPO_DIR/VERSION" 2>/dev/null || echo "1.0.0~beta1")"
 SRC_DEST="/usr/src/${PKG_NAME}-${PKG_VERSION}"
 MODPROBE_CONF="/etc/modprobe.d/sl4a-spi-hid.conf"
 SYSTEMD_UNIT="/etc/systemd/system/sl4a-touch-activate.service"
-MOK_KEY="${SL4A_MOK_KEY:-/var/lib/dkms/mok.key}"
-MOK_CERT="${SL4A_MOK_CERT:-/var/lib/dkms/mok.pub}"
+MOK_KEY="${SL4A_MOK_KEY:-}"
+MOK_CERT="${SL4A_MOK_CERT:-}"
 SYSFS_ROOT="${SL4A_SYSFS_ROOT:-/sys}"
 DMI_ROOT="${SL4A_DMI_ROOT:-/sys/class/dmi/id}"
 # Where the input layer exposes its event nodes (discovery) and where the
@@ -448,9 +448,62 @@ quarantine_unowned() {
 	fi
 }
 
-# A Secure Boot signing identity is a pair: mok.key signs the module and
-# mok.pub is the X.509 certificate enrolled through MOK Manager. Validate both
-# files and prove that their public keys match before letting DKMS rebuild.
+# Resolve the signing identity DKMS itself will use. DKMS allows
+# mok_signing_key/mok_certificate overrides in framework.conf and
+# framework.conf.d/*.conf. Ubuntu's packaged default is the shim-signed MOK
+# pair, while upstream/Debian default to /var/lib/dkms. Never validate one pair
+# and then let DKMS sign with another.
+resolve_dkms_mok_paths() {
+	local kernelver cfg mok_signing_key mok_certificate
+	kernelver="$(uname -r)"
+
+	if { [ -n "${SL4A_MOK_KEY:-}" ] && [ -z "${SL4A_MOK_CERT:-}" ]; } || 	   { [ -z "${SL4A_MOK_KEY:-}" ] && [ -n "${SL4A_MOK_CERT:-}" ]; }; then
+		fail "SL4A_MOK_KEY and SL4A_MOK_CERT must be supplied together."
+	fi
+	if [ -n "${SL4A_MOK_KEY:-}" ]; then
+		MOK_KEY="$SL4A_MOK_KEY"
+		MOK_CERT="$SL4A_MOK_CERT"
+	else
+		case "$ID" in
+			ubuntu|linuxmint|pop|neon)
+				mok_signing_key="/var/lib/shim-signed/mok/MOK.priv"
+				mok_certificate="/var/lib/shim-signed/mok/MOK.der"
+				;;
+			*)
+				mok_signing_key="/var/lib/dkms/mok.key"
+				mok_certificate="/var/lib/dkms/mok.pub"
+				;;
+		esac
+
+		if [ -r /etc/dkms/framework.conf ]; then
+			# Trusted root-owned DKMS configuration; DKMS itself sources this
+			# file on every invocation.
+			# shellcheck disable=SC1091
+			. /etc/dkms/framework.conf
+		fi
+		for cfg in /etc/dkms/framework.conf.d/*.conf; do
+			[ -r "$cfg" ] || continue
+			# shellcheck disable=SC1090
+			. "$cfg"
+		done
+		MOK_KEY="$mok_signing_key"
+		MOK_CERT="$mok_certificate"
+	fi
+
+	[ -n "$MOK_KEY" ] && [ -n "$MOK_CERT" ] || 		fail "Could not resolve DKMS mok_signing_key/mok_certificate paths."
+	case "$MOK_KEY" in
+		pkcs11:*)
+			fail "This installer does not manage PKCS#11 DKMS signing keys yet. Keep the existing DKMS configuration and sign/enroll that identity outside this installer."
+			;;
+	esac
+
+	info "DKMS signing key path: $MOK_KEY"
+	info "DKMS MOK certificate path: $MOK_CERT"
+}
+
+# A Secure Boot signing identity is a pair: the resolved DKMS private key signs
+# the module and the resolved X.509 certificate is enrolled through MOK Manager.
+# Validate both and prove their public keys match before letting DKMS rebuild.
 mok_pair_paths_match() {
 	local key="$1" cert="$2" key_fp cert_fp
 	[ -f "$key" ] && [ -f "$cert" ] || return 1
@@ -487,6 +540,7 @@ install_mok_pair_from_files() {
 	local src_key="$1" src_cert="$2" tmpdir backup
 	[ -r "$src_key" ] || fail "MOK private key is not readable: $src_key"
 	[ -r "$src_cert" ] || fail "MOK certificate is not readable: $src_cert"
+	mkdir -p /var/lib/dkms "$(dirname "$MOK_KEY")" "$(dirname "$MOK_CERT")"
 	tmpdir="$(mktemp -d /var/lib/dkms/sl4a-mok-import.XXXXXX)" || fail "could not create a temporary MOK import directory"
 	chmod 0700 "$tmpdir"
 	openssl pkey -in "$src_key" -passin pass: -out "$tmpdir/mok.key" 2>/dev/null || { rm -rf "$tmpdir"; fail "The selected MOK private key is not a readable OpenSSL private key."; }
@@ -510,9 +564,13 @@ install_mok_pair_from_files() {
 
 generate_fresh_mok_pair() {
 	local tmpdir backup
+	mkdir -p /var/lib/dkms "$(dirname "$MOK_KEY")" "$(dirname "$MOK_CERT")"
 	tmpdir="$(mktemp -d /var/lib/dkms/sl4a-mok-new.XXXXXX)" || fail "could not create a temporary MOK generation directory"
 	chmod 0700 "$tmpdir"
-	openssl req -new -x509 -nodes -days 36500 -subj "/CN=SL4A_TouchScreen DKMS MOK/" -newkey rsa:2048 -keyout "$tmpdir/mok.key" -outform DER -out "$tmpdir/mok.pub" >/dev/null 2>&1 || { rm -rf "$tmpdir"; fail "Could not generate a new DKMS signing key pair with openssl."; }
+	if ! openssl req -new -x509 -nodes -days 36500 -subj "/CN=SL4A_TouchScreen DKMS MOK/" -addext "extendedKeyUsage=codeSigning" -newkey rsa:2048 -keyout "$tmpdir/mok.key" -outform DER -out "$tmpdir/mok.pub" >/dev/null 2>&1; then
+		warn "OpenSSL could not add the codeSigning EKU; retrying with a compatibility certificate."
+		openssl req -new -x509 -nodes -days 36500 -subj "/CN=SL4A_TouchScreen DKMS MOK/" -newkey rsa:2048 -keyout "$tmpdir/mok.key" -outform DER -out "$tmpdir/mok.pub" >/dev/null 2>&1 || { rm -rf "$tmpdir"; fail "Could not generate a new DKMS signing key pair with openssl."; }
+	fi
 	chmod 0600 "$tmpdir/mok.key"; chmod 0644 "$tmpdir/mok.pub"
 	mok_pair_paths_match "$tmpdir/mok.key" "$tmpdir/mok.pub" || { rm -rf "$tmpdir"; fail "The newly generated DKMS signing key pair failed its self-check."; }
 	backup="$(backup_mok_material)" || { rm -rf "$tmpdir"; fail "Could not back up the existing DKMS MOK material."; }
@@ -708,6 +766,7 @@ cmd_install() {
 	info "Step 2.5: Checking Secure Boot signing key..."
 	if command -v mokutil >/dev/null 2>&1 && mokutil --sb-state 2>/dev/null | grep -qi 'SecureBoot enabled'; then
 		local mok_state mok_choice
+		resolve_dkms_mok_paths
 
 		if [ -f "$MOK_CERT" ] && ! openssl x509 -in "$MOK_CERT" -inform DER -noout >/dev/null 2>&1; then
 			if openssl x509 -in "$MOK_CERT" -noout >/dev/null 2>&1; then
@@ -732,11 +791,11 @@ cmd_install() {
 		else
 			case "$mok_state" in
 				valid)
-					pass "Complete matching DKMS signing key pair found"
+					pass "Complete matching DKMS signing key pair found at the paths DKMS will use"
 					if [ -t 0 ]; then
 						echo ""; echo "Secure Boot signing key:"
 						echo "  1) Reuse the existing key pair [recommended]"
-						echo "  2) Generate a NEW key pair (backs up the current pair)"
+						echo "  2) Generate a NEW system DKMS key pair (backs up the current pair; affects all DKMS modules)"
 						echo "  3) Use another existing key pair"
 						echo "  4) Abort"; echo ""
 						read -r -p "Select [1]: " mok_choice
