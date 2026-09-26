@@ -12,7 +12,7 @@ required = {
     "private-key path": 'MOK_KEY="${SL4A_MOK_KEY:-/var/lib/dkms/mok.key}"',
     "certificate path": 'MOK_CERT="${SL4A_MOK_CERT:-/var/lib/dkms/mok.pub}"',
     "pair validator": "mok_pair_paths_match()",
-    "private-key validation": 'openssl pkey -in "$key" -noout',
+    "private-key validation": 'openssl pkey -in "$key" -passin pass: -noout',
     "certificate validation": 'openssl x509 -in "$cert" -inform DER -noout',
     "public-key match": "openssl dgst -sha256",
     "rotation flag": "--rotate-mok",
@@ -33,6 +33,9 @@ if 'if [ ! -f /var/lib/dkms/mok.pub ]; then' in src:
 
 if 're-run deliberately with --rotate-mok' not in src:
     raise SystemExit("non-interactive incomplete-key safety contract missing")
+
+if "umask 077" in src:
+    raise SystemExit("MOK generation must not change the installer's process-wide umask")
 
 subprocess.run(["bash", "-n", str(INSTALLER)], check=True)
 print("secure boot installer source test: PASS")
