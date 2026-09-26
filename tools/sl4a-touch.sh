@@ -187,10 +187,8 @@ dkms_installed_version() {
 dkms_remove_other_versions() {
 	local keep="$1" line ver src
 	DKMS_OTHER_REMOVED=0
-	# Process substitution deliberately keeps the loop in this shell so the
-	# caller can tell whether anything was actually removed. The previous
-	# pipeline form ran the loop in a subshell and forced install to do a
-	# second full dkms install even when there were no stale versions.
+	# Keep this loop in the current shell so the caller can tell whether
+	# cleanup actually removed anything.
 	while IFS= read -r line; do
 		# Both real shapes parse here: "sl4a-touch/1.6.1, 6.12, x86_64:
 		# installed" and the source-only "sl4a-touch/1.6.1: added" (no comma —
@@ -209,6 +207,7 @@ dkms_remove_other_versions() {
 			# Drop the tree only when DKMS let go of it and the tree is
 			# this package's (same ownership marker the uninstall path uses).
 			if [ -f "$src/dkms.conf" ] && grep -qE '^PACKAGE_NAME="sl4a-touch"[[:space:]]*
+
 modprobe_profile() {
 	[ -f "$MODPROBE_CONF" ] || { echo "none"; return; }
 	# Spellings: the tool writes Y/N, but the README/QUICKSTART (and the
@@ -992,9 +991,9 @@ cmd_install() {
 	# the working version — leaving no registered driver at all, and a reboot
 	# away from a dead touchscreen (review R26-2).
 	dkms_remove_other_versions "$PKG_VERSION"
-	# Removing an older version can also delete module objects at the shared
-	# /updates/dkms destination. Reinstall only when cleanup actually removed
-	# something; otherwise a second forced DKMS install is pure churn.
+	# Removing an older registration can also delete module objects at the
+	# shared /updates/dkms destination. Restore them only if cleanup actually
+	# removed something; otherwise avoid a second forced DKMS install.
 	if [ "$DKMS_OTHER_REMOVED" -eq 1 ]; then
 		info "A stale DKMS version was removed; restoring the current module objects..."
 		dkms install -m "$PKG_NAME" -v "$PKG_VERSION" --force || \
