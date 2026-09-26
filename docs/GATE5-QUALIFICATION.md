@@ -53,7 +53,7 @@ firmware, kernel, stylus, palm, or E1 input-quality compatibility claims.
 The driver does not choose between "normal HID" and "raw multitouch" as two
 mutually exclusive startup modes on MSHW0231. It uses normal HID-over-SPI
 discovery first, keeps the HID device registered, then switches the panel into
-the CapImg stream and publishes beta multitouch alongside the standard
+the CapImg stream and publishes multitouch through the in-kernel CapImg tracker alongside the standard
 transport.
 
 ```text
@@ -73,7 +73,7 @@ DONE
         |
 0x0c CapImg frames
         |
-beta heatmap tracker
+in-kernel CapImg multitouch tracker (input-quality beta)
         |
 MSHW0231 Touchscreen MT input
 ```
