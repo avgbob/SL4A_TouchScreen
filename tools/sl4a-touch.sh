@@ -945,6 +945,17 @@ cmd_install() {
 	depmod -a
 	pass "Module dependencies updated"
 
+	if command -v mokutil >/dev/null 2>&1 && mokutil --sb-state 2>/dev/null | grep -qi 'SecureBoot enabled'; then
+		info "Step 4.5: Verifying installed module signatures..."
+		command -v modinfo >/dev/null 2>&1 || fail "modinfo is required to verify Secure Boot module signatures."
+		local signed_module module_signer
+		for signed_module in "$CONTROLLER_MODULE" "$HID_MODULE"; do
+			module_signer="$(modinfo -F signer "$signed_module" 2>/dev/null || true)"
+			[ -n "$module_signer" ] || fail "DKMS installed $signed_module without a module signature while Secure Boot is enabled. Refusing to continue; check DKMS signing configuration."
+			pass "$signed_module is signed by: $module_signer"
+		done
+	fi
+
 	info "Step 5: Writing the $PROFILE profile to $MODPROBE_CONF..."
 	local tmp_config
 	tmp_config="$(mktemp "${MODPROBE_CONF}.XXXXXX")"
