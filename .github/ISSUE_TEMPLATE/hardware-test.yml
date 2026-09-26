@@ -1,0 +1,148 @@
+name: "Hardware test report"
+description: "Report Surface Laptop 4 AMD / MSHW0231 results for SL4A_TouchScreen."
+title: "[Hardware test]: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for testing SL4A_TouchScreen. Successes and failures are equally useful.
+        Please start with the read-only preflight and keep recovery access available.
+
+  - type: input
+    id: surface-model
+    attributes:
+      label: Surface model
+      description: "Exact model, e.g. Surface Laptop 4 AMD 13.5-inch."
+      placeholder: "Surface Laptop 4 AMD"
+    validations:
+      required: true
+
+  - type: textarea
+    id: hardware-ids
+    attributes:
+      label: Hardware IDs
+      description: "Paste the output of the ACPI ID check."
+      render: shell
+      placeholder: |
+        grep -E 'MSHW0231|MSHW0162|AMDI0060' /sys/bus/acpi/devices/*/hid 2>/dev/null
+    validations:
+      required: true
+
+  - type: input
+    id: distro
+    attributes:
+      label: Linux distribution
+      placeholder: "Ubuntu 24.04"
+    validations:
+      required: true
+
+  - type: input
+    id: kernel
+    attributes:
+      label: Kernel
+      description: "Output of uname -r."
+      placeholder: "7.0.0-31-generic"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: secure-boot
+    attributes:
+      label: Secure Boot
+      options:
+        - Enabled
+        - Disabled
+        - Unknown
+    validations:
+      required: true
+
+  - type: input
+    id: release
+    attributes:
+      label: Driver release / commit
+      description: "Release tag or git commit tested."
+      placeholder: "v1.7.1 / eccedfb"
+    validations:
+      required: true
+
+  - type: textarea
+    id: preflight
+    attributes:
+      label: Read-only preflight
+      description: "Paste ./tools/sl4a-touch.sh install --check output."
+      render: shell
+    validations:
+      required: true
+
+  - type: dropdown
+    id: cold-boot
+    attributes:
+      label: Cold boot + touch
+      options:
+        - PASS
+        - FAIL
+        - Not tested
+    validations:
+      required: true
+
+  - type: dropdown
+    id: suspend-resume
+    attributes:
+      label: Suspend/resume + touch
+      options:
+        - PASS
+        - FAIL
+        - Not tested
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: gestures
+    attributes:
+      label: Input tests completed
+      options:
+        - label: One finger
+        - label: Two fingers far apart
+        - label: Close two-finger approach/separation
+        - label: Pinch in/out
+        - label: Crossing fingers / identity retention
+        - label: Rapid lift/re-contact
+        - label: Three fingers
+        - label: Four fingers
+        - label: Five fingers
+        - label: Edge/corner contacts
+        - label: Stylus
+        - label: Stylus + finger coexistence
+
+  - type: textarea
+    id: behavior
+    attributes:
+      label: Observed behavior
+      description: "Describe what worked and any merging, ghost contacts, slot/ID swaps, dropouts, resets, jitter, or other anomalies."
+      placeholder: "Two fingers remained independent until..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: status
+    attributes:
+      label: Driver status
+      description: "Paste ./tools/sl4a-touch.sh status."
+      render: shell
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Diagnostics / logs
+      description: "For failures, attach or paste the relevant output from sudo ./tools/sl4a-touch.sh logs and protocol_stats. Remove anything you do not want public."
+      render: shell
+
+  - type: checkboxes
+    id: acknowledgement
+    attributes:
+      label: Beta-driver acknowledgement
+      options:
+        - label: I understand this is a reverse-engineered beta out-of-tree kernel driver and kept recovery access available.
+          required: true
