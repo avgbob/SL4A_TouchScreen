@@ -7,7 +7,7 @@
 ## Install or update
 
 ```bash
-git clone https://github.com/Syax89/SL4A_TouchScreen.git
+git clone https://github.com/avgbob/SL4A_TouchScreen.git
 cd SL4A_TouchScreen
 sudo ./tools/sl4a-touch.sh install
 sudo reboot
@@ -43,10 +43,11 @@ leaves loaded modules active until reboot.
 
 ## Input devices
 
-After a successful boot, the touchscreen normally appears as `spi 045E:0C19`
-under `/dev/input/eventN`, with the pen published as its own HID input node
-(whose name the HID stack assigns, not this driver). In raw mode the
-driver publishes its own node named `MSHW0231 Touchscreen`.
+After a successful MSHW0231 Gate5 boot, the standard HID device remains
+registered and the beta heatmap bridge also publishes `MSHW0231 Touchscreen`
+under `/dev/input/eventN`; use that node for Gate5 multitouch testing. On
+MSHW0162 conservative standard installs, use the HID-stack coordinate node.
+The pen node is published but remains unqualified.
 
 ## Development
 
@@ -75,10 +76,11 @@ only supported recovery after a controller freeze or a raw-mode test.
 
 - **No touchscreen after install/update:** reboot, then inspect `systemctl status sl4a-touch-activate`
   and `journalctl -b -k`.
-- **Touchscreen dies after a cold boot:** a connect-time feature GET_REPORT
-  can time out while the device settles (~3.6 s). Feature-query timeouts are
-  non-fatal and `sync_timeout_ms` (default 6000) bounds every synchronous
-  request; recovery uses an ACPI `_PS3`→`_PS0` power cycle.
+- **Touchscreen dies after a cold boot:** on MSHW0231 first verify that the
+  installed profile is the Gate5 mode-1 profile and collect `protocol_stats`
+  plus dmesg. Qualified activation uses `_PS0 -> _RST`, descriptor discovery,
+  write-only GET6, a 4.5-5.5 ms delay and SET5. Error-work recovery is a
+  separate `_PS3 -> _PS0` path.
 - **Secure Boot rejects modules:** the installer generates a DER MOK key —
   enroll it with `sudo mokutil --import /var/lib/dkms/mok.pub`, reboot, then
   run `sudo ./tools/sl4a-touch.sh activate`.

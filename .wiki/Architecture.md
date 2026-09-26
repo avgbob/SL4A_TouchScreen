@@ -48,12 +48,13 @@ through discovery and then forwards input reports. States (values shown by
 | 4 | `DONE` | Forward input reports through `hid_input_report()` |
 | 5 | `WAIT_FEATURE` | Await the SET_FEATURE response (raw mode, only when the connect-time feature exchange is not skipped) |
 
-In standard mode the driver reaches `DONE` right after the descriptor exchange.
-In raw mode it either proceeds straight to `DONE` after the vendor
-initialization and SET_FEATURE it sends itself, or parks briefly in
-`WAIT_FEATURE` when the connect-time feature query is awaited. State `3` is
-declared to keep the numbering aligned with the reference's ordering and is
-never assigned.
+After the report descriptor, behavior depends on the installed profile.
+MSHW0162 conservative standard mode reaches `DONE` without a heatmap
+transition. The MSHW0231 Gate5 standard profile keeps `raw_mode=0` but runs
+mode 1 before DONE: write GET6, wait 4.5-5.5 ms, then SET5 to start CapImg.
+Explicit `raw_mode=1` uses the older raw activation/watchdog path and may park
+briefly in `WAIT_FEATURE` when its feature query is awaited. State `3` is
+declared to keep numbering aligned with the reference and is never assigned.
 
 Transitions are logged with a reason tag (`seq_dbg`, visible in dmesg at
 `sl4a_debug_level>=1`). Every transition is audited: `spi_hid_seq_set_state()`
@@ -83,8 +84,9 @@ class has no live caller in the current driver.
 Input is **IRQ-driven**: the touch controller asserts a data-ready GPIO
 interrupt (edge-triggered, active-low, declared in ACPI `_CRS` as `GpioInt`).
 The threaded handler (`spi_hid_seq_thread`) reads the pending frame from the
-SPI FIFO and either feeds the HID stack (standard mode) or the raw pipeline
-(raw mode).
+SPI FIFO. Ordinary HID reports feed the HID stack; CapImg `0x0c` frames feed
+the beta heatmap pipeline when either explicit raw mode is active or the
+MSHW0231 Gate5 standard-transport bridge is enabled.
 
 The data-ready IRQ is edge-triggered, so an edge that fires while the driver is
 inside the SET_FEATURE write path can be lost. In raw mode the driver therefore
@@ -104,8 +106,11 @@ The driver distinguishes three failure classes:
 | Raw handshake never confirmed (raw mode) | `raw_handshake_watchdog` — up to `RAW_HANDSHAKE_MAX_RETRIES` (3) re-discovery attempts with `RAW_HANDSHAKE_TIMEOUT_MS` (2000) |
 | Raw stream stalls (raw mode) | `stream_watchdog_ms` (default **2000**) — after 3 silent intervals, re-init up to `stream_watchdog_max_retries` (3) |
 
-**Never `_RST`**: the ACPI `_RST` method physically destroys the device on this
-hardware. Recovery always goes through `_PS3`→`_PS0`.
+For the qualified MSHW0231 lifecycle, suspend/deactivation executes `_PS3`
+and activation/resume executes `_PS0 -> _RST`. Error-work recovery remains a
+separate `_PS3 -> _PS0` power-cycle path. The older "never _RST" conclusion
+was falsified by the Windows lifecycle capture and is retained only in
+historical documents.
 
 The raw handshake watchdog is armed on entry to every pre-`DONE` state while the
 handshake is unconfirmed, so a device that never answers the DESCREQ (or answers

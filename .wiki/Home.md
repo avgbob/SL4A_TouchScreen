@@ -55,11 +55,11 @@ Full instructions: [Build & Install](Build-and-Install) · [Usage & Troubleshoot
 Linux input subsystem (evdev)
         ▲
    hid-generic / hid-input         ┌───────────────────────────┐
-        ▲                          │  raw_mode=1               │
-   hid_input_report()              │  heatmap → baseline →     │
-        │                          │  peaks → CCL → Hungarian  │
-  ┌─────┴──────────┐               │  → MT slots → input_mt    │
-  │ spi-hid-core   │◄──────────────┤  (mshw0231-raw.c)         │
+        ▲                          │  CapImg beta tracker      │
+   hid_input_report()              │  raw_mode=1 OR Gate5     │
+        │                          │  standard bridge         │
+  ┌─────┴──────────┐               │  → MT slots → input_mt   │
+  │ spi-hid-core   │◄──────────────┤  (mshw0231-raw.c)        │
   │ V0 protocol +  │               └───────────────────────────┘
   │ IRQ sequencer  │
   └─────┬──────────┘
@@ -84,8 +84,8 @@ The two kernel modules, the sequencer state machine and the IRQ model are descri
 | [Touch Pipeline](Pipeline) | Raw multi-touch chain: baseline, peaks, CCL, Hungarian, slots |
 | [Config Table](Config-Table) | Pipeline constants and their Linux mapping |
 | [Hardware](Hardware) | Both panels, AMD FCH SPI registers, wiring, ACPI power |
-| [Standard Touch Mode](Standard-Touch-Mode) | Default mode: report formats 0x40/0x01, why it is stable |
-| [Multi-touch (Beta)](Multi-touch-Experimental) | Raw mode: activation, per-device geometry, operational safety |
+| [Standard Touch Mode](Standard-Touch-Mode) | Device-aware standard profile: Gate5 on SL4, conservative HID on SL3 |
+| [Multi-touch (Beta)](Multi-touch-Experimental) | Gate5 standard bridge and explicit raw transport, tracker caveats |
 | [Build & Install](Build-and-Install) | Installer, DKMS, Secure Boot/MOK, module parameters, build from source |
 | [Usage & Troubleshooting](Building-Usage-and-Troubleshooting) | Day-to-day usage, debugging, recovery, common issues |
 | [Reverse Engineering](Reverse-Engineering) | Methodology, evidence, known gaps |

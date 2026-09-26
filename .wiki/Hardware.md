@@ -57,8 +57,10 @@ Device (TPD0) {
 }
 ```
 
-The driver uses `_PS0` / `_PS3` for power transitions but NEVER calls `_RST`,
-which physically destroys the device on this hardware.
+Gate2/Gate5 corrected the earlier "_RST is destructive" assumption. On the
+qualified MSHW0231 lifecycle the driver uses `_PS3` for suspend/deactivation
+and `_PS0 -> _RST` for cold activation/resume, matching the captured Windows
+ordering. That lifecycle is not yet claimed for MSHW0162.
 
 ## Device: MSHW0162 — Surface Laptop 3 (AMD)
 
