@@ -109,6 +109,11 @@ sudo reboot
 Set a temporary one-time password when prompted. At the MOK Manager screen,
 select `Enroll MOK`, continue, confirm, enter that password, and reboot.
 
+After DKMS installs the driver while Secure Boot is enabled, the installer
+also checks `modinfo -F signer` for both `sl4a-spi-amd` and `sl4a-spi-hid`.
+An unsigned installed module is treated as an installation failure rather than
+being left to fail later at module load time.
+
 Until the active certificate is enrolled, the installer deliberately skips
 immediate SL4A driver activation because Secure Boot would reject the newly
 signed modules. The installed boot service retries activation after the
