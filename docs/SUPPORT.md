@@ -28,9 +28,9 @@ explicit investigation with `--force`.
 
 | Profile | Device | Transport | Input behavior | Status |
 | --- | --- | --- | --- | --- |
-| Standard / Gate5 | SL4 AMD, `MSHW0231` | `raw_mode=N`; normal HID discovery, then write-only GET6 -> 4.5-5.5 ms -> SET5 | Standard HID remains registered and the beta CapImg tracker publishes `MSHW0231 Touchscreen` multitouch | Default for MSHW0231; field-qualified on one SL4 unit |
-| Standard / conservative | SL3 AMD, `MSHW0162` | `raw_mode=N wire_double_opcode=1` | Standard HID coordinate path | Default for MSHW0162; Gate5 sequence not claimed |
-| Raw | MSHW0231 / MSHW0162 | `raw_mode=Y` explicit raw transport | beta heatmap multitouch | Experimental; requires `install --raw` |
+| Standard / Gate5 | SL4 AMD, `MSHW0231` | Normal HID discovery, then write-only GET6 -> 4.5-5.5 ms -> SET5 | Standard HID remains registered and the CapImg tracker publishes `MSHW0231 Touchscreen` multitouch | **Production SL4 multitouch path**; field-qualified on one SL4 unit |
+| Standard / conservative | SL3 AMD, `MSHW0162` | Normal HID transport | Standard HID coordinate path | Default for MSHW0162; Gate5 sequence not claimed |
+| Legacy raw diagnostic | MSHW0231 / MSHW0162 | Explicit alternate transport used for historical investigation | Diagnostic/research heatmap path | **Not the production multitouch path**; requires `install --raw` |
 | Historical mode-3 bridge | SL4 investigation | `raw_mode=N raw_input_beta=Y std_raw_transition=3` | SET5-only CapImg bridge | Historical/diagnostic; superseded by Gate5 mode 1 |
 
 The MSHW0231 standard profile is pinned to:
