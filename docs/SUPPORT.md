@@ -76,7 +76,7 @@ and the same activation sequence on MSHW0162 remain unqualified. See
 | HID descriptor discovery | Implemented | 936-byte wire descriptor verified on tested SL4 |
 | GET_FEATURE ID6 transport | Implemented, including SL4 AMD receive reconstruction | byte-perfect field checkpoint available |
 | Gate5 standard-transport CapImg activation | Implemented | field-qualified on one MSHW0231 |
-| Raw CapImg capture/tracker | Implemented | beta |
+| CapImg capture/tracker | Implemented | beta input-quality qualification in progress |
 | Suspend/resume | Explicit _PS3 suspend and _PS0 -> _RST resume | Gate5 path passed 2/2 on tested SL4 |
 | Secure Boot | DKMS/MOK signing with complete-pair validation, reuse, import and explicit rotation | full enrollment/reboot/auto-activation path still requires hardware qualification |
 
