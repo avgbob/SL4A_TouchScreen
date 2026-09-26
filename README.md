@@ -164,7 +164,10 @@ If a valid pair already exists, the default is to **reuse it** for the newly
 rebuilt DKMS modules. Interactive installs also offer to generate a new pair or
 import another existing pair. Use `--rotate-mok` for an explicit scripted key
 rotation. Before replacement, existing MOK material is preserved under a
-root-only `/var/lib/dkms/sl4a-mok-backup-*` directory.
+root-only `/var/lib/dkms/sl4a-mok-backup-*` directory. After DKMS installs the
+driver on a Secure Boot system, the installer also checks both installed
+modules with `modinfo -F signer` and refuses to continue if either module is
+unsigned.
 
 If only one half of the pair exists, the material is invalid, or the private
 key and certificate do not match, the installer will not treat it as usable.
