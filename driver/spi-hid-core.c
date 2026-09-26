@@ -3756,8 +3756,33 @@ static void seq_handle_rpt(struct spi_hid *shid, int type, u16 blen)
 					"SEQ: standard-mode raw transition: mode=%d GET6=%d SET5=%d\n",
 					std_raw_transition, do_get6, do_set5);
 
-				if (do_get6)
-					spi_hid_getfeat6_read(shid);
+				/*
+				 * Gate 4 hardware result:
+				 *
+				 *   SET5 only                    -> CapImg
+				 *   GET6 write + ~5 ms + SET5    -> CapImg
+				 *   GET6 full reply read + SET5  -> controller reset
+				 *
+				 * Therefore the activation sequence must issue GET6 but
+				 * leave its response unread before SET5.  Keep the full
+				 * GET6 read path available for the isolated mode-2 /
+				 * generic HID diagnostic path.
+				 */
+				if (do_get6) {
+					if (std_raw_transition == 1) {
+						if (spi_hid_seq_write_get_feature6(shid))
+							dev_warn(&shid->spi->dev,
+								 "SEQ: activation GET_FEATURE(6) write failed, continuing\n");
+
+						/*
+						 * The qualified write-only sequence used a
+						 * ~5 ms GET6 -> SET5 interval.
+						 */
+						usleep_range(4500, 5500);
+					} else {
+						spi_hid_getfeat6_read(shid);
+					}
+				}
 
 				if (do_set5 && spi_hid_seq_write_setfeat(shid))
 					dev_warn(&shid->spi->dev,
@@ -4189,6 +4214,38 @@ static int spi_hid_ll_raw_request(struct hid_device *hid,
 		if (buf[0] != reportnum) {
 			dev_err(dev, "report id mismatch\n");
 			ret = -EINVAL;
+			break;
+		}
+
+		/*
+		 * Gate 4: report ID 5 value 1 is the heatmap-enable SET_FEATURE.
+		 * Use the proven V0 sequencer frame rather than the generic
+		 * HID feature-report encoder.
+		 */
+		if (rtype == HID_FEATURE_REPORT &&
+		    reportnum == 5 &&
+		    len == 2 &&
+		    buf[1] == 1) {
+			mutex_lock(&shid->seq_lock);
+
+			ret = spi_hid_seq_write_setfeat(shid);
+
+			shid->read_resp_type = 0;
+			shid->read_resp_content_id = 0;
+
+			mutex_unlock(&shid->seq_lock);
+
+			if (ret) {
+				dev_err(dev,
+					"HID SET_REPORT ID5=1 sequencer SET5 failed: %d\n",
+					ret);
+				break;
+			}
+
+			seq_dbg(shid, 1,
+				"HID SET_REPORT ID5=1 delegated to sequencer SET5\n");
+
+			ret = len;
 			break;
 		}
 
