@@ -154,15 +154,20 @@ activation fails.
 ### Secure Boot signing
 
 Secure Boot handling is built into the installer. When Secure Boot is enabled,
-the installer validates **both** `/var/lib/dkms/mok.key` and
-`/var/lib/dkms/mok.pub`, verifies that the private key and certificate are a
-matching pair, normalizes a PEM certificate to DER when needed, and checks the
-certificate's MOK enrollment status.
+the installer first resolves the **actual signing identity DKMS is configured
+to use**, including `/etc/dkms/framework.conf` and
+`/etc/dkms/framework.conf.d/*.conf` overrides. Ubuntu's packaged DKMS normally
+uses `/var/lib/shim-signed/mok/MOK.priv` + `MOK.der`; upstream/Debian DKMS
+normally uses `/var/lib/dkms/mok.key` + `mok.pub`. The installer validates
+that resolved private key and certificate as a matching pair, normalizes a PEM
+certificate to DER when needed, and checks that same certificate's MOK
+enrollment status.
 
 If a valid pair already exists, the default is to **reuse it** for the newly
 rebuilt DKMS modules. Interactive installs also offer to generate a new pair or
 import another existing pair. Use `--rotate-mok` for an explicit scripted key
-rotation. Before replacement, existing MOK material is preserved under a
+rotation. The DKMS signing identity is system-wide, so rotating it can affect
+other DKMS-managed modules as well. Before replacement, existing MOK material is preserved under a
 root-only `/var/lib/dkms/sl4a-mok-backup-*` directory. After DKMS installs the
 driver on a Secure Boot system, the installer also checks both installed
 modules with `modinfo -F signer` and refuses to continue if either module is
