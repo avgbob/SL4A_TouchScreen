@@ -3944,8 +3944,22 @@ static void seq_handle_data(struct spi_hid *shid, int type, u16 blen)
 	}
 	if (type != 1)
 		return;
-	if (shid->hid_creating ||
-	    (!shid->hid && !(shid->raw_mode_active && shid->touch_input)))
+
+	/*
+	 * Gate 5 warm-reload race:
+	 *
+	 * SET5 can make the first CapImg DATA frame arrive while
+	 * hid_add_device() is still registering the standard HID device.
+	 * Once the DATA header has been consumed, its body must also be
+	 * drained.  Returning here merely because hid_creating is true
+	 * leaves a complete ~4304-byte frame queued in the controller and
+	 * the field unit resets roughly 0.5 s later.
+	 *
+	 * Drain/process the frame while HID creation is active.  The HID
+	 * publisher below remains suppressed until registration completes.
+	 */
+	if (!shid->hid && !shid->hid_creating &&
+	    !(shid->raw_mode_active && shid->touch_input))
 		return;
 
 	shid->stat_data++;
@@ -4053,7 +4067,7 @@ static void seq_handle_data(struct spi_hid *shid, int type, u16 blen)
 				u16 hy = body[11] | (body[12] << 8);
 				seq_dbg(shid, 2, "CALIB_REF: hid=(%u,%u)\n", hx, hy);
 			}
-			if (shid->hid) {
+			if (shid->hid && !shid->hid_creating) {
 				int hret = hid_input_report(shid->hid, HID_INPUT_REPORT,
 							    &body[7], rl - 2, 1);
 				if (hret)
