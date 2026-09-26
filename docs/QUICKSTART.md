@@ -17,7 +17,9 @@ The standard installer profile is device-aware:
   waits 4.5-5.5 ms and sends SET5 to start CapImg.
 - **Surface Laptop 3 AMD / MSHW0162:** conservative standard HID profile.
   Gate5 activation is not claimed on this device.
-- `--raw` remains an explicit experimental raw-transport profile.
+- SL4 multitouch is provided by the default standard Gate5 profile.
+- `--raw` is retained only as a legacy diagnostic/research transport and is
+  not required for multitouch.
 
 ## 2. Secure Boot
 
@@ -55,7 +57,8 @@ cat /sys/class/input/input*/name | sort -u
 
 On a Gate5 MSHW0231 install, expect the standard HID device plus the beta
 multitouch node **`MSHW0231 Touchscreen`**. On MSHW0162, expect the
-conservative standard HID path unless you deliberately selected `--raw`.
+conservative standard HID path. Selecting `--raw` is a separate legacy
+diagnostic choice, not the production multitouch configuration.
 
 For an evidence bundle:
 
