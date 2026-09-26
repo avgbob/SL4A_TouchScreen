@@ -44,8 +44,8 @@ leaves loaded modules active until reboot.
 ## Input devices
 
 After a successful MSHW0231 Gate5 boot, the standard HID device remains
-registered and the beta heatmap bridge also publishes `MSHW0231 Touchscreen`
-under `/dev/input/eventN`; use that node for Gate5 multitouch testing. On
+registered and the in-kernel CapImg multitouch tracker also publishes
+`MSHW0231 Touchscreen` (input-quality beta) under `/dev/input/eventN`; use that node for Gate5 multitouch testing. On
 MSHW0162 conservative standard installs, use the HID-stack coordinate node.
 The pen node is published but remains unqualified.
 
