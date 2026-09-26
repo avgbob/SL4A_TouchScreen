@@ -9,8 +9,13 @@ INSTALLER = ROOT / "tools" / "sl4a-touch.sh"
 src = INSTALLER.read_text(encoding="utf-8")
 
 required = {
-    "private-key path": 'MOK_KEY="${SL4A_MOK_KEY:-/var/lib/dkms/mok.key}"',
-    "certificate path": 'MOK_CERT="${SL4A_MOK_CERT:-/var/lib/dkms/mok.pub}"',
+    "MOK resolver": "resolve_dkms_mok_paths()",
+    "Ubuntu signing-key default": 'mok_signing_key="/var/lib/shim-signed/mok/MOK.priv"',
+    "Ubuntu certificate default": 'mok_certificate="/var/lib/shim-signed/mok/MOK.der"',
+    "upstream signing-key default": 'mok_signing_key="/var/lib/dkms/mok.key"',
+    "upstream certificate default": 'mok_certificate="/var/lib/dkms/mok.pub"',
+    "DKMS framework config": "/etc/dkms/framework.conf",
+    "DKMS framework drop-ins": "/etc/dkms/framework.conf.d/*.conf",
     "pair validator": "mok_pair_paths_match()",
     "private-key validation": 'openssl pkey -in "$key" -passin pass: -noout',
     "certificate validation": 'openssl x509 -in "$cert" -inform DER -noout',
@@ -18,6 +23,8 @@ required = {
     "rotation flag": "--rotate-mok",
     "backup directory": "/var/lib/dkms/sl4a-mok-backup-",
     "existing pair reuse": "Reusing the existing DKMS signing key pair",
+    "actual-path assertion": "paths DKMS will use",
+    "system-wide rotation warning": "affects all DKMS modules",
     "alternate pair import": "Use another existing key pair",
     "incomplete material refusal": "MOK material is incomplete/invalid",
     "final pair invariant": "signing identity is not a complete matching key pair after setup",
@@ -31,6 +38,9 @@ if missing:
 
 if 'if [ ! -f /var/lib/dkms/mok.pub ]; then' in src:
     raise SystemExit("certificate-only MOK existence check has returned")
+
+if 'MOK_KEY="${SL4A_MOK_KEY:-/var/lib/dkms/mok.key}"' in src:
+    raise SystemExit("installer must not hard-code the upstream DKMS MOK path")
 
 if 're-run deliberately with --rotate-mok' not in src:
     raise SystemExit("non-interactive incomplete-key safety contract missing")
