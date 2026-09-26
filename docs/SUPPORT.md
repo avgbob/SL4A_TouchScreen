@@ -78,7 +78,7 @@ and the same activation sequence on MSHW0162 remain unqualified. See
 | Gate5 standard-transport CapImg activation | Implemented | field-qualified on one MSHW0231 |
 | Raw CapImg capture/tracker | Implemented | beta |
 | Suspend/resume | Explicit _PS3 suspend and _PS0 -> _RST resume | Gate5 path passed 2/2 on tested SL4 |
-| Secure Boot | DKMS/MOK signing supported | broad compatibility row still requires archived E1 evidence |
+| Secure Boot | DKMS/MOK signing with complete-pair validation, reuse, import and explicit rotation | full enrollment/reboot/auto-activation path still requires hardware qualification |
 
 ## Explicitly Unsupported / Unclaimed
 
