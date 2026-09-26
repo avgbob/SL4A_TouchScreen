@@ -22,7 +22,7 @@ baseline length) from the ACPI ID at probe time — see [Architecture](Architect
 
 | Device | Standard installer behavior | Status |
 |---|---|---|
-| **Surface Laptop 4 AMD / MSHW0231** | Normal HID discovery, then write-only GET6 -> 4.5-5.5 ms -> SET5; beta CapImg multitouch is published while `raw_mode=0` | Gate5 field-qualified on one unit |
+| **Surface Laptop 4 AMD / MSHW0231** | Normal HID discovery, then write-only GET6 -> 4.5-5.5 ms -> SET5; CapImg multitouch is published by the in-kernel tracker (input-quality beta) while `raw_mode=0` | Gate5 field-qualified on one unit |
 | **Surface Laptop 3 AMD / MSHW0162** | Conservative standard HID coordinate path | Gate5 sequence not claimed |
 | **Either, explicit `--raw`** | Raw transport + heatmap tracker | Experimental |
 
