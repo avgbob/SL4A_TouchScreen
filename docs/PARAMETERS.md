@@ -1,10 +1,11 @@
 # Module Parameter Contract
 
-The installer standard profile is device-aware. MSHW0231 keeps standard HID
-transport (`raw_mode=0`) but enables the Gate5 heatmap bridge; MSHW0162 keeps
-the conservative standard-HID profile. The explicit raw transport remains beta.
-This table is the fail-closed contract over the parameter surface; historical
-mode-3 experiments are not current installer policy.
+The installer standard profile is device-aware. MSHW0231 uses the standard HID
+transport and enables the Gate5 CapImg multitouch bridge; MSHW0162 keeps the
+conservative standard-HID profile. The separate legacy raw transport remains a
+diagnostic/research path only. This table is the fail-closed contract over the
+parameter surface; historical mode-3 experiments are not current installer
+policy.
 
 | Class | Parameters | Contract |
 | --- | --- | --- |
@@ -12,11 +13,12 @@ mode-3 experiments are not current installer policy.
 | Diagnostic | `sl4a_debug_level`, controller `debug_trace` | Logging only. Both default to zero. |
 | Activation / heatmap controls | `raw_input_beta`, `skip_getfeat`, `gate3_observe_only`, `getfeat_delay_ms`, `setfeat_speed_hz`, `wire_double_opcode`, `setfeat_no_double`, `read_frame_variant`, `skip_vendor_stop`, `raw_fallback_on_reset`, `raw_pre_desc_reg0`, `raw_b1f8109_preset`, `acpi_probe_power_cycle`, `sync_timeout_ms`, `stream_watchdog_ms`, `stream_watchdog_max_retries`, `get_noread`, `raw_handshake_first_ms`, `raw_no_enable`, `raw_watchdog_teardown`, `std_raw_transition` | These controls can change feature traffic, framing, or heatmap publication. The MSHW0231 standard installer deliberately pins `raw_input_beta=1 gate3_observe_only=1 getfeat_delay_ms=0 wire_double_opcode=1 get_noread=0 std_raw_transition=1`; MSHW0162 retains only `wire_double_opcode=1`. The explicit raw profile and all other combinations remain experimental. |
 | Standard-mode feature/recovery controls | `std_liveness_ms`, `std_liveness_recover`, `skip_std_getfeat`, `wait_reset_kick_ms` | The MSHW0231 Gate5 installer sets `skip_std_getfeat=1` and pins `std_liveness_ms=0 std_liveness_recover=0 wait_reset_kick_ms=0`. This prevents generic HID feature GET_REPORT traffic from competing with the qualified activation sequence without enabling speculative liveness recovery. MSHW0162 leaves these at compiled defaults. Nonzero liveness/recovery/kick values remain experimental. |
-| Experimental raw pipeline | `blob_min_weight`, `ema_alpha`, `dfa_data_offset`, `ghost_dist`, `grid_cols`, `grid_rows`, `blob_debounce`, `blob_lift_frames`, `hold_frames`, `pre_assoc_ratio`, `blob_max_distance` | Applies only to decoded raw frames. Geometry and tracker behavior are not qualified. |
-| Experimental raw calibration | `invert_x`, `invert_y`, `swap_xy`, `calib_scale_x`, `calib_scale_y`, `calib_offset_x`, `calib_offset_y` | Applies only to raw contact publication. |
+| CapImg tracker pipeline | `blob_min_weight`, `ema_alpha`, `dfa_data_offset`, `ghost_dist`, `grid_cols`, `grid_rows`, `blob_debounce`, `blob_lift_frames`, `hold_frames`, `pre_assoc_ratio`, `blob_max_distance` | Applies to decoded CapImg frames in the production SL4 multitouch path as well as the legacy diagnostic transport. Input-quality qualification is still in progress. |
+| CapImg contact calibration | `invert_x`, `invert_y`, `swap_xy`, `calib_scale_x`, `calib_scale_y`, `calib_offset_x`, `calib_offset_y` | Applies to heatmap-backed contact publication. |
 
-Raw calibration and pipeline controls are read-only after module load. Run a new
-controlled profile for every parameter set; do not mutate a live touch stream.
+CapImg calibration and tracker controls are read-only after module load. Run a
+new controlled profile for every parameter set; do not mutate a live touch
+stream.
 
 ### Wire format of the host→device frames
 
@@ -39,7 +41,7 @@ doubled opcode, which is the default now, so it only takes effect as an override
 of `wire_double_opcode=1` — and then on the SET_FEATURE frame alone. Use
 `wire_double_opcode=1` to experiment with the legacy form.
 
-### Raw-mode regression triage
+### Legacy raw-transport regression triage
 
 Four load-time-only knobs restore or bisect the raw dialect the panel last
 answered on. All default to `0` and are set only for a labelled run.
