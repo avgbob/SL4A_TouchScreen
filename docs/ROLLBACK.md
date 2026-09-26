@@ -58,19 +58,25 @@ from the repository checkout.
 Running `sudo ./tools/sl4a-touch.sh install` manages the DKMS signing identity
 when Secure Boot is enabled.
 
-A usable identity is a **matching pair**:
+A usable identity is the **matching key/certificate pair DKMS itself will use**.
+The installer resolves `mok_signing_key` and `mok_certificate` from DKMS's
+framework configuration before it validates or enrolls anything.
 
-- `/var/lib/dkms/mok.key` — private key used to sign rebuilt modules;
-- `/var/lib/dkms/mok.pub` — X.509 certificate enrolled through MOK Manager.
+Common defaults are:
 
-The installer validates both files, verifies that their public keys match, and
-requires the certificate in DER form for `mokutil`. A valid existing pair is
-reused by default, so normal driver upgrades do not force a new MOK enrollment.
+- Ubuntu: `/var/lib/shim-signed/mok/MOK.priv` and `MOK.der`;
+- upstream/Debian DKMS: `/var/lib/dkms/mok.key` and `mok.pub`.
+
+`/etc/dkms/framework.conf` and `/etc/dkms/framework.conf.d/*.conf` can
+override either default. The installer follows those overrides, verifies that
+the resolved private key and certificate match, and requires the certificate in
+DER form for `mokutil`. A valid existing pair is reused by default, so normal
+driver upgrades do not force a new MOK enrollment.
 
 Interactive installs offer four useful paths when a valid pair exists:
 
 1. reuse the existing pair (recommended);
-2. generate a new pair;
+2. generate a new **system DKMS** pair;
 3. import another existing private-key/certificate pair;
 4. abort.
 
@@ -96,13 +102,21 @@ directory:
 ```
 
 The old certificate remains enrolled in firmware unless you explicitly remove
-it with your platform's MOK tooling; rotation changes which key DKMS will use
-for future builds, not the firmware trust database by itself.
+it with your platform's MOK tooling. DKMS signing is system-wide: rotating this
+identity changes which key DKMS will use for future builds of **all** modules
+that share that configuration, not only SL4A.
 
 ### Enroll the active DKMS MOK certificate manually
 
+Use the certificate path printed by the installer. Examples:
+
 ```sh
+# Ubuntu default
+sudo mokutil --import /var/lib/shim-signed/mok/MOK.der
+
+# upstream/Debian default
 sudo mokutil --import /var/lib/dkms/mok.pub
+
 sudo reboot
 ```
 
@@ -123,7 +137,7 @@ enrollment reboot.
 
 ```sh
 mokutil --sb-state
-mokutil --test-key /var/lib/dkms/mok.pub
+mokutil --test-key /path/printed/by/the/installer
 
 sudo openssl pkey \
   -in /var/lib/dkms/mok.key \
