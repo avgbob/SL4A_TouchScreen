@@ -1,0 +1,25 @@
+name: Update v1.7.1 tester notice
+
+on:
+  push:
+    paths:
+      - .github/workflows/update-v1.7.1-testers.yml
+
+permissions:
+  contents: write
+
+jobs:
+  edit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Update v1.7.1 release notes
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh release edit v1.7.1 \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "SL4A_TouchScreen v1.7.1 — Secure Boot Activation Recovery" \
+            --notes-file docs/releases/v1.7.1.md \
+            --latest
