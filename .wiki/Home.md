@@ -1,5 +1,11 @@
 # SL4A TouchScreen — Linux Kernel Driver
 
+> **Surface Laptop 4 AMD testers wanted.** Gate5 is currently field-qualified
+> on one MSHW0231 machine. If you own an SL4 AMD, independent cold-boot,
+> suspend/resume and multitouch results are especially valuable. Start with
+> `./tools/sl4a-touch.sh install --check` and see
+> [Testers Wanted](../docs/TESTERS-WANTED.md).
+
 > A reverse-engineered Linux kernel driver for the **Microsoft Surface Laptop 3/4 (AMD)** touchscreen. The SL4/MSHW0231 standard installer now uses the Gate5 standard-transport CapImg bridge with an in-kernel multitouch tracker (input-quality beta); SL3/MSHW0162 keeps conservative standard HID.
 
 The driver speaks the pre-release **HID-over-SPI Version 0 (V0)** protocol that
