@@ -41,7 +41,7 @@ SET_FEATURE report 5 = 1
         |
 0x0c CapImg / heatmap frames
         |
-beta in-kernel multitouch tracker
+in-kernel CapImg multitouch tracker (input-quality beta)
         |
 MSHW0231 Touchscreen Linux MT input
 ```
@@ -57,7 +57,7 @@ The standard SL4 profile therefore keeps:
 - the real 936-byte report descriptor read from the panel;
 - the standard HID device, including the descriptor-created stylus interface;
 - the high-resolution CapImg stream for touch;
-- the beta multitouch tracker exposed as `MSHW0231 Touchscreen`.
+- the in-kernel CapImg multitouch tracker exposed as `MSHW0231 Touchscreen` (input-quality beta).
 
 The stylus HID node is created, but **pen behavior is not yet qualified**.
 
@@ -292,7 +292,7 @@ resume.
 
 ## Touch Pipeline
 
-The production SL4 path currently uses the **in-kernel beta heatmap tracker**.
+The production SL4 path currently uses the **in-kernel CapImg multitouch tracker (input-quality beta)**.
 
 At a high level:
 
