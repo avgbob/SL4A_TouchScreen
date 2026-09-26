@@ -27,9 +27,12 @@ recovery path after a failed experiment, not a required step of a normal
 install.
 
 The installer chooses the compiler required by the running kernel. With
-Secure Boot enabled it generates/re-encodes the DKMS MOK signing key
-(DER-encoded, required by `mokutil`); enroll it once with
-`sudo mokutil --import /var/lib/dkms/mok.pub` and reboot.
+Secure Boot enabled it resolves the signing identity DKMS is actually
+configured to use, validates the matching key/certificate pair, and reuses an
+already-enrolled certificate when possible. If enrollment is required, use the
+**certificate path printed by the installer** with `mokutil --import`; Ubuntu
+normally uses `/var/lib/shim-signed/mok/MOK.der`, not
+`/var/lib/dkms/mok.pub`.
 
 ## Uninstall
 
@@ -81,9 +84,11 @@ only supported recovery after a controller freeze or a raw-mode test.
   plus dmesg. Qualified activation uses `_PS0 -> _RST`, descriptor discovery,
   write-only GET6, a 4.5-5.5 ms delay and SET5. Error-work recovery is a
   separate `_PS3 -> _PS0` path.
-- **Secure Boot rejects modules:** the installer generates a DER MOK key —
-  enroll it with `sudo mokutil --import /var/lib/dkms/mok.pub`, reboot, then
-  run `sudo ./tools/sl4a-touch.sh activate`.
+- **Secure Boot rejects modules:** re-run
+  `sudo ./tools/sl4a-touch.sh install --standard` and use the active DKMS MOK
+  certificate path it prints. If that certificate is not enrolled, stage that
+  exact path with `mokutil --import`, complete MOK Manager on reboot, then
+  verify with `./tools/sl4a-touch.sh status`.
 - **`raw_mode=1` does not stream or leaves touch unusable:** this is the
   expected failure shape of the beta raw path; reboot and return to the
   default `raw_mode=0`.
