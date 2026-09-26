@@ -1,0 +1,25 @@
+name: Edit v1.7.0 known-issue notice
+
+on:
+  push:
+    paths:
+      - .github/workflows/edit-v1.7.0-known-issue.yml
+
+permissions:
+  contents: write
+
+jobs:
+  edit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Update v1.7.0 release notes
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh release edit v1.7.0 \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "SL4A_TouchScreen v1.7.0 — Gate5 Production Activation" \
+            --notes-file docs/releases/v1.7.0.md \
+            --latest
