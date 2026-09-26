@@ -14,7 +14,7 @@ V0 protocol + HID integration          AMD FCH SPI V2 controller
 • IRQ-driven sequencer                 • TX/RX FIFO transaction execution
 • descriptor parsing (936-byte RD)     • bulk PIO segmentation (64-byte)
 • report forwarding → hid_input        • TX_COUNT=3 read quirk
-• raw heatmap pipeline (mshw0231-raw)  • speed/CS config (33.33 MHz, mode 0)
+• CapImg MT tracker (mshw0231-raw; legacy filename)  • speed/CS config (33.33 MHz, mode 0)
           \                                /
            └────────── SPI framework ──────┘
                           │
@@ -84,9 +84,9 @@ class has no live caller in the current driver.
 Input is **IRQ-driven**: the touch controller asserts a data-ready GPIO
 interrupt (edge-triggered, active-low, declared in ACPI `_CRS` as `GpioInt`).
 The threaded handler (`spi_hid_seq_thread`) reads the pending frame from the
-SPI FIFO. Ordinary HID reports feed the HID stack; CapImg `0x0c` frames feed
-the beta heatmap pipeline when either explicit raw mode is active or the
-MSHW0231 Gate5 standard-transport bridge is enabled.
+SPI FIFO. Ordinary HID reports feed the HID stack; CapImg `0x0c` frames feed the
+in-kernel CapImg multitouch tracker (input-quality beta) when either explicit
+raw mode is active or the MSHW0231 Gate5 standard-transport bridge is enabled.
 
 The data-ready IRQ is edge-triggered, so an edge that fires while the driver is
 inside the SET_FEATURE write path can be lost. In raw mode the driver therefore
@@ -157,10 +157,10 @@ The driver exposes read-only diagnostics under the SPI device's sysfs node
 | `driver/spi-hid-core.c` | V0 protocol, sequencer, HID LL driver, sync requests, sysfs |
 | `driver/spi-hid-protocol.h` | Wire constants, header/content decoding, sync policy |
 | `driver/spi-hid-capimg.c` | V0 CapImg body decoder (per-device sample count) |
-| `driver/mshw0231-raw.c` | Raw heatmap pipeline: baseline, peaks, CCL, Hungarian, MT slots |
+| `driver/mshw0231-raw.c` | CapImg multitouch tracker (legacy filename): baseline, peaks, CCL, Hungarian, post-association coalescing, MT slots |
 | `driver/mshw0231-raw-constants.h` | All pipeline constants |
 | `driver/spi-amd.c` | AMD FCH SPI V2 controller driver (PIO) |
 | `tools/sl4a-touch.sh` | Installer: install/uninstall/activate/status/logs/rebuild/hunt/soak |
 
 See [Protocol](Protocol) for the wire format and [Touch Pipeline](Pipeline) for
-the raw processing chain.
+the CapImg processing chain.
