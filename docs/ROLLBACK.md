@@ -137,14 +137,18 @@ enrollment reboot.
 
 ```sh
 mokutil --sb-state
-mokutil --test-key /path/printed/by/the/installer
+
+KEY=/path/to/signing-key/printed/by/the/installer
+CERT=/path/to/certificate/printed/by/the/installer
+
+mokutil --test-key "$CERT"
 
 sudo openssl pkey \
-  -in /var/lib/dkms/mok.key \
+  -in "$KEY" \
   -pubout -outform DER 2>/dev/null | openssl dgst -sha256
 
 sudo openssl x509 \
-  -in /var/lib/dkms/mok.pub -inform DER \
+  -in "$CERT" -inform DER \
   -pubkey -noout 2>/dev/null |
   openssl pkey -pubin -outform DER 2>/dev/null |
   openssl dgst -sha256
@@ -153,6 +157,9 @@ sudo openssl x509 \
 The two SHA-256 values should match. The installer performs the same key-pair
 consistency check automatically before it allows the DKMS build to continue.
 
-Secure Boot signing/enrollment support is implemented, but the complete
-install → MOK enrollment → reboot → automatic activation path remains a
-separate hardware-qualification item in the compatibility matrix.
+The **existing-enrolled-MOK reuse** lifecycle is hardware-qualified on the
+tested MSHW0231 unit: install → DKMS signing → signer verification → reboot
+with Secure Boot enabled → automatic Gate5 activation. The separate
+**fresh-enrollment** lifecycle (generate/import a new certificate → firmware
+MOK Manager enrollment → reboot) remains implemented but not independently
+hardware-qualified.
