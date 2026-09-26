@@ -1,5 +1,8 @@
 blank_issues_enabled: true
 contact_links:
+  - name: "Hardware Testing Hub"
+    url: "https://github.com/avgbob/SL4A_TouchScreen/discussions/10"
+    about: "Share quick results, ask testing questions, and compare hardware behavior with other Surface Laptop 4 AMD owners."
   - name: "Tester guide"
     url: "https://github.com/avgbob/SL4A_TouchScreen/blob/main/docs/TESTERS-WANTED.md"
     about: "Read the test matrix, preflight, recovery, and diagnostic instructions before installing."
