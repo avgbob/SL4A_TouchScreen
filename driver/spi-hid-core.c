@@ -4020,7 +4020,8 @@ static void seq_handle_data(struct spi_hid *shid, int type, u16 blen)
 		 * Architecture-A userspace boundary. */
 		if ((shid->raw_mode_active ||
 		     (!shid->raw_mode_active &&
-		      std_raw_transition == 3 &&
+		      (std_raw_transition == 1 ||
+		       std_raw_transition == 3) &&
 		      raw_input_beta)) &&
 		    body[7] == 0x0C && shid->touch_input) {
 			int cret;
@@ -5045,7 +5046,8 @@ static int spi_hid_probe(struct spi_device *spi)
 	 * while switching the panel to CapImg reports after enumeration. */
 	if (shid->raw_mode_active ||
 	    (!shid->raw_mode_active &&
-	     std_raw_transition == 3 &&
+	     (std_raw_transition == 1 ||
+	      std_raw_transition == 3) &&
 	     raw_input_beta)) {
 		ret = mshw0231_raw_input_register(shid);
 		if (ret)
