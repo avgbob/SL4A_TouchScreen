@@ -88,16 +88,11 @@ assert tool.index('dkms_remove_other_versions "$PKG_VERSION"') > \
 assert tool.index('dkms_remove_other_versions "$PKG_VERSION"') > \
     tool.index('dkms install -m "$PKG_NAME" -v "$PKG_VERSION" --force'), \
     "the old DKMS registration is removed before the new version is installed"
-# ... and removing an older registration can also delete the shared
-# /updates/dkms objects. The current version must be reinstalled only when
-# cleanup actually removed something; otherwise a second forced install is
-# needless churn on every normal upgrade.
-assert "DKMS_OTHER_REMOVED=0" in tool
-assert "DKMS_OTHER_REMOVED=1" in tool
-assert 'if [ "$DKMS_OTHER_REMOVED" -eq 1 ]; then' in tool
-assert "No stale DKMS versions found; current module objects already installed" in tool
-assert 'done < <(dkms status -m "$PKG_NAME"' in tool, \
-    "cleanup loop must stay in the caller shell so DKMS_OTHER_REMOVED survives"
+# ... and removing it also deletes the shared /updates/dkms objects, so the new
+# version is installed once more right after (DKMS do_uninstall removes the
+# destination file both versions record).
+assert tool.count('dkms install -m "$PKG_NAME" -v "$PKG_VERSION" --force') >= 2, \
+    "nothing re-installs the new version after the old registration is dropped"
 # ... and a failed build/install must not undo a version that was already
 # registered and installed: VERSION is reused between commits, so the plain
 # cleanup (`dkms remove --all`) would uninstall the working module.
