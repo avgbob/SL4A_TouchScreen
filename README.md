@@ -5,7 +5,7 @@ Linux touchscreen driver for the **Microsoft Surface Laptop 4 AMD** and
 Microsoft `MSHW0231` / `MSHW0162` HID-over-SPI devices.
 
 [![Status](https://img.shields.io/badge/status-beta-orange)](https://github.com/avgbob/SL4A_TouchScreen)
-[![Release](https://img.shields.io/badge/release-1.7.0-brightgreen)](VERSION)
+[![Release](https://img.shields.io/github/v/release/avgbob/SL4A_TouchScreen?display_name=tag)](https://github.com/avgbob/SL4A_TouchScreen/releases/latest)
 [![CI](https://github.com/avgbob/SL4A_TouchScreen/actions/workflows/ci.yml/badge.svg)](https://github.com/avgbob/SL4A_TouchScreen/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-GPL--2.0-blue)](LICENSE)
 
@@ -74,7 +74,7 @@ repeatable driver lifecycle:
 | Area | Current behavior |
 | --- | --- |
 | **SL4 startup** | Normal HID discovery followed by the Gate5 GET6-write → ~5 ms → SET5 transition |
-| **Multitouch** | CapImg frames are processed by the beta tracker while the normal HID transport remains registered |
+| **Multitouch** | CapImg frames are processed by the in-kernel CapImg tracker (input-quality beta) while the normal HID transport remains registered |
 | **Early-frame race** | Once a DATA header is consumed, its body is drained even if HID registration is still in progress |
 | **Warm reloads** | The HID-registration DATA-drain race that could leave a ~4.3 KB frame queued was fixed |
 | **Suspend** | Explicit `_PS3` panel power-down |
@@ -94,7 +94,8 @@ AMD / MSHW0231 unit**.
 | Warm module reload + touch | 3/3 PASS |
 | s2idle suspend/resume + touch | 2/2 PASS |
 | Production DKMS install/profile generation | PASS |
-| Normal reboot + automatic systemd activation | PASS |
+| Secure Boot with existing enrolled Ubuntu DKMS MOK | PASS |
+| Secure Boot reboot + automatic systemd activation | PASS |
 | Installed profile vs running parameters | MATCH |
 | Unexpected post-DONE controller resets in qualification captures | 0 |
 | Observed transport frame drops in qualification captures | 0 |
@@ -147,7 +148,7 @@ The installer:
 6. verifies the driver is actually bound.
 
 The boot service starts **after `multi-user.target`**, not during early kernel
-boot. This keeps the experimental modules out of the fragile early-boot
+boot. This keeps the out-of-tree modules out of the fragile early-boot
 auto-binding path and leaves a working userspace recovery environment if
 activation fails.
 
