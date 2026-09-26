@@ -55,11 +55,14 @@ last 300 driver dmesg lines — which include the per-blob lines when
 
 ## Secure Boot
 
-If Secure Boot is enabled the installer generates the DKMS MOK signing
-key automatically (`dkms generate_mok`, or an openssl fallback that
-writes a **DER**-encoded certificate — `mokutil` requires DER). An
-existing PEM key is re-encoded in place. Enroll it with
-`sudo mokutil --import /var/lib/dkms/mok.pub` and reboot once.
+If Secure Boot is enabled, the installer first resolves the **active DKMS
+signing identity** from distro defaults plus
+`/etc/dkms/framework.conf{,.d/*.conf}`. Ubuntu normally uses
+`/var/lib/shim-signed/mok/MOK.priv` + `MOK.der`; upstream/Debian DKMS
+normally uses `/var/lib/dkms/mok.key` + `mok.pub`. A valid matching pair is
+reused by default. If no usable pair exists, the installer can generate or
+import one, normalizes the certificate to DER, and prints the exact certificate
+path to enroll with `mokutil`.
 
 ## Manual Build
 
@@ -88,7 +91,7 @@ while MSHW0162 keeps `raw_mode=N wire_double_opcode=1`.
 | `blob_debounce` | 3 | New-touch debounce frames |
 | `blob_lift_frames` | 3 | Missed frames before lift |
 | `hold_frames` | 0 | Hold grace period (0 = disabled) |
-| `ghost_dist` | 6 | Pre-merge radius in cells |
+| `ghost_dist` | 6 | Post-association duplicate/coalescing radius in cells |
 | `pre_assoc_ratio` | 0 | Pre-association weight filter (0 = disabled) |
 | `grid_cols` | 0 (= per-device: 72 SL4 / 78 SL3) | Heatmap grid columns — per-device default by ACPI ID |
 | `grid_rows` | 0 (= per-device: 48 SL4 / 52 SL3) | Heatmap grid rows — per-device default by ACPI ID |
@@ -120,7 +123,7 @@ sudo ./tools/sl4a-touch.sh status
 
 # Check touch device created
 ls /sys/class/hidraw/
-sudo evtest  # select touch device, verify single-touch events
+sudo evtest  # SL4: select "MSHW0231 Touchscreen" and verify MT events
 
 # Watch the probe log for the per-device config line
 sudo dmesg | grep -i "device config"
@@ -139,9 +142,11 @@ discovery and state `DONE`.
 
 ### Secure Boot rejects the modules
 
-The installer auto-generates and re-encodes the MOK key as DER. Enroll
-it with `sudo mokutil --import /var/lib/dkms/mok.pub`, reboot, confirm
-the enrollment, then `sudo ./tools/sl4a-touch.sh activate`.
+Run `sudo ./tools/sl4a-touch.sh install --standard` again and use the
+**DKMS MOK certificate path printed by the installer**. If that certificate is
+not enrolled, stage exactly that path with `mokutil --import`, reboot through
+MOK Manager, then verify with `./tools/sl4a-touch.sh status`. Do not assume
+`/var/lib/dkms/mok.pub` on Ubuntu.
 
 ### No multi-touch, no contact
 
