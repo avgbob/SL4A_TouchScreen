@@ -42,6 +42,25 @@ if 'if [ ! -f /var/lib/dkms/mok.pub ]; then' in src:
 if 'MOK_KEY="${SL4A_MOK_KEY:-/var/lib/dkms/mok.key}"' in src:
     raise SystemExit("installer must not hard-code the upstream DKMS MOK path")
 
+activate = src.split("cmd_activate() {", 1)[1].split("\n\tlocal controllers=", 1)[0]
+activate_required = {
+    "distro detection before MOK resolution": "detect_distro",
+    "active DKMS identity resolution": "resolve_dkms_mok_paths",
+    "resolved certificate enrollment test": 'mokutil --test-key "$MOK_CERT"',
+    "resolved certificate import": 'mokutil --import "$MOK_CERT"',
+}
+activate_missing = [
+    name for name, needle in activate_required.items() if needle not in activate
+]
+if activate_missing:
+    raise SystemExit(
+        "Secure Boot activate contract missing: " + ", ".join(activate_missing)
+    )
+if "/var/lib/dkms/mok.pub" in activate or "/var/lib/dkms/mok.key" in activate:
+    raise SystemExit(
+        "activate must not hard-code upstream DKMS MOK paths; use the resolved identity"
+    )
+
 if 're-run deliberately with --rotate-mok' not in src:
     raise SystemExit("non-interactive incomplete-key safety contract missing")
 
