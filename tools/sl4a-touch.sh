@@ -10,7 +10,7 @@
 #
 # Usage:
 #   ./tools/sl4a-touch.sh                              interactive arrow-key menu
-#   sudo ./tools/sl4a-touch.sh install [--standard|--raw] [--check|--dry-run] [--force]
+#   sudo ./tools/sl4a-touch.sh install [--standard|--raw] [--check|--dry-run] [--force] [--rotate-mok]
 #   sudo ./tools/sl4a-touch.sh uninstall
 #   sudo ./tools/sl4a-touch.sh activate
 #   ./tools/sl4a-touch.sh status
@@ -34,6 +34,8 @@ PKG_VERSION="$(cat "$REPO_DIR/VERSION" 2>/dev/null || echo "1.0.0~beta1")"
 SRC_DEST="/usr/src/${PKG_NAME}-${PKG_VERSION}"
 MODPROBE_CONF="/etc/modprobe.d/sl4a-spi-hid.conf"
 SYSTEMD_UNIT="/etc/systemd/system/sl4a-touch-activate.service"
+MOK_KEY="${SL4A_MOK_KEY:-/var/lib/dkms/mok.key}"
+MOK_CERT="${SL4A_MOK_CERT:-/var/lib/dkms/mok.pub}"
 SYSFS_ROOT="${SL4A_SYSFS_ROOT:-/sys}"
 DMI_ROOT="${SL4A_DMI_ROOT:-/sys/class/dmi/id}"
 # Where the input layer exposes its event nodes (discovery) and where the
@@ -272,7 +274,7 @@ sl4a-touch.sh — SL4A_TouchScreen driver management tool
 Usage: tools/sl4a-touch.sh <command> [options]
 
 Commands:
-  install [--standard|--raw] [--check|--dry-run] [--force]
+  install [--standard|--raw] [--check|--dry-run] [--force] [--rotate-mok]
                     Build, install via DKMS, enable automatic activation on
                     every future boot (a systemd unit gated on
                     multi-user.target — after the base system is up, not
@@ -294,6 +296,12 @@ Commands:
                                   this, install and uninstall both refuse and
                                   the machine is stuck until you move the file
                                   yourself.
+                      --rotate-mok Secure Boot only: deliberately generate a
+                                  new DKMS signing key pair even when a valid
+                                  pair already exists. Existing MOK material
+                                  is backed up under /var/lib/dkms before it
+                                  is replaced; enroll the new certificate on
+                                  the next reboot.
 
   uninstall [--repair]
                     Remove the installed driver, its DKMS registration, and
@@ -436,8 +444,106 @@ quarantine_unowned() {
 	fi
 }
 
+# A Secure Boot signing identity is a pair: mok.key signs the module and
+# mok.pub is the X.509 certificate enrolled through MOK Manager. Validate both
+# files and prove that their public keys match before letting DKMS rebuild.
+mok_pair_paths_match() {
+	local key="$1" cert="$2" key_fp cert_fp
+	[ -f "$key" ] && [ -f "$cert" ] || return 1
+	openssl pkey -in "$key" -noout >/dev/null 2>&1 || return 1
+	openssl x509 -in "$cert" -inform DER -noout >/dev/null 2>&1 || return 1
+	key_fp="$(openssl pkey -in "$key" -pubout -outform DER 2>/dev/null | openssl dgst -sha256 2>/dev/null)" || return 1
+	cert_fp="$(openssl x509 -in "$cert" -inform DER -pubkey -noout 2>/dev/null | openssl pkey -pubin -outform DER 2>/dev/null | openssl dgst -sha256 2>/dev/null)" || return 1
+	[ -n "$key_fp" ] && [ "$key_fp" = "$cert_fp" ]
+}
+
+normalize_mok_cert_der() {
+	local cert="$1" tmp
+	[ -f "$cert" ] || return 1
+	openssl x509 -in "$cert" -inform DER -noout >/dev/null 2>&1 && return 0
+	openssl x509 -in "$cert" -noout >/dev/null 2>&1 || return 1
+	tmp="${cert}.der.$$"
+	openssl x509 -in "$cert" -out "$tmp" -outform DER 2>/dev/null || { rm -f "$tmp"; return 1; }
+	chmod 0644 "$tmp"
+	mv -f "$tmp" "$cert"
+	pass "DKMS MOK certificate re-encoded as DER at $cert"
+}
+
+backup_mok_material() {
+	local dest=""
+	if [ ! -e "$MOK_KEY" ] && [ ! -e "$MOK_CERT" ]; then echo ""; return 0; fi
+	dest="/var/lib/dkms/sl4a-mok-backup-$(date +%Y%m%d-%H%M%S)-$$"
+	mkdir -m 0700 "$dest" || return 1
+	if [ -e "$MOK_KEY" ]; then cp -a "$MOK_KEY" "$dest/mok.key" || return 1; chmod 0600 "$dest/mok.key" 2>/dev/null || true; fi
+	if [ -e "$MOK_CERT" ]; then cp -a "$MOK_CERT" "$dest/mok.pub" || return 1; chmod 0644 "$dest/mok.pub" 2>/dev/null || true; fi
+	echo "$dest"
+}
+
+install_mok_pair_from_files() {
+	local src_key="$1" src_cert="$2" tmpdir backup
+	[ -r "$src_key" ] || fail "MOK private key is not readable: $src_key"
+	[ -r "$src_cert" ] || fail "MOK certificate is not readable: $src_cert"
+	tmpdir="$(mktemp -d /var/lib/dkms/sl4a-mok-import.XXXXXX)" || fail "could not create a temporary MOK import directory"
+	chmod 0700 "$tmpdir"
+	openssl pkey -in "$src_key" -out "$tmpdir/mok.key" 2>/dev/null || { rm -rf "$tmpdir"; fail "The selected MOK private key is not a readable OpenSSL private key."; }
+	chmod 0600 "$tmpdir/mok.key"
+	if openssl x509 -in "$src_cert" -inform DER -noout >/dev/null 2>&1; then
+		cp "$src_cert" "$tmpdir/mok.pub"
+	elif openssl x509 -in "$src_cert" -noout >/dev/null 2>&1; then
+		openssl x509 -in "$src_cert" -out "$tmpdir/mok.pub" -outform DER 2>/dev/null || { rm -rf "$tmpdir"; fail "Could not convert the selected MOK certificate to DER."; }
+	else
+		rm -rf "$tmpdir"; fail "The selected MOK certificate is neither a valid DER nor PEM X.509 certificate."
+	fi
+	chmod 0644 "$tmpdir/mok.pub"
+	mok_pair_paths_match "$tmpdir/mok.key" "$tmpdir/mok.pub" || { rm -rf "$tmpdir"; fail "The selected private key and certificate do not belong to the same key pair."; }
+	backup="$(backup_mok_material)" || { rm -rf "$tmpdir"; fail "Could not back up the existing DKMS MOK material."; }
+	install -m 0600 "$tmpdir/mok.key" "$MOK_KEY" || { rm -rf "$tmpdir"; fail "Could not install the selected DKMS MOK private key."; }
+	install -m 0644 "$tmpdir/mok.pub" "$MOK_CERT" || { rm -rf "$tmpdir"; fail "Could not install the selected DKMS MOK certificate."; }
+	rm -rf "$tmpdir"
+	[ -n "$backup" ] && info "Previous DKMS MOK material backed up at $backup"
+	pass "DKMS signing key pair installed at $MOK_KEY / $MOK_CERT"
+}
+
+generate_fresh_mok_pair() {
+	local tmpdir backup
+	tmpdir="$(mktemp -d /var/lib/dkms/sl4a-mok-new.XXXXXX)" || fail "could not create a temporary MOK generation directory"
+	chmod 0700 "$tmpdir"
+	umask 077
+	openssl req -new -x509 -nodes -days 36500 -subj "/CN=SL4A_TouchScreen DKMS MOK/" -newkey rsa:2048 -keyout "$tmpdir/mok.key" -outform DER -out "$tmpdir/mok.pub" >/dev/null 2>&1 || { rm -rf "$tmpdir"; fail "Could not generate a new DKMS signing key pair with openssl."; }
+	chmod 0600 "$tmpdir/mok.key"; chmod 0644 "$tmpdir/mok.pub"
+	mok_pair_paths_match "$tmpdir/mok.key" "$tmpdir/mok.pub" || { rm -rf "$tmpdir"; fail "The newly generated DKMS signing key pair failed its self-check."; }
+	backup="$(backup_mok_material)" || { rm -rf "$tmpdir"; fail "Could not back up the existing DKMS MOK material."; }
+	install -m 0600 "$tmpdir/mok.key" "$MOK_KEY" || { rm -rf "$tmpdir"; fail "Could not install the new DKMS MOK private key."; }
+	install -m 0644 "$tmpdir/mok.pub" "$MOK_CERT" || { rm -rf "$tmpdir"; fail "Could not install the new DKMS MOK certificate."; }
+	rm -rf "$tmpdir"
+	[ -n "$backup" ] && info "Previous DKMS MOK material backed up at $backup"
+	pass "New DKMS signing key pair generated at $MOK_KEY / $MOK_CERT"
+}
+
+generate_missing_mok_pair() {
+	if [ ! -e "$MOK_KEY" ] && [ ! -e "$MOK_CERT" ] && dkms generate_mok >/dev/null 2>&1; then
+		normalize_mok_cert_der "$MOK_CERT" >/dev/null 2>&1 || true
+		if mok_pair_paths_match "$MOK_KEY" "$MOK_CERT"; then
+			chmod 0600 "$MOK_KEY" 2>/dev/null || true; chmod 0644 "$MOK_CERT" 2>/dev/null || true
+			pass "DKMS signing key pair generated at $MOK_KEY / $MOK_CERT"
+			return 0
+		fi
+		warn "'dkms generate_mok' did not leave a complete matching key pair; replacing that partial material safely."
+	fi
+	generate_fresh_mok_pair
+}
+
+prompt_import_mok_pair() {
+	local src_key src_cert
+	echo ""
+	read -r -p "Path to existing private key: " src_key
+	read -r -p "Path to matching X.509 certificate (DER or PEM): " src_cert
+	[ -n "$src_key" ] && [ -n "$src_cert" ] || fail "Both a private-key path and certificate path are required."
+	install_mok_pair_from_files "$src_key" "$src_cert"
+}
+
 cmd_install() {
-	local MODE="install" PROFILE="" FORCE=0 REPAIR=0
+	local MODE="install" PROFILE="" FORCE=0 REPAIR=0 MOK_ACTION="auto"
 	for arg in "$@"; do
 		case "$arg" in
 			--check) MODE="check" ;;
@@ -445,6 +551,7 @@ cmd_install() {
 			--raw) PROFILE="raw" ;;
 			--standard) PROFILE="standard" ;;
 			--force) FORCE=1 ;;
+			--rotate-mok) MOK_ACTION="rotate" ;;
 			--repair)
 				# A file at one of our paths that carries no ownership marker
 				# blocks install at the guard below AND uninstall at its own
@@ -579,7 +686,7 @@ cmd_install() {
 	# switch to sudo instead of prompting a second time under the child
 	# process.
 	elevate "build and install kernel modules, and write /etc/modprobe.d config" \
-		install "--$PROFILE" $([ "$FORCE" -eq 1 ] && echo --force) $([ "$REPAIR" -eq 1 ] && echo --repair)
+		install "--$PROFILE" $([ "$FORCE" -eq 1 ] && echo --force) $([ "$REPAIR" -eq 1 ] && echo --repair) $([ "$MOK_ACTION" = "rotate" ] && echo --rotate-mok)
 
 	if [ -e "$MODPROBE_CONF" ] && ! grep -q '^# SL4A_TouchScreen' "$MODPROBE_CONF"; then
 		[ "$REPAIR" -eq 1 ] || fail "refusing to replace unowned $MODPROBE_CONF — it is not ours. Move it aside yourself, or re-run with '--repair' to have it moved aside for you (nothing is deleted)"
@@ -598,130 +705,122 @@ cmd_install() {
 
 	info "Step 2.5: Checking Secure Boot signing key..."
 	if command -v mokutil >/dev/null 2>&1 && mokutil --sb-state 2>/dev/null | grep -qi 'SecureBoot enabled'; then
-		if [ ! -f /var/lib/dkms/mok.pub ]; then
-			warn "Secure Boot is enabled but the DKMS signing key is missing."
-			info "Generating the signing key..."
-			# mokutil requires a DER-encoded certificate.
-			if dkms generate_mok 2>/dev/null && [ -f /var/lib/dkms/mok.pub ]; then
-				pass "DKMS signing key generated at /var/lib/dkms/mok.pub"
-			else
-				info "'dkms generate_mok' did not produce the key. Generating it manually with openssl..."
-				openssl req -new -x509 -nodes -days 36500 -subj "/CN=SL4A_TouchScreen DKMS MOK/" \
-					-newkey rsa:2048 -keyout /var/lib/dkms/mok.key -outform DER -out /var/lib/dkms/mok.pub 2>/dev/null || \
-					fail "Could not generate the DKMS signing key. Install 'openssl' and retry."
-				pass "DKMS signing key generated at /var/lib/dkms/mok.pub"
+		local mok_state mok_choice
+
+		if [ -f "$MOK_CERT" ] && ! openssl x509 -in "$MOK_CERT" -inform DER -noout >/dev/null 2>&1; then
+			if openssl x509 -in "$MOK_CERT" -noout >/dev/null 2>&1; then
+				info "Existing DKMS MOK certificate is PEM; converting it to DER for mokutil..."
+				normalize_mok_cert_der "$MOK_CERT" || fail "Could not re-encode the existing MOK certificate as DER."
 			fi
-		elif ! openssl x509 -in /var/lib/dkms/mok.pub -inform DER -noout 2>/dev/null; then
-			warn "Existing DKMS signing key at /var/lib/dkms/mok.pub is not DER-encoded; mokutil cannot import it."
-			info "Re-encoding the existing certificate as DER (no new key pair is generated)..."
-			command -v openssl >/dev/null 2>&1 || \
-				fail "openssl is required to re-encode the DKMS signing key as DER (mokutil only accepts DER). Install 'openssl' and retry."
-			openssl x509 -in /var/lib/dkms/mok.pub -out /var/lib/dkms/mok.pub.der -outform DER 2>/dev/null \
-				&& mv /var/lib/dkms/mok.pub.der /var/lib/dkms/mok.pub \
-				|| fail "Could not re-encode the existing signing key as DER."
-			pass "DKMS signing key re-encoded as DER at /var/lib/dkms/mok.pub"
-		else
-			pass "DKMS signing key found at /var/lib/dkms/mok.pub"
 		fi
+
+		if [ ! -e "$MOK_KEY" ] && [ ! -e "$MOK_CERT" ]; then
+			mok_state="absent"
+		elif mok_pair_paths_match "$MOK_KEY" "$MOK_CERT"; then
+			mok_state="valid"
+			chmod 0600 "$MOK_KEY" 2>/dev/null || true
+			chmod 0644 "$MOK_CERT" 2>/dev/null || true
+		else
+			mok_state="incomplete"
+		fi
+
+		if [ "$MOK_ACTION" = "rotate" ]; then
+			info "--rotate-mok requested: generating a new signing key pair."
+			generate_fresh_mok_pair
+		else
+			case "$mok_state" in
+				valid)
+					pass "Complete matching DKMS signing key pair found"
+					if [ -t 0 ]; then
+						echo ""; echo "Secure Boot signing key:"
+						echo "  1) Reuse the existing key pair [recommended]"
+						echo "  2) Generate a NEW key pair (backs up the current pair)"
+						echo "  3) Use another existing key pair"
+						echo "  4) Abort"; echo ""
+						read -r -p "Select [1]: " mok_choice
+						case "$mok_choice" in
+							""|1) pass "Reusing the existing DKMS signing key pair" ;;
+							2) generate_fresh_mok_pair ;;
+							3) prompt_import_mok_pair ;;
+							4) fail "Secure Boot signing-key selection aborted by user." ;;
+							*) fail "unrecognized Secure Boot key selection: $mok_choice" ;;
+						esac
+					else
+						pass "Reusing the existing DKMS signing key pair"
+					fi ;;
+				absent)
+					warn "Secure Boot is enabled and no DKMS signing key pair exists."
+					if [ -t 0 ]; then
+						echo ""; echo "Secure Boot signing key:"
+						echo "  1) Generate a new DKMS signing key pair [recommended]"
+						echo "  2) Use another existing key pair"
+						echo "  3) Abort"; echo ""
+						read -r -p "Select [1]: " mok_choice
+						case "$mok_choice" in
+							""|1) generate_missing_mok_pair ;;
+							2) prompt_import_mok_pair ;;
+							3) fail "Secure Boot signing-key setup aborted by user." ;;
+							*) fail "unrecognized Secure Boot key selection: $mok_choice" ;;
+						esac
+					else
+						generate_missing_mok_pair
+					fi ;;
+				incomplete)
+					warn "Existing DKMS MOK material is incomplete, invalid, or mismatched."
+					[ -e "$MOK_KEY" ] || warn "Missing private key: $MOK_KEY"
+					[ -e "$MOK_CERT" ] || warn "Missing certificate: $MOK_CERT"
+					if [ -t 0 ]; then
+						echo ""; echo "The installer will not treat partial MOK material as a usable signing identity."
+						echo "  1) Generate a new matching key pair (backs up existing material)"
+						echo "  2) Use another existing matching key pair"
+						echo "  3) Abort"; echo ""
+						read -r -p "Select [3]: " mok_choice
+						case "$mok_choice" in
+							1) generate_fresh_mok_pair ;;
+							2) prompt_import_mok_pair ;;
+							""|3) fail "Secure Boot signing-key setup aborted; existing material was left in place." ;;
+							*) fail "unrecognized Secure Boot key selection: $mok_choice" ;;
+						esac
+					else
+						fail "Secure Boot MOK material is incomplete/invalid. Restore a matching $MOK_KEY + $MOK_CERT pair, or re-run deliberately with --rotate-mok to back it up and replace it."
+					fi ;;
+			esac
+		fi
+
+		mok_pair_paths_match "$MOK_KEY" "$MOK_CERT" || fail "Secure Boot signing identity is not a complete matching key pair after setup."
 
 		info "Step 2.6: Checking MOK enrollment status..."
 		local mok_test_output
-		mok_test_output="$(mokutil --test-key /var/lib/dkms/mok.pub 2>&1 || true)"
+		mok_test_output="$(mokutil --test-key "$MOK_CERT" 2>&1 || true)"
 		if echo "$mok_test_output" | grep -qi "already enrolled"; then
-			pass "The MOK key is already enrolled — modules will load immediately"
+			pass "The MOK certificate is already enrolled — newly rebuilt modules can load immediately"
 		else
-			warn "The MOK key is NOT yet enrolled. The kernel will refuse to load the signed modules until it is."
+			warn "The MOK certificate is NOT yet enrolled. The kernel will refuse to load modules signed by this key until it is trusted."
 			skip_activate=1
 			echo ""
-
 			if [ -t 0 ]; then
-				echo "╔══════════════════════════════════════════════════════════════╗"
-				echo "║  SECURE BOOT KEY ENROLLMENT REQUIRED                        ║"
-				echo "║──────────────────────────────────────────────────────────────║"
-				echo "║  The driver is installed but the kernel needs to trust the   ║"
-				echo "║  signing key before the modules can load. This takes two     ║"
-				echo "║  simple steps (do step 1 now, step 2 at the next boot).      ║"
-				echo "║                                                              ║"
-				echo "║  Step 1 of 2 — do this NOW:                                  ║"
-				echo "║    You will set a temporary password.                        ║"
-				echo "║    You need it only ONCE, at the next boot.                  ║"
-				echo "╚══════════════════════════════════════════════════════════════╝"
-				echo ""
 				read -r -p "Enroll the key now? [Y/n]: " enroll_choice
 				echo ""
 				case "$enroll_choice" in
 					[nN]*)
-						echo "╔══════════════════════════════════════════════════════════════╗"
-						echo "║  SKIPPED — the driver will NOT load until you enroll the    ║"
-						echo "║  key. When you are ready:                                    ║"
-						echo "║                                                              ║"
-						echo "║    sudo mokutil --import /var/lib/dkms/mok.pub              ║"
-						echo "║    sudo reboot                                               ║"
-						echo "║                                                              ║"
-						echo "║  At the blue MOK Manager screen after reboot:               ║"
-						echo "║    Enroll MOK → Continue → Yes → enter password → Reboot     ║"
-						echo "║                                                              ║"
-						echo "║  After login, the driver activates automatically.            ║"
-						echo "╚══════════════════════════════════════════════════════════════╝"
-						;;
+						echo "Key enrollment skipped. When ready:"
+						echo "  sudo mokutil --import $MOK_CERT"
+						echo "  sudo reboot"
+						echo "At MOK Manager: Enroll MOK → Continue → Yes → password → Reboot" ;;
 					*)
-						if mokutil --import /var/lib/dkms/mok.pub; then
-							pass "Key staged for enrollment."
-							echo ""
-							echo "╔══════════════════════════════════════════════════════════════╗"
-							echo "║  Step 2 of 2 — do this RIGHT NOW:                           ║"
-							echo "║──────────────────────────────────────────────────────────────║"
-							echo "║                                                              ║"
-							echo "║  1. REBOOT                                                     ║"
-							echo "║      sudo reboot                                              ║"
-							echo "║                                                              ║"
-							echo "║  2. BLUE SCREEN (MOK Manager)                                  ║"
-							echo "║      A blue screen appears BEFORE your operating system       ║"
-							echo "║      loads. THIS IS NORMAL. DO NOT PANIC. DO NOT SKIP IT.     ║"
-							echo "║      (If you miss it, it reappears at the next boot.)         ║"
-							echo "║                                                              ║"
-							echo "║  3. Enroll MOK                                                ║"
-							echo "║      Use the KEYBOARD (touch and mouse may not work here).    ║"
-							echo "║      Select: 'Enroll MOK'                                     ║"
-							echo "║      Then:    'Continue'                                      ║"
-							echo "║      Then:    'Yes'                                           ║"
-							echo "║                                                              ║"
-							echo "║  4. PASSWORD                                                   ║"
-							echo "║      Enter the password you set in step 1.                    ║"
-							echo "║                                                              ║"
-							echo "║  5. REBOOT                                                     ║"
-							echo "║      Select: 'Reboot'                                         ║"
-							echo "║                                                              ║"
-							echo "║  6. DONE                                                       ║"
-							echo "║      After login, the driver activates automatically.         ║"
-							echo "║      Nothing else to do. Verify with:                         ║"
-							echo "║        ./tools/sl4a-touch.sh status                           ║"
-							echo "║                                                              ║"
-							echo "║  ──────────────────────────────────────────────────────       ║"
-							echo "║  IN SHORT: reboot → blue screen → Enroll MOK → password →    ║"
-							echo "║  reboot → done.                                              ║"
-							echo "╚══════════════════════════════════════════════════════════════╝"
+						if mokutil --import "$MOK_CERT"; then
+							pass "Certificate staged for enrollment."
+							echo "Reboot now. At MOK Manager: Enroll MOK → Continue → Yes → password → Reboot"
+							echo "After login the boot service activates the driver automatically."
 						else
-							fail "Key enrollment was not completed (mokutil exited non-zero). No changes were made."
-						fi
-						;;
+							fail "Key enrollment was not staged (mokutil exited non-zero)."
+						fi ;;
 				esac
 			else
-				echo "╔══════════════════════════════════════════════════════════════╗"
-				echo "║  SECURE BOOT KEY ENROLLMENT REQUIRED                        ║"
-				echo "║──────────────────────────────────────────────────────────────║"
-				echo "║  The driver is installed but the signing key must be         ║"
-				echo "║  enrolled before it can load. Run these commands:            ║"
-				echo "║                                                              ║"
-				echo "║    sudo mokutil --import /var/lib/dkms/mok.pub              ║"
-				echo "║    sudo reboot                                               ║"
-				echo "║                                                              ║"
-				echo "║  At the blue MOK Manager screen after reboot:               ║"
-				echo "║    Enroll MOK → Continue → Yes → enter password → Reboot     ║"
-				echo "║                                                              ║"
-				echo "║  After login, the driver activates automatically.            ║"
-				echo "║  Full guide: docs/ROLLBACK.md                                ║"
-				echo "╚══════════════════════════════════════════════════════════════╝"
+				echo "Secure Boot certificate enrollment is required:"
+				echo "  sudo mokutil --import $MOK_CERT"
+				echo "  sudo reboot"
+				echo "At MOK Manager: Enroll MOK → Continue → Yes → password → Reboot"
 			fi
 		fi
 	else
