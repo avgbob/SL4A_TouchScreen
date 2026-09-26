@@ -152,8 +152,30 @@ boot. This keeps the experimental modules out of the fragile early-boot
 auto-binding path and leaves a working userspace recovery environment if
 activation fails.
 
-On Secure Boot systems, the DKMS signing/MOK flow is supported, but Secure Boot
-is not yet a broadly qualified compatibility row.
+### Secure Boot signing
+
+Secure Boot handling is built into the installer. When Secure Boot is enabled,
+the installer validates **both** `/var/lib/dkms/mok.key` and
+`/var/lib/dkms/mok.pub`, verifies that the private key and certificate are a
+matching pair, normalizes a PEM certificate to DER when needed, and checks the
+certificate's MOK enrollment status.
+
+If a valid pair already exists, the default is to **reuse it** for the newly
+rebuilt DKMS modules. Interactive installs also offer to generate a new pair or
+import another existing pair. Use `--rotate-mok` for an explicit scripted key
+rotation. Before replacement, existing MOK material is preserved under a
+root-only `/var/lib/dkms/sl4a-mok-backup-*` directory.
+
+If only one half of the pair exists, the material is invalid, or the private
+key and certificate do not match, the installer will not treat it as usable.
+Interactive installs offer repair choices; non-interactive installs stop unless
+rotation was explicitly requested. A newly generated or imported certificate
+that is not already enrolled is staged through `mokutil`, and driver
+activation is deferred until the MOK Manager reboot completes.
+
+The complete Secure Boot install → enrollment → reboot → automatic activation
+path is implemented but **has not yet been hardware-qualified as a compatibility
+row** on the current SL4 Gate5 campaign.
 
 ### Status and logs
 
