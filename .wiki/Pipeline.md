@@ -1,8 +1,10 @@
-# Touch Pipeline (Raw Mode)
+# CapImg Multitouch Pipeline
 
-The raw multi-touch pipeline converts the device's capacitive sensor grid
-into HID multitouch contacts. It follows the reference touch-processing chain
-and is compiled in `driver/mshw0231-raw.c` with every constant in
+The in-kernel CapImg multitouch tracker converts the device's capacitive sensor
+grid into Linux multitouch contacts. The same tracker is used by the production
+MSHW0231 Gate5 standard-transport path (`raw_mode=0`) and by the legacy
+diagnostic raw transport (`raw_mode=1`). Its implementation remains in the
+legacy-named `driver/mshw0231-raw.c`, with constants in
 `driver/mshw0231-raw-constants.h`.
 
 The input is a **CapImg frame** — 3456 cells (72×48) on SL4 `MSHW0231`,
@@ -64,12 +66,11 @@ CapImg frame (0x0C)
   ├─ 3. Signal rise + noise floor
   ├─ 4. Peak detection — local maxima
   ├─ 5. CCL flood-fill — connected components → blobs
-  ├─ 6. Velocity rejection + blob splitting
-  ├─ 7. Ghost merge — close-blob consolidation
-  ├─ 8. Centroid + weight (EMA)
-  ├─ 9. Hungarian assignment — blobs ↔ tracked slots
-  ├─10. Position EMA + deadband + stationary lock
-  └─11. MT emission (input_mt, 47 slots)
+  ├─ 6. Blob filtering/splitting + centroid/eigenvalues
+  ├─ 7. Hungarian assignment — full candidate set ↔ tracked slots
+  ├─ 8. Post-association duplicate/coalescing policy
+  ├─ 9. Slot state machine + position EMA/deadband/stationary lock
+  └─10. MT emission (input_mt, 47 slots)
 ```
 
 ## 1. c590 lookup table
@@ -131,33 +132,28 @@ Each connected component becomes a blob candidate, gated by:
 | Signal weight | ≥ 1000 (`blob_min_weight`, module param) |
 | Velocity rejection | centroid within **6 cells** of a detected peak (`HEATMAP_VELOCITY_REJECT_RADIUS`; a 6-cell radius corresponds to the reference's **36.0 = 6²** squared-distance constant in its association/coalescing layers) |
 
-## 6. Blob splitting
+## 6. Blob filtering, splitting, centroid and weight
 
-Overlapping components (e.g. two close fingers) are split when they contain
-≥ 2 peaks (`HEATMAP_SPLIT_MIN_PEAKS`) separated by ≥ 4 cells
-(`HEATMAP_SPLIT_MIN_DIST`), splitting radius 2.
+Overlapping components (for example two close fingers) are split when they
+contain ≥ 2 peaks (`HEATMAP_SPLIT_MIN_PEAKS`) separated by ≥ 4 cells
+(`HEATMAP_SPLIT_MIN_DIST`), with splitting radius 2.
 
-## 7. Ghost merge
+Before assignment, each surviving blob carries its grid centroid, weighted
+signal, raw pre-penalty weight, and shape/eigenvalue data. Weight EMA is fixed
+at the reference value:
 
-Genuinely distinct close fingers used to be merged into one blob at high
-density. The merge radius now **scales down** as the finger count rises
-(inverse of the association radii):
+```text
+weight = (old·7 + new)/8
+```
 
-| Fingers | 1 | 3 | 4 | 5 |
-|---:|---:|---:|---:|---:|
-| `GHOST_RADIUS_*` | 10 | 7 | 6 | 5 |
+(`HEATMAP_WEIGHT_EMA_ALPHA = 7`, independent of `ema_alpha`.)
 
-## 8. Centroid and weight
+## 7. Hungarian assignment
 
-- Blob centroid from weighted pixel positions (edge penalty: top/side
-  cells ×0.97, bottom ×0.23)
-- Weight EMA is fixed at the reference value: `weight = (old·7 + new)/8`
-  (`HEATMAP_WEIGHT_EMA_ALPHA = 7`, independent of `ema_alpha`)
+The complete candidate set is matched to tracked slots with a Kuhn–Munkres
+augmenting-path solver (`raw_hungarian_match()`). This ordering is important:
+close candidates are **not destructively merged before assignment**.
 
-## 9. Hungarian assignment
-
-Blobs are matched to tracked slots with a Kuhn–Munkres augmenting-path
-solver (`raw_hungarian_match()`, replacing an earlier greedy matcher).
 Cost model (×`HUNGARIAN_COST_SCALE` = 100):
 
 | Cost | Value | Meaning |
@@ -171,22 +167,44 @@ Cost model (×`HUNGARIAN_COST_SCALE` = 100):
 Association radius multipliers (×`blob_max_distance`, stored ×10 as
 `ASSOC_RADIUS_*`): 1×2.2, 2×1.0, 3×2.8, 4×3.4, 5+×4.0.
 
-## 10. Position smoothing, deadband, stationary lock
+## 8. Post-association duplicate/coalescing
+
+`raw_post_assoc_coalesce()` applies the `ghost_dist` radius **after**
+Hungarian assignment. This replaced the older pre-association merge ordering
+that collapsed legitimate close two-finger frames on the tested MSHW0231.
+
+Current policy:
+
+- two candidates assigned to two different established tracks are both kept,
+  even when they are inside `ghost_dist`;
+- an established track normally wins over a nearby candidate assigned to a
+  non-established slot;
+- a tightly bounded sequential close-birth grace can preserve the second
+  contact while the first track is still very young;
+- if neither candidate has established continuity, the higher pre-penalty raw
+  weight is retained and the weaker ambiguous duplicate is suppressed.
+
+Suppression clears the candidate's assignment; it does not delete the blob
+record, so diagnostics retain both the pre- and post-association view.
+
+## 9. Slot state, position smoothing, deadband and stationary lock
+
+The slot state machine owns Linux tracking IDs and handles debounce,
+lift-pending/occlusion continuity, reacquisition and final release.
 
 - **Position EMA**: `new = (old·α + gx)/(α+1)` with α = `ema_alpha`
   module parameter (default **2**; lower = more responsive, more jitter)
-- **Deadband**: `HEATMAP_DEADBAND_THRESHOLD = 20` (fixed-point units) —
-  tiny movements inside the deadband do not move the contact
+- **Deadband**: `HEATMAP_DEADBAND_THRESHOLD = 20` (fixed-point units)
 - **Stationary lock**: after `HEATMAP_STATIONARY_FRAMES = 2` in place, the
-  contact is locked — this is what eliminates pinch-to-zoom jitter
+  contact is locked against tiny jitter
 - Hold-state recovery weight: 4000 (`HEATMAP_HOLD_RECOVERY_WEIGHT`)
 
-## 11. MT emission
+## 10. MT emission
 
-Blobs are published through the input subsystem's multitouch protocol
-(`input_mt_init_slots` with **47 slots**, `HEATMAP_MAX_SLOTS`) with
-`TOUCH_MAJOR/MINOR/ORIENTATION` from per-blob eigenvalues. Missed frames
-release slots after `HEATMAP_MISSED_FRAME_TIMEOUT_MS = 60`.
+Tracked slots are published through the Linux input subsystem multitouch
+protocol (`input_mt_init_slots` with **47 slots**, `HEATMAP_MAX_SLOTS`),
+including `TOUCH_MAJOR/MINOR/ORIENTATION` from per-blob eigenvalues. Missed
+contacts are released according to the slot/lift state machine.
 
 ## Parameter mapping
 
@@ -195,7 +213,7 @@ release slots after `HEATMAP_MISSED_FRAME_TIMEOUT_MS = 60`.
 | Weight gate | `blob_min_weight` | 1000 |
 | New-touch debounce | `blob_debounce` | 3 |
 | Lift after missed frames | `blob_lift_frames` | 3 |
-| Ghost merge radius | `ghost_dist` | 6 |
+| Post-association duplicate/coalescing radius | `ghost_dist` | 6 |
 | Association base | `blob_max_distance` | 3 |
 | Pre-association filter | `pre_assoc_ratio` | 0 (disabled) |
 | Position smoothing | `ema_alpha` | 2 |
