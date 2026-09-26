@@ -6,6 +6,12 @@ MSHW0231 unit. The next most valuable step is **independent hardware testing**.
 Latest release:
 https://github.com/avgbob/SL4A_TouchScreen/releases/latest
 
+Testing hub:
+https://github.com/avgbob/SL4A_TouchScreen/discussions/10
+
+Structured hardware report:
+https://github.com/avgbob/SL4A_TouchScreen/issues/9
+
 ## Who should test
 
 Please consider testing if you have a **Surface Laptop 4 AMD**, especially a
