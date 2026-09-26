@@ -1,0 +1,95 @@
+title: "[Hardware test] "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Share independent SL4A_TouchScreen hardware results here.
+        Successes and failures are equally useful. For reproducible failures or
+        detailed qualification data, also consider opening a Hardware test issue.
+
+  - type: input
+    id: model
+    attributes:
+      label: Surface model
+      placeholder: "Surface Laptop 4 AMD"
+    validations:
+      required: true
+
+  - type: input
+    id: ids
+    attributes:
+      label: Touch / SPI ACPI IDs
+      placeholder: "MSHW0231 + AMDI0060"
+    validations:
+      required: true
+
+  - type: input
+    id: distro-kernel
+    attributes:
+      label: Distribution and kernel
+      placeholder: "Ubuntu 24.04 — 7.0.0-31-generic"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: secure-boot
+    attributes:
+      label: Secure Boot
+      options:
+        - Enabled
+        - Disabled
+        - Unknown
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Driver release / commit
+      placeholder: "v1.7.1"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: overall
+    attributes:
+      label: Overall result
+      options:
+        - PASS — touch works
+        - PARTIAL — touch works with problems
+        - FAIL — no usable touch
+        - PREFLIGHT ONLY
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: tested
+    attributes:
+      label: What did you test?
+      options:
+        - label: Cold boot
+        - label: Suspend/resume
+        - label: One finger
+        - label: Two fingers
+        - label: Close two-finger contacts
+        - label: Pinch
+        - label: Crossing fingers
+        - label: Three or more fingers
+        - label: Edge/corner contacts
+        - label: Stylus
+        - label: Stylus + finger
+
+  - type: textarea
+    id: observations
+    attributes:
+      label: Results / observations
+      description: "Include ghost touches, merging, dropped contacts, tracking-ID swaps, jitter, resets, or anything unexpected."
+    validations:
+      required: true
+
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Useful status / diagnostics
+      description: "Optional: paste status, protocol_stats, or a link to a detailed Issue. Remove anything you do not want public."
+      render: shell
