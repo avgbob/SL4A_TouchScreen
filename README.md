@@ -1,8 +1,8 @@
 # SL4A TouchScreen
 
-Linux kernel driver for the Microsoft Surface Laptop 3/4 (AMD) touchscreen,
-implementing the MSHW0231 / MSHW0162 V0 HID-over-SPI transport and a
-beta raw-heatmap multitouch pipeline on the AMD Cezanne FCH SPI controller.
+Linux touchscreen driver for the **Microsoft Surface Laptop 4 AMD** and
+**Surface Laptop 3 AMD**, built around the AMD `AMDI0060` SPI controller and
+Microsoft `MSHW0231` / `MSHW0162` HID-over-SPI devices.
 
 [![Status](https://img.shields.io/badge/status-beta-orange)](https://github.com/avgbob/SL4A_TouchScreen)
 [![Release](https://img.shields.io/badge/release-1.7.0-brightgreen)](VERSION)
@@ -10,210 +10,313 @@ beta raw-heatmap multitouch pipeline on the AMD Cezanne FCH SPI controller.
 [![License](https://img.shields.io/badge/license-GPL--2.0-blue)](LICENSE)
 
 > [!WARNING]
-> **Beta software.** This is an experimental, reverse-engineered kernel driver.
-> Use at your own risk. No warranty; provided "as is".
+> **Beta, reverse-engineered kernel driver.**
+> Gate5 is field-qualified on one Surface Laptop 4 AMD unit, not a broad
+> hardware/firmware/kernel compatibility guarantee. Keep recovery access
+> available when installing or testing.
 
-## What to Expect
+## What This Driver Does
 
-- The **standard installer profile is device-aware**. On Surface Laptop 4 AMD
-  (`MSHW0231`) it uses the Gate5-qualified standard-transport heatmap bridge
-  and publishes beta multitouch. On Surface Laptop 3 AMD (`MSHW0162`) it keeps
-  the conservative standard-HID single-touch profile.
-- A **stylus/pen input node** is published by the HID descriptor but is
-  **untested** — pen behavior has not been observed or validated.
-- On SL4 AMD, Gate5 keeps normal HID-over-SPI discovery (`raw_mode=N`), then
-  sends a write-only GET_FEATURE report 6, waits 4.5-5.5 ms, sends
-  SET_FEATURE report 5 = 1, and routes the resulting `0x0c` CapImg stream
-  through the beta multitouch tracker.
-- **Raw/heatmap multitouch remains beta** — Gate5 lifecycle/input behavior is
-  field-qualified on one SL4 AMD unit, while the broader hardware/E1 matrix,
-  pen, palm rejection and long-duration stress remain incomplete.
+On **Surface Laptop 4 AMD / MSHW0231**, the standard install path now combines
+normal HID-over-SPI discovery with the panel's high-resolution CapImg stream:
 
-See [`docs/QUICKSTART.md`](docs/QUICKSTART.md) for a 5-step install and
-activation guide.
-
-## Device
-
-| Component | Detail |
-|-----------|--------|
-| Model | Surface Laptop 4 (AMD Cezanne) / Surface Laptop 3 (AMD) |
-| Touch ACPI ID | `MSHW0231` (SL4, HID VID/PID: 0x045E/0x0C19) / `MSHW0162` (SL3) |
-| SPI Controller | `AMDI0060` (AMD FCH SPI V2 at MMIO 0xFEC10000) |
-| Protocol | HID-over-SPI Version 0 |
-| Touch grid | 72×48 cells (SL4) / 78×52 cells (SL3) — selected by ACPI ID |
-| Report rate | ~100 Hz (raw mode, field observation) |
-
-## Feature Status
-
-| Feature | Implementation status | Release qualification |
-|---------|-----------------------|-----------------------|
-| HID descriptor discovery | Implemented, with a hardcoded fallback | Hardware matrix required |
-| Standard HID report forwarding | Implemented | Contact behavior requires hardware evidence |
-| Raw CCL and multitouch pipeline | Implemented | Beta (functional on hardware, under field review) |
-| Cold-boot retry and recovery | Implemented | Hardware matrix required |
-| Candidate classification and per-cycle gain | Not implemented | Not planned for v1.x |
-
-## Architecture
-
-The target architecture is transport-only in kernel space, with Heat processing
-in userspace:
-
-```
-MSHW0231 / MSHW0162
+```text
+ACPI _PS0 -> _RST
         |
-sl4a-spi-amd.ko
-  AMD FCH SPI controller
+RESET_RSP
         |
-sl4a-spi-hid.ko
-  V0 HID-SPI transport
-  descriptor + feature/raw-report plumbing
+DEVICE_DESC
         |
-Linux HID core + hidraw
+936-byte HID report descriptor
         |
-sl4a-heat (Gate 3 userspace target)
-  Col02 report 0x0C -> CapImg -> contacts
+register normal HID device
         |
-uinput -> libinput / Wayland
+write GET_FEATURE report 6
+        |
+do not synchronously read the GET6 body
+        |
+wait ~4.5-5.5 ms
+        |
+SET_FEATURE report 5 = 1
+        |
+0x0c CapImg / heatmap frames
+        |
+beta in-kernel multitouch tracker
+        |
+MSHW0231 Touchscreen Linux MT input
 ```
 
-The existing in-kernel raw heatmap tracker remains a beta
-reference/qualification implementation while the userspace processor is being
-brought up. It is not the long-term product boundary. See
-[`docs/GATE3-AUDIT.md`](docs/GATE3-AUDIT.md).
+The important difference is that **multitouch no longer requires abandoning the
+normal HID discovery path and booting the SL4 into a separate `raw_mode=Y`
+configuration**. The driver discovers and registers the real HID device first,
+then transitions the panel into the CapImg stream and publishes multitouch from
+that stream.
 
-### Raw Touch Pipeline
+The standard SL4 profile therefore keeps:
 
-The raw multitouch pipeline is an experimental implementation that processes
-the current 72×48 fallback grid into HID contacts. Its comparison targets and
-unresolved frame-layout assumptions are recorded in `docs/EVIDENCE.md`.
+- normal HID descriptor discovery and HID registration;
+- the real 936-byte report descriptor read from the panel;
+- the standard HID device, including the descriptor-created stylus interface;
+- the high-resolution CapImg stream for touch;
+- the beta multitouch tracker exposed as `MSHW0231 Touchscreen`.
 
-| Stage | Function |
-|-------|----------|
-| **c590 LUT** | Byte-indexed CapImg sample → fixed-point: `max(0, 10000 - ((i·22204 + 500)/1000 + 6000))` |
-| **Baseline** | 30-frame asymmetric EMA per cell |
-| **Noise floor** | c590 < 400 → suppressed (0.04 in the reference stack's fixed-point units) |
-| **Peak gate** | Full radius-2 neighbourhood scan of touched cells, rise ≥200, max 20 peaks (equal-signal plateaus contribute one peak, anchored at the region's centre) |
-| **CCL flood-fill** | 4-connected BFS, filters: n≥2, max_rise≥200, weight≥1000 |
-| **Velocity rejection** | Blob must be within 6 cells of a detected peak |
-| **Edge penalty** | Bottom edge ×0.23, other edges ×0.97 |
-| **Blob splitting** | Multi-peak blobs (≥4 cells apart) split into sub-blobs |
-| **Centroid** | Signal-weighted ×100 fixed-point on full blob extent |
-| **Eigenvalues** | Second moments → touch major/minor/orientation |
-| **Hungarian** | Associate the complete candidate set to persistent slots with multi-finger radii (1×2.2, 2×1.0, 3×2.8, 4×3.4, 5+×4.0) |
-| **Post-association suppression** | Apply the strict ghost_dist=6 proximity rule only after assignment; candidates backed by two distinct established tracks are preserved |
-| **EMA + deadband** | Alpha=2 smoothing, ±0.2 cell deadband, 2-frame stationary lock |
-| **Lift lookback** | Emit lift at position from 2 frames ago |
+The stylus HID node is created, but **pen behavior is not yet qualified**.
+
+## What This Fork Adds
+
+This fork builds on the original
+[Syax89/SL4A_TouchScreen](https://github.com/Syax89/SL4A_TouchScreen)
+foundation: AMD FCH SPI support, HID-over-SPI transport work, CapImg acquisition,
+and the original raw-touch pipeline.
+
+The current SL4 path adds the pieces needed to make those parts behave as one
+repeatable driver lifecycle:
+
+| Area | Current behavior |
+| --- | --- |
+| **SL4 startup** | Normal HID discovery followed by the Gate5 GET6-write → ~5 ms → SET5 transition |
+| **Multitouch** | CapImg frames are processed by the beta tracker while the normal HID transport remains registered |
+| **Early-frame race** | Once a DATA header is consumed, its body is drained even if HID registration is still in progress |
+| **Warm reloads** | The HID-registration DATA-drain race that could leave a ~4.3 KB frame queued was fixed |
+| **Suspend** | Explicit `_PS3` panel power-down |
+| **Resume** | Explicit `_PS0 -> _RST`, descriptor rediscovery, then the qualified Gate5 transition again |
+| **Installer** | Device-aware: MSHW0231 receives the Gate5 SL4 profile; MSHW0162 keeps the conservative standard profile |
+| **DKMS / boot** | Installs through DKMS and enables a post-`multi-user.target` systemd activation service |
+| **Diagnostics** | `status`, `logs`, protocol counters, installed-build stamping, and profile verification are built into the tool |
+
+## Current Qualification
+
+The Gate5 production path has been exercised on **one physical Surface Laptop 4
+AMD / MSHW0231 unit**.
+
+| Test | Result |
+| --- | --- |
+| True cold power-on + touch | PASS |
+| Warm module reload + touch | 3/3 PASS |
+| s2idle suspend/resume + touch | 2/2 PASS |
+| Production DKMS install/profile generation | PASS |
+| Normal reboot + automatic systemd activation | PASS |
+| Installed profile vs running parameters | MATCH |
+| Unexpected post-DONE controller resets in qualification captures | 0 |
+| Observed transport frame drops in qualification captures | 0 |
+
+The broader **E1 input-quality campaign is still in progress**. Close-contact
+tracking, crossing-finger identity, 3-5 finger behavior, palm rejection, stylus
+correctness, mixed pen/touch input, long-duration stress, and broader
+hardware/kernel coverage are not yet release claims.
+
+See [`docs/GATE5-QUALIFICATION.md`](docs/GATE5-QUALIFICATION.md) for the
+qualified activation/lifecycle evidence and
+[`docs/COMPATIBILITY.md`](docs/COMPATIBILITY.md) for the evidence matrix.
+
+## Supported Hardware
+
+| Device | ACPI IDs | Standard installer behavior | Status |
+| --- | --- | --- | --- |
+| **Surface Laptop 4 AMD** | touch `MSHW0231`, SPI `AMDI0060` | Gate5 standard-transport CapImg multitouch | Field-qualified on one unit |
+| **Surface Laptop 3 AMD** | touch `MSHW0162`, SPI `AMDI0060` | Conservative standard HID: `raw_mode=N wire_double_opcode=1` | Gate5 sequence not claimed |
+
+The tested SL4 HID identity is Microsoft VID/PID `045e:0c19`. The SL4 heatmap
+geometry is 72×48 cells; SL3 uses its own device-specific geometry selected by
+ACPI ID.
+
+Other Surface models, other `MSHW*` touch devices, and other AMD SPI
+controller IDs are not supported by this release.
 
 ## Install
 
-Read [`docs/SUPPORT.md`](docs/SUPPORT.md) before installing. This repository is
-only for the Surface Laptop 3/4 AMD `AMDI0060` + `MSHW0231`/`MSHW0162` hardware
-contracts.
-The installer stages the modules through DKMS and then **activates them right
-away** (Step 7): it binds the experimental modules as soon as it finishes, and
-enables a systemd unit that keeps them bound on every future boot. Have recovery
-access ready (a local console or a remote shell) *before* running it. On Secure
-Boot systems the MOK key must be enrolled first; until it is, activation is
-skipped and the boot unit does it after the enrollment reboot.
-Modules use distinct `sl4a-spi-amd` and `sl4a-spi-hid` names and never replace
-in-tree drivers.
-See [`docs/COMPATIBILITY.md`](docs/COMPATIBILITY.md) before treating a setup as
-supported.
+Read [`docs/SUPPORT.md`](docs/SUPPORT.md) first.
 
 ```bash
 git clone https://github.com/avgbob/SL4A_TouchScreen.git
 cd SL4A_TouchScreen
+
+# Read-only hardware/build preflight
 ./tools/sl4a-touch.sh install --check
+
+# Install the device-aware standard profile
 sudo ./tools/sl4a-touch.sh install
 ```
 
-`install` prompts interactively for a profile (the device-aware standard
-profile, or the experimental raw multitouch profile) unless `--standard` or
-`--raw` is given explicitly. `--check` performs a read-only ACPI and
-build-prerequisite preflight and needs no root; `--force` only to investigate
-unsupported hardware.
+The installer:
 
-`install` activates the driver before it returns (Step 7), so have
-local/remote recovery access available *before* running it. Two cases skip that
-activation, and the installer says so when they apply: with Secure Boot the MOK
-key must be enrolled first (the boot unit activates after the enrollment reboot),
-and when the selected profile changes the load-time `raw_mode` parameter the
-modules keep the previous profile until the next boot, where the boot unit
-activates the new one. The
-experimental controller can also be activated by hand with:
+1. checks the supported ACPI hardware;
+2. stages and builds the two modules through DKMS;
+3. writes the device-appropriate `/etc/modprobe.d/sl4a-spi-hid.conf`;
+4. enables `sl4a-touch-activate.service`;
+5. activates the driver immediately when safe to do so;
+6. verifies the driver is actually bound.
+
+The boot service starts **after `multi-user.target`**, not during early kernel
+boot. This keeps the experimental modules out of the fragile early-boot
+auto-binding path and leaves a working userspace recovery environment if
+activation fails.
+
+On Secure Boot systems, the DKMS signing/MOK flow is supported, but Secure Boot
+is not yet a broadly qualified compatibility row.
+
+### Status and logs
+
+```bash
+./tools/sl4a-touch.sh status
+sudo ./tools/sl4a-touch.sh logs
+```
+
+`status` reports the DKMS version, the commit the installed modules were built
+from, configured and running profiles, hardware presence, module state, and boot
+activation state.
+
+### Manual activation
 
 ```bash
 sudo ./tools/sl4a-touch.sh activate
 ```
 
-The command refuses to displace existing AMDI0060 or touchscreen
-(MSHW0231/MSHW0162) drivers, then
-verifies both bindings. To recover after a failed experiment, run
-`sudo modprobe -r sl4a-spi-hid sl4a-spi-amd` and reboot. Use
-`sudo ./tools/sl4a-touch.sh install --raw` only for the experimental raw
-heatmap profile. `./tools/sl4a-touch.sh status` shows the installed version,
-active profile, and whether the driver is currently loaded and bound;
-`sudo ./tools/sl4a-touch.sh logs` collects a diagnostic bundle for bug reports.
+The activation command refuses to displace another driver already bound to the
+target controller/touchscreen.
 
-The DKMS installer contains dependency guidance for Arch/CachyOS,
-Ubuntu/Debian, Fedora, and openSUSE. Neither module exports aliases, so the
-kernel never binds them on its own — the systemd unit `install` enables is what
-repeats the binding after every boot. Secure Boot remains unqualified until recorded in the
-compatibility matrix. See [`docs/ROLLBACK.md`](docs/ROLLBACK.md) for the
-complete rollback and upgrade procedure.
+### Recovery
 
-## Module Parameters
-
-```
-/etc/modprobe.d/sl4a-spi-hid.conf:
-
-  # Surface Laptop 4 AMD / MSHW0231
-  options sl4a_spi_hid raw_mode=N raw_input_beta=Y wire_double_opcode=1 gate3_observe_only=1 skip_std_getfeat=1 std_raw_transition=1 get_noread=0 getfeat_delay_ms=0 std_liveness_ms=0 std_liveness_recover=0 wait_reset_kick_ms=0
-
-  # Surface Laptop 3 AMD / MSHW0162
-  options sl4a_spi_hid raw_mode=N wire_double_opcode=1
+```bash
+sudo modprobe -r sl4a-spi-hid sl4a-spi-amd
+sudo reboot
 ```
 
-The `--raw` installer profile remains a **legacy diagnostic/reference path**;
-it is no longer the Gate-3 architecture checkpoint. Gate 3 now uses the
-standard HID transport plus `userspace/sl4a-heat/sl4a_heat.py` through hidraw.
-That keeps Col02 GET6/SET5/0x0C ownership out of the kernel and leaves Col07
-report 0x56 separate. See `docs/GATE3-ARCH-A.md` and
-`docs/GATE3-AUDIT.md`. For MSHW0231, the standard installer now writes the Gate5-qualified mode-1
-bridge shown above. Mode 1 performs a write-only GET6 request, waits
-4.5-5.5 ms, then sends SET5; the generic standard-mode feature GET_REPORT path
-is suppressed. MSHW0162 keeps the older conservative standard profile because
-the Gate5 activation sequence has not been qualified there. The explicit
-`--raw` profile remains experimental. The complete release, diagnostic,
-and experimental contract is in [`docs/PARAMETERS.md`](docs/PARAMETERS.md).
+See [`docs/ROLLBACK.md`](docs/ROLLBACK.md) for the complete rollback and upgrade
+procedure.
 
-## What Will Not Work
+## Qualified SL4 Profile
 
-- **Gate5 multitouch is not an SL3 claim.** The MSHW0231/SL4 standard profile
-  enables the heatmap bridge; MSHW0162/SL3 intentionally remains on the
-  conservative standard-HID profile until separately qualified.
-- **Pen input** — the raw input device publishes touch contacts only and the
-  driver contains no pen-specific handling, so pen behavior is unvalidated.
-- **Palm rejection** — no palm/rejection stage exists in the pipeline.
-- **Other Surface models** — the ACPI match tables accept only `MSHW0231` /
-  `MSHW0162` (touch) and `AMDI0060` (SPI controller).
+The standard installer writes this profile for `MSHW0231`:
 
-## Troubleshooting
+```text
+options sl4a_spi_hid \
+  raw_mode=N \
+  raw_input_beta=Y \
+  wire_double_opcode=1 \
+  gate3_observe_only=1 \
+  skip_std_getfeat=1 \
+  std_raw_transition=1 \
+  get_noread=0 \
+  getfeat_delay_ms=0 \
+  std_liveness_ms=0 \
+  std_liveness_recover=0 \
+  wait_reset_kick_ms=0
+```
 
-| Issue | Fix |
-|-------|-----|
-| No touch after cold boot | Power off → unplug AC → wait 30s → reboot |
-| No touch after cold boot, but the driver looks ready (dmesg shows the descriptor, HID registered, `ready`) | Set `std_liveness_ms=8000` (`echo 'options sl4a_spi_hid std_liveness_ms=8000' \| sudo tee /etc/modprobe.d/sl4a-liveness.conf`), cold boot, then read the `standard-mode liveness` line in dmesg: it reports the controller activity (IRQs) seen in that window, so a healthy idle device prints the alarm too (upstream issue #4) |
-| No touch after cold boot and no `RESET_RSP` in dmesg at all | Enable the backstop: `echo 'options sl4a_spi_hid wait_reset_kick_ms=4000' \| sudo tee /etc/modprobe.d/sl4a-kick.conf`, then cold boot. dmesg then shows `no RESET_RSP and no IRQ at all after 4000 ms, forcing DESCREQ`, and the descriptor poller keeps reading until the device answers. A `DESCREQ write to a silent controller failed 3 times` line instead means the SPI write itself is failing (bus level), not that the device stayed quiet. If the touchscreen never comes back, power off, unplug AC, wait 30 s, reboot and report the log in upstream issue #4 |
-| No multi-touch on SL4/MSHW0231 | Verify the installed profile contains `raw_input_beta=Y skip_std_getfeat=1 std_raw_transition=1`; see `docs/GATE5-QUALIFICATION.md`. On SL3/MSHW0162 the standard profile remains single-touch; use `--raw` only as an explicit experiment. |
-| Fingers lost during fast movement | Increase `blob_lift_frames` |
-| Jitter during pinch-to-zoom | Verify `ema_alpha=2`, stationary lock active |
-| Module rejected (Secure Boot) | Enroll DKMS signing key via distribution MOK |
+For `MSHW0162`, the standard installer deliberately remains conservative:
 
-## Build from Source
+```text
+options sl4a_spi_hid raw_mode=N wire_double_opcode=1
+```
 
-For development without DKMS (modules built this way are unsigned — turn Secure
-Boot off, or sign them yourself):
+The explicit `--raw` installer profile remains an **experimental diagnostic
+path**. It is not the production SL4 qualification path.
+
+## Why the Gate5 Sequence Matters
+
+During qualification, several similar-looking activation sequences behaved
+differently:
+
+- SET5-only can enter CapImg and remains useful historical evidence.
+- GET6 write → ~5 ms → SET5 repeatedly entered CapImg.
+- Full synchronous GET6 read → SET5 caused a controller reset on the tested
+  machine.
+- A separate warm-reload reset was traced to the first CapImg DATA body being
+  left queued while `hid_add_device()` was still running.
+
+Gate5 fixes the second problem independently of activation timing: after the
+driver consumes a DATA header, it drains/processes the corresponding body even
+while HID registration is still active. Publication into the HID core remains
+suppressed until registration is ready.
+
+That transport-synchronization fix is what made repeated warm activation
+reliable on the qualified machine.
+
+## Power Lifecycle
+
+The SL4 production lifecycle is:
+
+```text
+BOOT / LOAD
+  _PS0 -> _RST
+  -> descriptors
+  -> GET6 write
+  -> ~5 ms
+  -> SET5
+  -> CapImg
+
+SUSPEND
+  stop traffic
+  -> _PS3
+
+RESUME
+  _PS0
+  -> _RST
+  -> rediscover descriptors
+  -> GET6 write
+  -> ~5 ms
+  -> SET5
+  -> CapImg
+```
+
+The tested Gate5 path survived two s2idle resume cycles with real touch after
+resume.
+
+## Touch Pipeline
+
+The production SL4 path currently uses the **in-kernel beta heatmap tracker**.
+
+At a high level:
+
+```text
+0x0c CapImg
+   |
+72x48 signal grid
+   |
+baseline / noise filtering
+   |
+peak detection + connected components
+   |
+blob splitting
+   |
+candidate-to-track assignment
+   |
+post-association ghost suppression
+   |
+smoothing / deadband / lift handling
+   |
+Linux multitouch slots
+```
+
+A key tracker change is the ordering of close-contact suppression: candidates
+are associated to existing tracks first, then the strict proximity/ghost rule
+is applied. That allows two nearby candidates backed by two established tracks
+to remain separate instead of being pre-merged simply because they are close.
+
+Detailed processing, thresholds, and tracker behavior live in
+[`docs/PIPELINE.md`](docs/PIPELINE.md).
+
+The repository also contains the experimental
+[`userspace/sl4a-heat/`](userspace/sl4a-heat/) path. That remains architecture
+research; it is **not** the current installed Gate5 production path.
+
+## Known Limits
+
+This release does **not** yet claim:
+
+- Gate5 mode-1 activation on Surface Laptop 3 AMD / `MSHW0162`;
+- validated stylus/pen behavior;
+- palm rejection;
+- complete 1-5 finger qualification;
+- Windows-equivalent contact classification;
+- long mixed-input stress;
+- broad firmware, kernel, or distribution compatibility;
+- support for other Surface models or other AMD SPI controller IDs.
+
+## Development / Build from Source
+
+For development without DKMS:
 
 ```bash
 make -C /lib/modules/$(uname -r)/build M=$PWD/driver modules
@@ -222,33 +325,30 @@ sudo depmod -a
 sudo ./tools/sl4a-touch.sh activate
 ```
 
-The modules export no aliases, so the kernel never loads them on its own: after
-a reboot run `activate` again, or use `install`, which also sets up the boot
-unit that repeats the binding automatically.
+Modules built manually this way are unsigned unless you sign them yourself.
 
 ## Documentation
 
-| Document | Content |
-|----------|---------|
-| [Upstream Wiki](https://github.com/Syax89/SL4A_TouchScreen/wiki) | Upstream project wiki: protocol, pipeline, config, hardware |
-| [`docs/QUICKSTART.md`](docs/QUICKSTART.md) | 5-step install and activation guide |
-| [`docs/HIDSPI_PROTOCOL.md`](docs/HIDSPI_PROTOCOL.md) | HID-over-SPI V0 wire protocol |
-| [`docs/PIPELINE.md`](docs/PIPELINE.md) | Touch pipeline specification |
-| [`docs/SPI_REGISTERS.md`](docs/SPI_REGISTERS.md) | AMD FCH SPI controller registers |
-| [`docs/AMDI0060_CONTRACT.md`](docs/AMDI0060_CONTRACT.md) | AMDI0060 controller boundary and safety contract |
-| [`docs/CONFIG_TABLE.md`](docs/CONFIG_TABLE.md) | Config table values |
-| [`docs/ACTIVATION.md`](docs/ACTIVATION.md) | Raw mode activation (SET_FEATURE ID5) |
-| [`docs/CONTACT_ABI.md`](docs/CONTACT_ABI.md) | Contact struct ABI |
-| [`docs/ETW_CSV_FORMAT.md`](docs/ETW_CSV_FORMAT.md) | Windows trace format |
-| [`docs/decomp/`](docs/decomp/) | Driver reference captures |
-| [`docs/SUPPORT.md`](docs/SUPPORT.md) | Supported hardware and release profiles |
-| [`docs/COMPATIBILITY.md`](docs/COMPATIBILITY.md) | Hardware validation matrix |
-| [`docs/TESTING.md`](docs/TESTING.md) | Reproducible validation procedure |
-| [`docs/EVIDENCE.md`](docs/EVIDENCE.md) | Evidence ledger and open discrepancies |
-| [`docs/HARDWARE_VALIDATION.md`](docs/HARDWARE_VALIDATION.md) | Blinded hardware-validation protocol and bounded input captures |
-| [`docs/GATE3-ARCH-A.md`](docs/GATE3-ARCH-A.md) | Architecture-A split checkpoint and PASS criteria |
-| [`docs/GATE3-AUDIT.md`](docs/GATE3-AUDIT.md) | Post-Gate-2 collection/ownership and KEEP/MOVE/REMOVE audit |
-| [`userspace/sl4a-heat/README.md`](userspace/sl4a-heat/README.md) | Minimal hidraw GET6/SET5/0x0C userspace checkpoint |
+| Document | Purpose |
+| --- | --- |
+| [`docs/QUICKSTART.md`](docs/QUICKSTART.md) | Short installation guide |
+| [`docs/GATE5-QUALIFICATION.md`](docs/GATE5-QUALIFICATION.md) | Current SL4 Gate5 activation and lifecycle contract |
+| [`docs/SUPPORT.md`](docs/SUPPORT.md) | Supported hardware and installer profiles |
+| [`docs/COMPATIBILITY.md`](docs/COMPATIBILITY.md) | Evidence / compatibility matrix |
+| [`docs/ACTIVATION.md`](docs/ACTIVATION.md) | GET6 / SET5 activation experiments and current Gate5 sequence |
+| [`docs/HIDSPI_PROTOCOL.md`](docs/HIDSPI_PROTOCOL.md) | HID-over-SPI V0 transport |
+| [`docs/PIPELINE.md`](docs/PIPELINE.md) | Heatmap and multitouch pipeline |
+| [`docs/PARAMETERS.md`](docs/PARAMETERS.md) | Release, diagnostic, and experimental parameters |
+| [`docs/TESTING.md`](docs/TESTING.md) | Reproducible test procedure |
+| [`docs/EVIDENCE.md`](docs/EVIDENCE.md) | Evidence ledger and unresolved questions |
+| [`docs/ROLLBACK.md`](docs/ROLLBACK.md) | Recovery and rollback |
+| [`docs/HARDWARE_VALIDATION.md`](docs/HARDWARE_VALIDATION.md) | Hardware-validation procedure |
+| [`docs/AMDI0060_CONTRACT.md`](docs/AMDI0060_CONTRACT.md) | AMD SPI controller boundary |
+| [`userspace/sl4a-heat/README.md`](userspace/sl4a-heat/README.md) | Experimental userspace heat-processing work |
+
+Historical Gate3/Gate4/mode-3 documents are intentionally retained. They record
+how the final Gate5 sequence was discovered rather than being rewritten to look
+like the final result was known from the beginning.
 
 ## License
 
