@@ -86,7 +86,7 @@ state, and build output in `COMPATIBILITY.md`.
 ## Target Hardware Matrix
 
 Run each case only after login and after retaining a local console or remote
-shell for recovery: the install step binds the experimental controller itself
+shell for recovery: the install step binds the out-of-tree controller itself
 (Step 7) and enables the boot unit. Activation refuses to displace existing
 AMDI0060 or touchscreen (MSHW0231/MSHW0162) drivers and verifies both bindings;
 `sudo ./tools/sl4a-touch.sh activate` runs the same checks by hand.
@@ -113,10 +113,11 @@ Do not run the raw matrix unless the raw profile is recorded in the result.
 | Warm boot | Reboot without power removal. | Same as cold boot. |
 | Reload | Unload/reload only when no input client uses the device. | No kernel warning, one controller/device binding. |
 | Suspend/resume | Suspend for at least 30 seconds, resume, test input. | Lifecycle status before/after and dmesg. |
-| Standard/Gate5 input | On MSHW0231 exercise the beta MT node plus standard HID registration; on MSHW0162 exercise the standard coordinate path. | evtest/libinput record plus `protocol_stats`; record the exact installed profile. |
-| Raw contacts | Test one through five fingers. | Contact recording plus raw profile and frame counters. |
+| Standard/Gate5 contacts | On MSHW0231 exercise the CapImg MT node (input-quality beta): one/two fingers, close-contact continuity, crossing/identity, rapid lift/re-contact, accidental third contact, then 3/4/5 fingers. On MSHW0162 exercise the conservative standard coordinate path. | evtest/libinput record plus `protocol_stats`; record the exact installed profile. |
+| Legacy raw contacts | Only when explicitly testing `--raw`, exercise the intended contact matrix separately. | Contact recording plus raw profile and frame counters. |
 | Stress | Run mixed touch input for 30 minutes. | Start/end counters, error count, and dmesg. |
-| Secure Boot | Install and reboot with Secure Boot enabled. | Signature/load result and MOK state. |
+| Secure Boot — enrolled-key reuse | Install and reboot with Secure Boot enabled while reusing the active enrolled DKMS MOK. | Resolved key/cert paths, `modinfo -F signer` for both modules, MOK state, service result, bound device. |
+| Secure Boot — fresh enrollment | Generate/import a new DKMS certificate, complete firmware MOK Manager enrollment, reboot and verify automatic activation. | New identity paths, enrollment evidence, signer/load result and service result. |
 
 Useful sysfs attributes are exposed by the SPI HID device: `ready`,
 `protocol_stats`, `baseline_status`, `lifecycle_status`, and `heatmap_debug`.
