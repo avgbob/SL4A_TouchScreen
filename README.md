@@ -46,11 +46,10 @@ beta in-kernel multitouch tracker
 MSHW0231 Touchscreen Linux MT input
 ```
 
-The important difference is that **multitouch no longer requires abandoning the
-normal HID discovery path and booting the SL4 into a separate `raw_mode=Y`
-configuration**. The driver discovers and registers the real HID device first,
-then transitions the panel into the CapImg stream and publishes multitouch from
-that stream.
+**Production SL4 multitouch uses the standard HID transport.** The driver
+discovers and registers the real HID device first, then transitions the panel
+into the CapImg stream and publishes multitouch from that stream. The legacy
+raw-transport profile is not part of the production multitouch path.
 
 The standard SL4 profile therefore keeps:
 
@@ -67,7 +66,7 @@ The stylus HID node is created, but **pen behavior is not yet qualified**.
 This fork builds on the original
 [Syax89/SL4A_TouchScreen](https://github.com/Syax89/SL4A_TouchScreen)
 foundation: AMD FCH SPI support, HID-over-SPI transport work, CapImg acquisition,
-and the original raw-touch pipeline.
+and the original heatmap decoding/tracking work.
 
 The current SL4 path adds the pieces needed to make those parts behave as one
 repeatable driver lifecycle:
@@ -114,7 +113,7 @@ qualified activation/lifecycle evidence and
 | Device | ACPI IDs | Standard installer behavior | Status |
 | --- | --- | --- | --- |
 | **Surface Laptop 4 AMD** | touch `MSHW0231`, SPI `AMDI0060` | Gate5 standard-transport CapImg multitouch | Field-qualified on one unit |
-| **Surface Laptop 3 AMD** | touch `MSHW0162`, SPI `AMDI0060` | Conservative standard HID: `raw_mode=N wire_double_opcode=1` | Gate5 sequence not claimed |
+| **Surface Laptop 3 AMD** | touch `MSHW0162`, SPI `AMDI0060` | Conservative standard HID | Gate5 sequence not claimed |
 
 The tested SL4 HID identity is Microsoft VID/PID `045e:0c19`. The SL4 heatmap
 geometry is 72×48 cells; SL3 uses its own device-specific geometry selected by
@@ -210,33 +209,24 @@ sudo reboot
 See [`docs/ROLLBACK.md`](docs/ROLLBACK.md) for the complete rollback and upgrade
 procedure.
 
-## Qualified SL4 Profile
+## Production SL4 Profile
 
-The standard installer writes this profile for `MSHW0231`:
+For `MSHW0231`, the standard installer selects the qualified Gate5 profile
+automatically. **This is a standard-HID-transport profile that adds the CapImg
+multitouch bridge after normal HID discovery. It is not the legacy raw
+transport.**
 
-```text
-options sl4a_spi_hid \
-  raw_mode=N \
-  raw_input_beta=Y \
-  wire_double_opcode=1 \
-  gate3_observe_only=1 \
-  skip_std_getfeat=1 \
-  std_raw_transition=1 \
-  get_noread=0 \
-  getfeat_delay_ms=0 \
-  std_liveness_ms=0 \
-  std_liveness_recover=0 \
-  wait_reset_kick_ms=0
-```
+The low-level module parameters are documented in
+[`docs/PARAMETERS.md`](docs/PARAMETERS.md) and
+[`docs/GATE5-QUALIFICATION.md`](docs/GATE5-QUALIFICATION.md). They retain some
+historical names from development, but those names do not change the production
+architecture described above.
 
-For `MSHW0162`, the standard installer deliberately remains conservative:
+For `MSHW0162`, the installer keeps the conservative standard-HID path.
 
-```text
-options sl4a_spi_hid raw_mode=N wire_double_opcode=1
-```
-
-The explicit `--raw` installer profile remains an **experimental diagnostic
-path**. It is not the production SL4 qualification path.
+The explicit `--raw` installer option is retained only as a **legacy
+diagnostic/research transport**. It is not required for SL4 multitouch and is
+not the production multitouch path.
 
 ## Why the Gate5 Sequence Matters
 
