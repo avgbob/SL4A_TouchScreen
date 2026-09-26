@@ -872,7 +872,7 @@ cmd_install() {
 						if mokutil --import "$MOK_CERT"; then
 							pass "Certificate staged for enrollment."
 							echo "Reboot now. At MOK Manager: Enroll MOK → Continue → Yes → password → Reboot"
-							echo "After login the boot service activates the driver automatically."
+							echo "The installed boot service retries activation during late boot after multi-user.target."
 						else
 							fail "Key enrollment was not staged (mokutil exited non-zero)."
 						fi ;;
@@ -1030,7 +1030,7 @@ EOF
 		if acpi_device_present "MSHW0231"; then
 			cat > "$tmp_config" <<'EOF'
 # SL4A_TouchScreen qualified Surface Laptop 4 AMD profile
-# Gate5: write-only GET6 -> 4.5-5.5 ms -> SET5, beta MT publication.
+# Gate5: write-only GET6 -> 4.5-5.5 ms -> SET5, CapImg MT publication (input-quality beta).
 options sl4a_spi_hid raw_mode=N raw_input_beta=Y wire_double_opcode=1 gate3_observe_only=1 skip_std_getfeat=1 std_raw_transition=1 get_noread=0 getfeat_delay_ms=0 std_liveness_ms=0 std_liveness_recover=0 wait_reset_kick_ms=0
 EOF
 		else
@@ -1324,80 +1324,55 @@ cmd_activate() {
 	fail_rollback() { rollback; fail "$1; modules loaded by this command were rolled back"; }
 
 	if command -v mokutil >/dev/null 2>&1 && mokutil --sb-state 2>/dev/null | grep -qi 'SecureBoot enabled'; then
-		# Re-encode a legacy PEM certificate for mokutil.
-		if [ -r /var/lib/dkms/mok.pub ] && ! openssl x509 -in /var/lib/dkms/mok.pub -inform DER -noout 2>/dev/null; then
-			warn "Existing DKMS signing key at /var/lib/dkms/mok.pub is not DER-encoded; re-encoding..."
-			command -v openssl >/dev/null 2>&1 || \
-				fail "openssl is required to re-encode the DKMS signing key as DER (mokutil only accepts DER). Install 'openssl' and retry."
-			openssl x509 -in /var/lib/dkms/mok.pub -out /var/lib/dkms/mok.pub.der -outform DER 2>/dev/null \
-				&& mv /var/lib/dkms/mok.pub.der /var/lib/dkms/mok.pub \
-				&& pass "DKMS signing key re-encoded as DER at /var/lib/dkms/mok.pub" \
-				|| fail "Could not re-encode the existing signing key as DER (mokutil only accepts DER)."
+		# Activation must validate the same certificate DKMS actually uses.
+		# Install already resolves this identity; repeat the resolution here so
+		# recovery after a reboot never falls back to a distro-wrong hard-coded
+		# /var/lib/dkms path (Ubuntu normally uses shim-signed/MOK.der).
+		detect_distro
+		resolve_dkms_mok_paths
+		command -v openssl >/dev/null 2>&1 || \
+			fail "openssl is required to validate the active DKMS MOK certificate under Secure Boot."
+		if [ ! -r "$MOK_CERT" ]; then
+			fail "Secure Boot is enabled but the active DKMS MOK certificate is missing at $MOK_CERT. Re-run 'install' to repair the DKMS signing identity before activation."
 		fi
-		if [ ! -r /var/lib/dkms/mok.pub ]; then
-			echo ""
-			echo "╔══════════════════════════════════════════════════════════════╗"
-			echo "║  MISSING SIGNING KEY                                        ║"
-			echo "║──────────────────────────────────────────────────────────────║"
-			echo "║  Secure Boot is ON but the DKMS signing key does not exist.  ║"
-			echo "║                                                              ║"
-			echo "║  QUICK FIX (3 commands):                                    ║"
-			echo "║    1. sudo dkms generate_mok                                ║"
-			echo "║    2. sudo mokutil --import /var/lib/dkms/mok.pub          ║"
-			echo "║    3. sudo reboot                                           ║"
-			echo "║                                                              ║"
-			echo "║  At the blue MOK Manager screen after reboot:               ║"
-			echo "║    Enroll MOK → Continue → Yes → enter password → Reboot     ║"
-			echo "║                                                              ║"
-			echo "║  After login, the driver activates automatically.            ║"
-			echo "║                                                              ║"
-			echo "║  ALSO: running 'install' instead handles all of this         ║"
-			echo "║  for you automatically.                                      ║"
-			echo "╚══════════════════════════════════════════════════════════════╝"
-			exit 1
+		if ! openssl x509 -in "$MOK_CERT" -inform DER -noout >/dev/null 2>&1; then
+			normalize_mok_cert_der "$MOK_CERT" || \
+				fail "The active DKMS MOK certificate at $MOK_CERT is not a valid DER/PEM X.509 certificate."
 		fi
-		# mokutil --test-key's exit code alone is unreliable: on this
-		# system it returns 1 even when the key IS in the enrolled MOK
-		# database (it also checks the *running* kernel's live trusted
-		# keyring, which only picks up a change after the next reboot).
-		# Its own output still says "already enrolled" in that case, so
-		# check that instead of trusting $? — capture output separately
-		# first ("|| true"), since under `set -o pipefail` a direct
-		# `mokutil | grep` pipeline would still report failure overall
-		# from mokutil's own exit code even when grep finds the match.
+
+		# mokutil --test-key's exit code is not reliable on every distro; its
+		# output is the stable signal used by the install path as well.
 		local mok_test_output
-		mok_test_output="$(mokutil --test-key /var/lib/dkms/mok.pub 2>&1 || true)"
+		mok_test_output="$(mokutil --test-key "$MOK_CERT" 2>&1 || true)"
 		if ! echo "$mok_test_output" | grep -qi "already enrolled"; then
 			echo ""
-			warn "Secure Boot is enabled but the DKMS signing key is not enrolled yet."
-			echo "The kernel will refuse to load the signed modules until it is."
+			warn "Secure Boot is enabled but the active DKMS MOK certificate is not enrolled yet:"
+			echo "  $MOK_CERT"
+			echo "The kernel will refuse to load the signed modules until it is enrolled."
 			echo ""
 			if [ -t 0 ]; then
-				echo "Step 1 of 2: enroll the key now (sets a one-time password you"
-				echo "re-enter once at the next boot):"
+				echo "Step 1 of 2: stage the active DKMS certificate for enrollment"
+				echo "(mokutil asks for a one-time password used at the next boot):"
 				echo ""
-				if mokutil --import /var/lib/dkms/mok.pub; then
+				if mokutil --import "$MOK_CERT"; then
 					echo ""
-					pass "Key staged for enrollment."
+					pass "Certificate staged for enrollment."
 					echo ""
 					echo -e "${BOLD}Step 2 of 2 — do this now:${NC}"
 					echo "  1. Reboot: sudo reboot"
-					echo "  2. A blue 'MOK Manager' screen appears before your OS loads."
-					echo "     (If you miss it, it reappears on the next boot attempt.)"
-					echo "  3. Select 'Enroll MOK' -> 'Continue' -> 'Yes'."
-					echo "  4. Enter the password you just set above."
-					echo "  5. Select 'Reboot'."
-				echo "  6. After login, the driver activates automatically"
-				echo "     (if installed via 'install'). Verify with:"
-				echo "       ./tools/sl4a-touch.sh status"
+					echo "  2. At MOK Manager select 'Enroll MOK' -> 'Continue' -> 'Yes'."
+					echo "  3. Enter the one-time password, then select 'Reboot'."
+					echo "  4. The installed boot service retries activation during late boot"
+					echo "     after multi-user.target. Verify with:"
+					echo "       ./tools/sl4a-touch.sh status"
 				else
-					fail "Key enrollment was not completed (mokutil exited non-zero). Nothing was activated."
+					fail "MOK enrollment was not staged (mokutil exited non-zero). Nothing was activated."
 				fi
 			else
-				echo "Run this command yourself in a real terminal (it needs an"
-				echo "interactive password prompt), then follow the on-screen steps:"
+				echo "Run this command in an interactive terminal, then follow MOK Manager:"
 				echo ""
-				echo "  sudo mokutil --import /var/lib/dkms/mok.pub"
+				echo "  sudo mokutil --import $MOK_CERT"
+				echo "  sudo reboot"
 				echo ""
 				echo "Full step-by-step MOK enrollment procedure: docs/ROLLBACK.md"
 			fi
@@ -1550,7 +1525,7 @@ cmd_status() {
 			fi
 		fi
 	else
-		info "  $HID_MODULE is not loaded — run 'activate' after login to load it"
+		info "  $HID_MODULE is not loaded — run 'activate' to load it"
 	fi
 	if [ -d "/sys/module/${CONTROLLER_MODULE//-/_}" ]; then
 		pass "  $CONTROLLER_MODULE is loaded"
