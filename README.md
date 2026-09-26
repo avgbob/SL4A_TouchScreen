@@ -19,8 +19,10 @@ Microsoft `MSHW0231` / `MSHW0162` HID-over-SPI devices.
 > **Surface Laptop 4 AMD testers wanted.** If you have an SL4 AMD, especially
 > `MSHW0231 + AMDI0060`, independent cold-boot, suspend/resume and multitouch
 > results are extremely useful right now. Start with the read-only
-> `./tools/sl4a-touch.sh install --check` preflight and see
-> [Testers Wanted](docs/TESTERS-WANTED.md) for the test matrix.
+> `./tools/sl4a-touch.sh install --check` preflight. See
+> [Testers Wanted](docs/TESTERS-WANTED.md), join the
+> [Hardware Testing Hub](https://github.com/avgbob/SL4A_TouchScreen/discussions/10),
+> or submit a [structured hardware report](https://github.com/avgbob/SL4A_TouchScreen/issues/9).
 
 ## What This Driver Does
 
