@@ -7,3 +7,6 @@ sl4a-spi-amd-objs := spi-amd.o
 
 obj-m += sl4a-spi-hid.o
 sl4a-spi-hid-objs := spi-hid-core.o spi-hid-capimg.o mshw0231-raw.o trace.o
+
+# Optional companion switch: lets Mutter use its native tablet-mode path.
+obj-m += sl4a-tablet-mode.o
