@@ -68,8 +68,17 @@ PROTOCOLS = {
 # One-audio-preflight, one evtest bundle, one timestamped sequence for the
 # first full physical qualification on a new source SHA. Subsequent lifecycle
 # iterations can use the short "quick" protocol without rerunning everything.
+# The same seven tests must use the same namespace when executed
+# directly as `--protocol contacts` or inside `--protocol full`.
+# Unprefixed `one` is a separate one-finger movement gate, NOT a
+# contact-count gate. Without this, a contacts-only run can never pass.
+PROTOCOLS["contacts"] = [
+    ("contacts-" + label, prompt, seconds)
+    for label, prompt, seconds in PROTOCOLS["contacts"]
+]
 PROTOCOLS["full"] = [
-    (f"{protocol}-{label}", prompt, seconds)
+    ((label if protocol == "contacts" else f"{protocol}-{label}"),
+     prompt, seconds)
     for protocol in ("quick", "pinch", "contacts")
     for label, prompt, seconds in PROTOCOLS[protocol]
 ]
