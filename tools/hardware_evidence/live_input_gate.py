@@ -158,6 +158,10 @@ class GestureGate:
 
     def feed(self, frame):
         self.progress = []
+        # A continuity failure is irrevocable for this attempt. Do not
+        # resurrect it if another pair happens to reappear later.
+        if self.failed_reason:
+            return False, self.progress
         contacts = frame.get("contacts", [])
         valid = [c for c in contacts if c.get("x") is not None
                  and c.get("y") is not None]
