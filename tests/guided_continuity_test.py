@@ -4,6 +4,7 @@ import io
 from pathlib import Path
 import queue
 import sys
+import threading
 import time
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] /
@@ -37,12 +38,16 @@ class FakeVoice:
         if message == "Go.":
             self.go_count += 1
             if self.go_count == 1:
-                self.put([(1, 100, 100)])
-                self.put([(1, 200, 100)])
-                self.put([])
+                def one():
+                    self.put([(1, 100, 100)])
+                    self.put([(1, 200, 100)])
+                    self.put([])
+                threading.Timer(.03, one).start()
             elif self.go_count == 2:
-                self.put([(11, 100, 200), (12, 900, 200)])
-                self.put([(11, 300, 200), (12, 600, 200)])
+                def pinch():
+                    self.put([(11, 100, 200), (12, 900, 200)])
+                    self.put([(11, 300, 200), (12, 600, 200)])
+                threading.Timer(.03, pinch).start()
         elif message == "Now move those SAME two fingers apart.":
             if self.broken:
                 # A physical finger lift while the instruction plays
