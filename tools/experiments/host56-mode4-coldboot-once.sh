@@ -25,9 +25,40 @@ unhook() {
     fi
 }
 fallback() {
-    # Never unload an already running production driver during recovery.
+    # Cold boot can reach this function before either driver has loaded.
+    # Loading HID alone creates /sys/module/.../std_raw_transition=1 even
+    # WITHOUT the AMD SPI controller binding; mode=1 is NOT proof of touch.
+    # Use the same controller-then-HID sequence as the normal installer.
+    # NEVER unload or displace an already-running module/device here.
+    if ! modprobe sl4a-spi-amd; then
+        note "ERROR Gate5 fallback could not load AMD SPI controller; touch may be absent"
+        return 1
+    fi
     if [[ -z "$(mode)" ]]; then
-        modprobe sl4a-spi-hid || note "ERROR could not load installed Gate5"
+        if ! modprobe sl4a-spi-hid; then
+            note "ERROR Gate5 fallback could not load HID module"
+            return 1
+        fi
+    fi
+    local controller_path controller_driver touch_driver
+    controller_path=""
+    for controller_path in /sys/bus/platform/devices/AMDI0060:*; do
+        [[ -d "$controller_path" ]] && break
+    done
+    controller_driver=""
+    touch_driver=""
+    if [[ -L "$controller_path/driver" ]]; then
+        controller_driver="$(basename "$(readlink -f "$controller_path/driver")")"
+    fi
+    if [[ -L /sys/bus/acpi/devices/MSHW0231:00/physical_node/driver ]]; then
+        touch_driver="$(basename "$(readlink -f /sys/bus/acpi/devices/MSHW0231:00/physical_node/driver")")"
+    fi
+    note "FALLBACK live_mode=$(mode) AMD_binding=${controller_driver:-NONE} HID_binding=${touch_driver:-NONE}; touch input NOT yet verified"
+    if [[ "$(mode)" != 1 ||
+          "$controller_driver" != sl4a_spi_amd_v2_multi ||
+          "$touch_driver" != sl4a_spi_hid ]]; then
+        note "WARNING Gate5 fallback incomplete binding; requires diagnostics, not another coldboot stage"
+        return 1
     fi
 }
 cancel_timer() { systemctl stop sl4a-mode4-coldboot-rollback.timer >/dev/null 2>&1 || true; }
