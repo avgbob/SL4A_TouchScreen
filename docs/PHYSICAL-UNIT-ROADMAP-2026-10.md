@@ -85,12 +85,32 @@ Fixes on the experimental branch:
   evdev evidence and phase timestamps without requiring another physical
   test or exposing gesture coordinates.
 
-**Next evidence action before any re-test**: run
-`python3 tools/hardware_evidence/audit_voice_gap.py
-~/sl4a-hardware-runs/mode4-full-20261016T155826Z` from the updated worktree.
-Share the small textual summary so we can distinguish a voice-gap reset
-from a live-expansion discontinuity. Do not promote the mode4 driver based
-on the two initial gesture passes alone.
+**Saved evidence audit completed (2026-10-16):** local run
+`mode4-full-20261016T155826Z` reported original pinch IDs `[1, 2]`.
+The *first* loss was an all-contacts-up frame **+3.114 s after pinch
+PASS**. The next expansion instruction began **+13.65 s** after PASS,
+and expand GO was **+19.67 s** after PASS. Thus the observed loss occurred
+**10.54 seconds before the next instruction began** and **16.56 seconds
+before its GO**. The input event stream contains 234 frames during the
+voice instruction interval, confirming the monitor was receiving events.
+Later attempts contributed 1,271 frames with different tracking IDs;
+these do **not** establish 1,271 separate physical failures.
+
+**Interpretation:** the old operator/voice timing makes this run invalid
+as a continuous-finger endurance test. The evidence proves the original
+pair disappeared **during the voice gap**, but alone cannot decide
+whether the tester lifted their fingers, the kernel tracker released
+them, or the controller stopped sensing them. Do **not** diagnose a
+driver MT-ID regression from the interval or count data alone.
+
+**Next physical action:** with the corrected no-long-countdown runner
+at an exact green-CI SHA, perform **one** new
+`bash tools/experiments/host56-mode4.sh qualify full` from a refreshed
+worktree. The first four actions are the shortest proof of continuity
+and remaining multi-contact tests continue only on verified success.
+This is a fresh hardware qualification; the prior two successful
+gesture-level observations remain historically valid but do not
+qualify sustained tracking. Gate5 rollback remains automatic.
 
 ## 2. Mandatory sound-and-evidence policy for physical tests
 
