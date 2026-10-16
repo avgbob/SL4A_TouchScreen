@@ -40,12 +40,20 @@ were not collected into a reusable test runner.
 
 The guide:
 
-- checks whether the operator can actually hear real WAV cue tones
-  from `paplay`, `pw-play`, or `aplay`; refuses to begin if not;
-- runs the acoustic **5-4-3-2-1** countdown, an audible GO for every
-  gesture phase, **3-2-1** phase endings, and STOP/complete sounds;
-- saves **UTC and monotonic phase markers** synchronized with the event
-  capture, plus module/case identity and before/after sysfs counters;
+- synthesizes **spoken English instructions offline** using
+  `espeak-ng` (install with `sudo apt install espeak-ng` if missing) and
+  plays them through `paplay`, `pw-play`, or `aplay`; refuses to begin
+  unless the operator confirms hearing and understanding the voice;
+- speaks a **5-4-3-2-1** countdown before each new gesture and announces
+  contact-count/gesture progress without requiring screen scrolling;
+- uses a second non-grabbing read-only evdev monitor to check actual
+  tracking IDs, finger counts, release, pinch direction and continuity:
+  **a timer cannot advance a test**. Missed gestures get up to three
+  spoken retries, then the run is INCONCLUSIVE, not PASS;
+- saves **UTC and monotonic phase markers**, live event JSONL, the original
+  evtest recording, module/case identity, and before/after sysfs counters;
+- requests an orderly early stop of the evidence collector after all
+  gates pass, so the runner doesn't wait for its worst-case timeout;
 - runs audio as the desktop user while invoking the collector under sudo
   for the privileged input-device read;
 - requires a new evidence directory and verifies actual `evtest` events,
@@ -72,6 +80,12 @@ for a direct-touch control use `--protocol single --input-source direct`;
 for pen use `--protocol stylus` (auto-selects stylus input).
 The `--demo` option exercises printed cues **without sound/hardware**
 for CI or script development only; a demo is not a qualification run.
+
+**Spoken-mode prerequisite:** the earlier sound-check confirmed
+the **tones** on this Surface, but that check does not prove `espeak-ng`
+speech is installed or intelligible. Run the upgraded `--audio-check`
+before activating experimental mode4. The voice-gated workflow has passed
+host simulation; it is **pending its first real end-to-end Surface test**.
 
 **Blinding caution:** these are expressly **unblinded hardware
 engineering sessions**. They reuse the read-only collector but include
