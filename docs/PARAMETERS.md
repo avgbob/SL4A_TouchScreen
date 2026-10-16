@@ -16,6 +16,14 @@ policy.
 | CapImg tracker pipeline | `blob_min_weight`, `ema_alpha`, `dfa_data_offset`, `ghost_dist`, `grid_cols`, `grid_rows`, `blob_debounce`, `blob_lift_frames`, `hold_frames`, `pre_assoc_ratio`, `blob_max_distance` | Applies to decoded CapImg frames in the production SL4 multitouch path as well as the legacy diagnostic transport. Input-quality qualification is still in progress. |
 | CapImg contact calibration | `invert_x`, `invert_y`, `swap_xy`, `calib_scale_x`, `calib_scale_y`, `calib_offset_x`, `calib_offset_y` | Applies to heatmap-backed contact publication. |
 
+**New experimental mode 4 (this branch only):** `std_raw_transition=4` on
+exact ACPI `MSHW0231` sends report `0x56 = FF×6`, waits 37–40 ms, and
+sends SET_FEATURE report 5 **without GET_FEATURE 6** on the standard transport.
+It does not alter the Gate5 installed default (`std_raw_transition=1`) or
+the conservative MSHW0162 profile. Hardware qualification is still pending.
+See [EXPERIMENT-STD-HOST56-SET5.md](EXPERIMENT-STD-HOST56-SET5.md) for
+the isolated test and restoration procedure.
+
 CapImg calibration and tracker controls are read-only after module load. Run a
 new controlled profile for every parameter set; do not mutate a live touch
 stream.
