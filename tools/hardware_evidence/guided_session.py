@@ -24,6 +24,11 @@ COLLECTOR = ROOT / "tools/hardware_evidence/run_blinded_session.sh"
 STATS = Path("/sys/bus/spi/devices/spi-MSHW0231:00/protocol_stats")
 MODE = Path("/sys/module/sl4a_spi_hid/parameters/std_raw_transition")
 PROTOCOLS = {
+    "single": [
+        ("one", "Move ONE finger slowly across the screen", 8),
+        ("lift", "Lift finger; hold hands off glass", 5),
+        ("repeat", "Move one finger again, then lift", 8),
+    ],
     "quick": [
         ("one", "Move ONE finger around the screen", 6),
         ("pinch", "Place TWO fingers far apart; PINCH together", 8),
@@ -175,6 +180,8 @@ def main():
     parser.add_argument("--case", help="Unique run label (e.g. mode4-warm-01)")
     parser.add_argument("--output", type=Path, help="NEW session folder (never overwritten)")
     parser.add_argument("--period", choices=("p1", "p2", "p3"), default="p1")
+    parser.add_argument("--input-source", choices=("beta", "direct", "stylus"),
+                        help="evtest source; defaults to beta MT (stylus for pen protocol)")
     parser.add_argument("--demo", action="store_true", help="Preview cues only, no hardware or sudo")
     parser.add_argument("--audio-check", action="store_true",
                         help="Require audible playback confirmed by operator; no hardware changes")
@@ -186,6 +193,12 @@ def main():
     if args.output and args.output.exists():
         parser.error("output already exists; choose a unique run directory")
     phases = PROTOCOLS[args.protocol]
+    input_source = args.input_source or ("stylus" if args.protocol == "stylus"
+                                         else "beta")
+    if input_source == "direct" and args.protocol != "single":
+        parser.error("direct HID control must use the single-finger protocol")
+    if input_source == "stylus" and args.protocol != "stylus":
+        parser.error("stylus source requires the stylus protocol")
     with tempfile.TemporaryDirectory(prefix="sl4a-audio-") as temp:
         audio = Audio(Path(temp), dry=args.demo)
         audio.preflight()  # Sound MUST be confirmed before sudo or touching driver.
@@ -211,6 +224,7 @@ def main():
         props = {
             "utc_start": stamp(),
             "case": args.case, "protocol": args.protocol,
+            "input_source": input_source,
             "live_std_raw_transition": mode,
             "kernel": probe(["uname", "-r"]),
             "git_head": probe(["git", "-C", str(ROOT), "rev-parse", "HEAD"]),
@@ -229,8 +243,9 @@ def main():
         cmd = ["sudo", "-n", str(COLLECTOR),
                "--period", args.period, "--case", args.case,
                "--duration", str(total), "--output", str(args.output)]
-        cmd.append("--capture-stylus" if args.protocol == "stylus"
-                   else "--capture-beta-multitouch")
+        cmd.append({"stylus": "--capture-stylus",
+                    "direct": "--capture-direct-touch",
+                    "beta": "--capture-beta-multitouch"}[input_source])
         markers_file = Path(temp) / "cues.tsv"
         with markers_file.open("w") as marks:
             marks.write("utc\tmonotonic_seconds\tevent\tdetail\n")
@@ -242,9 +257,11 @@ def main():
                     # The collector first snapshots sysfs before starting
                     # evtest. Wait for the trace manifest instead of guessing.
                     start = time.monotonic()
-                    event_capture = args.output / "trace/input" / (
-                        "stylus.evtest.txt" if args.protocol == "stylus"
-                        else "beta-multitouch.evtest.txt")
+                    event_capture = args.output / "trace/input" / {
+                        "stylus": "stylus.evtest.txt",
+                        "direct": "direct-touch.evtest.txt",
+                        "beta": "beta-multitouch.evtest.txt",
+                    }[input_source]
                     while subprocess.run(["sudo", "-n", "test", "-s",
                                            str(event_capture)], check=False).returncode != 0:
                         if proc.poll() is not None:
@@ -282,8 +299,11 @@ def main():
         status = txt(args.output/"session-status.txt")
         if exit_code != 0 or "status=completed" not in status:
             raise RuntimeError("CAPTURE INCOMPLETE; evidence saved, do not mark PASS")
-        captured = args.output/"trace/input"/("stylus.evtest.txt" if args.protocol=="stylus"
-                                               else "beta-multitouch.evtest.txt")
+        captured = args.output / "trace/input" / {
+            "stylus": "stylus.evtest.txt",
+            "direct": "direct-touch.evtest.txt",
+            "beta": "beta-multitouch.evtest.txt",
+        }[input_source]
         if not captured.is_file() or "Event: time" not in captured.read_text(errors="replace"):
             raise RuntimeError("No captured evtest input events; do not mark PASS")
         print(f"\nCAPTURE SAVED: {args.output}\n"
