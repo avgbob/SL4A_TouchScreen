@@ -331,6 +331,7 @@ test: protocol_test capimg_decoder_host_test c590_atan2_host_test wire_frames_te
 	$(PYTHON) header_read_bounds_test.py
 	$(PYTHON) gate4_activation_source_test.py
 	$(PYTHON) gate5_mode1_input_source_test.py
+	$(PYTHON) mode4_host56_source_test.py
 	$(PYTHON) gate5_data_drain_race_source_test.py
 	$(PYTHON) gate5_installer_profile_source_test.py
 	$(PYTHON) secure_boot_installer_source_test.py
