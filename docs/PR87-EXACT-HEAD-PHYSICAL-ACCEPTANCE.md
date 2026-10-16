@@ -19,6 +19,48 @@ enrolled Ubuntu DKMS MOK. Known-working, installed boot fallback:
 Gate5 `sl4a-touch/1.7.0` mode1, production driver source identity
 `3326E559A916BE5CB52375D` from preceding hardware diagnosis.
 
+## 2026-10-16 first PR87 s2idle attempt: real sleep PASS, gesture INCOMPLETE
+
+User ran `bash tools/experiments/pr87-exact-head.sh s2idle2` on
+`7.0.0-34-generic` with exactly pinned PR87 SHA
+`18f0fe79623e6de4fdf1ae493f82a7048397386a`.
+The tested signed `.ko` was SHA256
+`61ec6f796d60b6e50d1c1888dc693e6cd135d08a023f1bccb0fc5ade15054d8e`,
+loaded `srcversion=65F0D14FBDFB5E84748373E`.
+Baseline Gate5 `3326E559A916BE5CB52375D` and both bindings passed.
+Operator explicitly typed `S2IDLE` and `YES` for cycle1.
+
+**Physical result:** `systemctl suspend` returned, a
+`CLOCK_BOOTTIME - CLOCK_MONOTONIC` gap of **233.101 seconds**
+verified genuine suspend/resume. The runner reached the post-wake
+audible prompt, which the operator reported hearing. However the
+interactive input did not match the confirmation gate: output shows
+`Yes` **before the prompt** and `yes` after it. The Python
+helper's existing `.upper() == "YES"` **already accepted lowercase**
+by design. The exact line Python received is not recorded; an
+early/duplicated input may explain its mismatch, but is not proven.
+It printed `VOICE INCOMPLETE: Post-wake speech unconfirmed` and
+therefore **did NOT execute the post-wake evdev gesture test** or
+start cycle2. Its ordinary EXIT cleanup reported
+`RESTORE PASS: working production Gate5 bound`.
+
+This event is **not** a driver s2idle/touch failure and **not**
+one of the required completed 2/2 lifecycle tests. Record:
+one real s2idle interval and PR module/binding survival to the
+post-wake prompt, but post-wake touch **UNQUALIFIED**; overall
+`INCOMPLETE` with verified safe production rollback.
+
+**Harness improvement:** `speak_operator.py` continues to
+accept `yes`/mixed-case/uppercase but now allows **three explicit
+attempts** to correct an unmatched input line without failing
+the physical test and unloading the temporary driver. It still
+refuses all ambiguous/no confirmations and cannot advance a
+gesture test without operator-verified audible speech. CI tests
+include lowercase, mixed case, an invalid-first/valid-second
+sequence, and three invalid attempts. The physical s2idle2 test
+must be restarted with the updated harness; no previous physical
+PM cycle can be silently counted as a post-wake touch PASS.
+
 ## 2026-10-16 19:37 UTC: PR87 exact-head WARM 3/3 **PASS**
 
 Physical log pasted by operator. Target: Surface Laptop 4 AMD
