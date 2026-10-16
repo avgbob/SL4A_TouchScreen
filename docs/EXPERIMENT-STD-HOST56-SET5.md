@@ -20,6 +20,48 @@ A historical 2026-09-21 mode-3 run did produce CapImg; the difference is
 unresolved. Neither observation justifies promoting a universal activation
 sequence.
 
+### 2026-10-16 mode 4 hardware result — FIRST WARM RELOAD **PASS: CapImg streaming**
+
+Experiment performed on the same Surface Laptop 4 AMD 13.5-inch, running
+Ubuntu kernel `7.0.0-31-generic`. Detached test worktree at `308f914`.
+`mode4_host56_source_test.py` passed; both out-of-tree modules built
+against installed kernel headers. The transient `sl4a-spi-hid.ko` was
+signed with the machine's **existing enrolled Ubuntu MOK**; no DKMS
+installation or boot configuration change was required.
+
+The driver reported `std_raw_transition=4` and received exactly one reset
+response and one each of DEVICE_DESC/RPT_DESC during initialization:
+
+| Mode 4 counter | After activation, before touch | After 10 s finger test | Delta |
+| --- | ---: | ---: | ---: |
+| `reset_rsp` | 1 | 1 | 0 |
+| `device_desc` | 1 | 1 | 0 |
+| `rpt_desc` | 1 | 1 | 0 |
+| `data` | 0 | **749** | **+749** |
+| `raw_observed` | 0 | **749** | **+749** |
+| `irq_count` | 3 | **752** | **+749** |
+| `frames_dropped` | 0 | 0 | 0 |
+| `getfeat_resp` | 0 | 0 | 0 |
+
+Kernel evidence at 2026-10-16 10:49:43 local:
+`SEQ: first V0 0x0c heatmap body observed (len=4302, standard)`.
+
+The sequence is `0x56 FF×6 → usleep_range(37000,40000) → SET5`;
+there is **no GET6** in the mode-4 source branch. This proves GET6 is
+**not necessary for CapImg activation** on this controller in this warm
+reload. Neither a second reset nor a dropped frame was observed.
+
+**Qualification still pending:** user has not yet explicitly confirmed
+two-finger pinch/scroll, input quality, repeated warm reloads, cold boot,
+s2idle, pen, or post-test Gate5 restoration. The input counters establish
+CapImg frames, not gesture quality. The comparison with failed mode 3
+also changes **both** the preceding `0x56` write **and** the elapsed delay;
+the data alone does **not** identify which factor is necessary. Historical
+mode-3 success is another confounder. Do not promote mode 4 to default.
+
+Initial CI for commit `308f914` passed, including host tests and kernel
+builds; hardware and regression conclusions are separate.
+
 DieSchatten's independent 13.5-inch MSHW0231 unit uses a different **raw-mode**
 sequence: report 0x56 with all-six-`FF` payload, ~37–40 ms delay, SET5,
 and **no GET6**. That combination produced CapImg on his unit; GET6 paths
