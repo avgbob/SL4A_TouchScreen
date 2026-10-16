@@ -22,6 +22,10 @@ jobs:
           bash tools/in-tree/source-selector-test.sh
           bash tools/in-tree/audit.sh
           bash tools/kernel_integration/selftest.sh
+          python3 kernel-pins/pr87/tests/std_capimg_activation_source_test.py
+          python3 kernel-pins/pr87/tests/std_capimg_data_drain_source_test.py
+          python3 kernel-pins/pr87/tests/std_capimg_data_handler_test.py
+          python3 kernel-pins/pr87/tests/std_capimg_input_source_test.py
 
   kernel-packages:
     needs: source-audit

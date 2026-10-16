@@ -14,6 +14,11 @@ image. It is crucial not to conflate these environments.
   PR #87 C/H driver set from upstream commit
   `18f0fe79623e6de4fdf1ae493f82a7048397386a`. A frozen snapshot of all **14 C/H Git blobs** lives in
   `kernel-pins/pr87/driver/`; the manifest lists exact blob object IDs.
+- Four PR87 source/regression tests from the exact upstream commit are
+  retained unmodified in `kernel-pins/pr87/tests/` and executed against
+  this pinned snapshot in source-audit CI. The compiled production DATA
+  handler test exercises HID dispatch, CapImg tracker ownership, DATA drain,
+  and the default-standard `0x0c` negative control.
 - The source selector verifies the pinned commit, the unchanged manifest,
   individual Git blob identities, file inventory and uniqueness before writing
   to a Linux source tree. CI also tests corrupt source, manifest and identity
