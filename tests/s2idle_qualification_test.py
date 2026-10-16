@@ -82,7 +82,11 @@ audio = (root / "tools/hardware_evidence/speak_operator.py").read_text()
 assert "from guided_session import Audio" in audio
 assert "audio.speak(message)" in audio
 assert 'if confirm:' in audio
-assert 'response.upper() != "YES"' in audio
+assert 'response.casefold() == "yes"' in audio
+assert 'for attempt in range(1, 4):' in audio, (
+    "postwake confirmation must let the operator correct a typing mistake")
+assert 'No touch PASS yet.' in audio, (
+    "no confirmation attempt may be presented as a passed touch gate")
 assert "Speech could not be played after waking" in audio
 for token in ("insmod", "modprobe", "systemctl"):
     assert token not in audio, "speech helper must never mutate hardware"
@@ -110,7 +114,21 @@ try:
     sys.stdin = FakeTTY()
     builtins.input = lambda _: "YES"
     assert voice.say_and_confirm("heard", confirm=True) == 0
-    builtins.input = lambda _: "no"
+    # The prompt already accepted lowercase by uppercasing it; keep that
+    # and all ordinary capitalizations, even after the retry addition.
+    for yes in ("yes", "Yes", "YES", "yEs", " yes "):
+        builtins.input = lambda _, v=yes: v
+        assert voice.say_and_confirm("heard", confirm=True) == 0
+
+    # Reproduce an early/merged/buffered keystroke: one malformed line,
+    # followed by the intended explicit YES. Do not force another suspend.
+    entries = iter(["Yesyes", "yes"])
+    builtins.input = lambda _: next(entries)
+    assert voice.say_and_confirm("heard after typo", confirm=True) == 0
+
+    # No, ambiguous text and silence must be rejected even after retries.
+    entries = iter(["no", "yes?", ""])
+    builtins.input = lambda _: next(entries)
     try:
         voice.say_and_confirm("not heard", confirm=True)
     except RuntimeError as e:
