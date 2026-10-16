@@ -243,6 +243,78 @@ run_full_matrix() {
     echo "MATRIX EVIDENCE: $session"
 }
 
+# Explicit negative control of the exact PR #87 module.
+# This intentionally disables BOTH standard CapImg activation and beta input.
+# A passive raw_observed count is allowed: observation is not publication.
+load_pr_standard_negative() {
+    [[ "$(field "$HID/srcversion")" == "$production_src" ]] ||
+        die "production driver not restored before negative control"
+    active=1  # arm EXIT rollback BEFORE unloading Gate5
+    root modprobe -r sl4a-spi-hid
+    root insmod "$MODULE" raw_mode=N raw_input_beta=N \
+        wire_double_opcode=1 skip_std_getfeat=1 \
+        std_raw_transition=0 get_noread=0 getfeat_delay_ms=0 \
+        std_liveness_ms=0 std_liveness_recover=0 wait_reset_kick_ms=0
+    sleep 3
+    [[ "$(field "$MODE")" == 0 &&
+       "$(field "$HID/parameters/raw_mode")" == N &&
+       "$(field "$HID/parameters/raw_input_beta")" == N &&
+       "$(field "$HID/srcversion")" == "$experiment_src" &&
+       "$(binding "$CONTROLLER")" == sl4a_spi_amd_v2_multi &&
+       "$(binding "$TOUCH")" == sl4a_spi_hid && -r "$STATS" ]] ||
+        die "negative-control module identity/opt-out/bindings failed"
+    echo "PR87 DEFAULT STANDARD ACTIVE: experimental bridge disabled; source $experiment_src"
+}
+
+run_standard_negative() {
+    preflight
+    checkout_exact
+    echo "PR87 opt-out control: std_raw_transition=0 raw_input_beta=0 raw_mode=N."
+    echo "Touchscreen multitouch is NOT expected to function in this mode."
+    echo "The test verifies standard HID discovery and absence of the added MT bridge."
+    echo "It does NOT infer Report 0x0c dispatch policy from missing touch reports."
+    echo "Gate5 is restored on normal exit and on ordinary failures or interruptions."
+    local confirm
+    printf 'Type NEGATIVE to build/sign and run this reversible PR87 opt-out control: '
+    IFS= read -r confirm
+    [[ "$confirm" == NEGATIVE ]] || die "cancelled before any driver change"
+    prepare
+    session="$HOME/sl4a-hardware-runs/pr87-exact-negative-$(date -u +%Y%m%dT%H%M%SZ)"
+    mkdir -p -m 0700 "$session"
+    {
+        echo "source_commit=$PR_HEAD"
+        echo "kernel=$(uname -r)"
+        echo "module_sha256=$(sha "$MODULE")"
+        echo "module_srcversion=$experiment_src"
+        echo "production_srcversion=$production_src"
+        echo "negative_control=raw_mode=N raw_input_beta=N std_raw_transition=0"
+    } > "$session/provenance.txt"
+    printf 'INCOMPLETE\n' > "$session/result.txt"
+    trap on_exit EXIT
+    trap 'exit 130' INT
+    trap 'exit 143' TERM
+    local signed_hash
+    signed_hash="$(sha "$MODULE")"
+    load_pr_standard_negative
+    cat "$STATS" > "$session/standard-stats-before.txt"
+    sleep 5
+    python3 "$HARNESS_ROOT/tools/hardware_evidence/pr87_standard_negative.py" \
+        --expected-srcversion "$experiment_src" \
+        | tee "$session/negative-control-verdict.json"
+    cat "$STATS" > "$session/standard-stats-after.txt"
+    [[ "$(sha "$MODULE")" == "$signed_hash" &&
+       "$(field "$HID/srcversion")" == "$experiment_src" ]] ||
+        die "experimental signed module changed during negative control"
+    restore
+    printf 'PASS_NEGATIVE_CONTROL\n' > "$session/result.txt"
+    ( cd "$session"; find . -maxdepth 1 -type f ! -name SHA256SUMS.txt \
+        -print0 | sort -z | xargs -0 -r sha256sum > SHA256SUMS.txt )
+    ( cd "$session"; sha256sum -c SHA256SUMS.txt )
+    echo "PR87 NEGATIVE CONTROL PASS: opt-out, standard discovery, no added MT bridge; Gate5 restored."
+    echo "NOTE: report 0x0c dispatch is protected by host production-handler regression; not physically inferred."
+    echo "NEGATIVE CONTROL EVIDENCE: $session"
+}
+
 # Two real suspend cycles with ONE signed PR module continuously loaded.
 # This is not a warm module reload: it audits the PM s2idle entry/exit,
 # CLOCK_BOOTTIME-minus-MONOTONIC sleep gap, and post-wake actual MT events.
@@ -372,5 +444,6 @@ case "${1:-}" in
     warm3) run_warm_three ;;
     s2idle2) run_s2idle_two ;;
     full-matrix) run_full_matrix ;;
-    *) echo "Usage: bash $0 {preflight|warm3|s2idle2|full-matrix}" >&2; exit 2 ;;
+    standard-negative) run_standard_negative ;;
+    *) echo "Usage: bash $0 {preflight|warm3|s2idle2|full-matrix|standard-negative}" >&2; exit 2 ;;
 esac

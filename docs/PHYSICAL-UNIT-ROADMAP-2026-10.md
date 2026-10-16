@@ -4,6 +4,24 @@
 the independent DieSchatten device, and Syax89's upstream PR #87.
 This is an operating plan, not a claim of broad compatibility.
 
+## PR87 default-standard negative-control runner: READY FOR PHYSICAL TEST
+
+Added `pr87-exact-head.sh standard-negative`, using the same pinned
+PR source and signed module as prior warm/s2idle/matrix qualification.
+It opts out via `raw_mode=N raw_input_beta=N std_raw_transition=0`
+and requires normal standard HID discovery plus absence of the
+`MSHW0231 Touchscreen` heatmap MT input device. A read-only checker
+fails closed for missing descriptors, incorrect parameters, module
+identity mismatches and leaked bridge registrations. The test
+**does not assume** passive `raw_observed=0` or treat device silence as
+physical proof of Report `0x0c` dispatch policy. Its host tests use
+synthetic sysfs fixtures; a separate compiled production-handler test
+covers 0x0c policy. Restores installed production Gate5 on exit
+and writes a private local evidence bundle.
+
+**Physical result remains PENDING.** True exact PR87 cold first-HID
+power-on still separately pending. No new PR driver changes.
+
 ## 2026-10-16 21:33 UTC: PR87 exact-head FULL GESTURE MATRIX **16/16 PASS**
 
 **Physical SL4 AMD / MSHW0231**, Ubuntu kernel `7.0.0-34-generic`.

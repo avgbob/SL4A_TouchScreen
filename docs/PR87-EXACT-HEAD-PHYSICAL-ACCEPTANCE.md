@@ -49,6 +49,35 @@ The analysis remains read-only. **Actual release gaps are still
 not determined** until the corrected tool is run against the
 existing local captures.
 
+## Default-standard physical negative control: prepared, NOT yet run
+
+Use `bash tools/experiments/pr87-exact-head.sh standard-negative`
+on the physical Surface to test the *same pinned PR87 source*
+`18f0fe79623e6de4fdf1ae493f82a7048397386a` with
+`raw_mode=N raw_input_beta=N std_raw_transition=0`. The distinct
+`NEGATIVE` confirmation precedes signing/loading. The script temporarily
+unloads Gate5, loads the exact signed PR87 module in opt-out mode,
+checks source/parameter/binding identity, and runs a read-only sysfs
+verifier. That verifier requires ordinary standard HID descriptor
+discovery (`ready=1`, `device_desc>0`, `rpt_desc>0`) and **no**
+registered `MSHW0231 Touchscreen` heatmap-backed input device.
+It is intentionally **not** a multitouch gesture PASS test:
+the experimental MT bridge is supposed to be absent in opt-out mode.
+The harness restores production Gate5 using its existing EXIT/interrupt
+rollback and saves local provenance/counter snapshots/checksums without
+touch coordinates or event streams.
+
+The passive `raw_observed` counter can legitimately be nonzero in
+ordinary mode, so the verifier never uses it as proof of publishing.
+Similarly, a silent standard-mode touchscreen cannot establish whether
+Report ID `0x0c` was withheld by the HID dispatcher. Actual policy
+is separately tested by the compiled, production-handler host tests.
+This physical control proves **opt-out parameter and device-registration
+behavior**, not an exhaustive byte-for-byte comparison of every HID path.
+
+**Status: runner prepared and host-tested; physical control PENDING.**
+Never mark this as physical PASS from CI alone.
+
 ## 2026-10-16 21:33 UTC: exact-head full physical matrix **16/16 PASS**
 
 The operator ran `bash tools/experiments/pr87-exact-head.sh full-matrix`

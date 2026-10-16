@@ -55,6 +55,33 @@ assert 'sha256sum -c SHA256SUMS.txt' in matrix
 for forbidden in ("systemctl suspend", "reboot", "dkms install"):
     assert forbidden not in matrix
 
+# Exact-PR standard-mode opt-out is its OWN reversible loading path.
+assert 'standard-negative) run_standard_negative' in harness
+neg_load = harness.split('load_pr_standard_negative() {\n', 1)[1].split('\n}\n\nrun_standard_negative()', 1)[0]
+neg_run = harness.split('run_standard_negative() {\n', 1)[1].split('\n}\n\n# Two real suspend cycles', 1)[0]
+assert 'active=1  # arm EXIT rollback BEFORE unloading Gate5' in neg_load
+assert neg_load.index('active=1') < neg_load.index('root modprobe -r sl4a-spi-hid')
+assert 'root insmod "$MODULE" raw_mode=N raw_input_beta=N' in neg_load
+assert 'std_raw_transition=0' in neg_load
+assert 'std_raw_transition=1' not in neg_load
+assert 'field "$HID/parameters/raw_input_beta")" == N' in neg_load
+assert 'field "$MODE")" == 0' in neg_load
+assert 'field "$HID/srcversion")" == "$experiment_src"' in neg_load
+assert neg_run.index('    preflight\n') < neg_run.index('    checkout_exact\n')
+assert neg_run.index('Type NEGATIVE to build/sign') < neg_run.index('    prepare\n')
+assert neg_run.index('    trap on_exit EXIT\n') < neg_run.index('    load_pr_standard_negative\n')
+assert neg_run.index('    load_pr_standard_negative\n') < neg_run.index('    restore\n')
+assert neg_run.count('    load_pr_standard_negative\n') == 1
+assert 'pr87_standard_negative.py' in neg_run
+assert '--expected-srcversion "$experiment_src"' in neg_run
+assert 'cat "$STATS" > "$session/standard-stats-before.txt"' in neg_run
+assert 'cat "$STATS" > "$session/standard-stats-after.txt"' in neg_run
+assert neg_run.index('    restore\n') < neg_run.index("PASS_NEGATIVE_CONTROL")
+assert 'sha256sum -c SHA256SUMS.txt' in neg_run
+for forbidden in ('systemctl suspend', 'reboot', 'dkms install',
+                  'update-initramfs', 'guided_session.py'):
+    assert forbidden not in neg_run and forbidden not in neg_load
+
 # The real PM test is intentionally NOT silently simulated on CI: it
 # depends on hardware suspension and an operator hearing audio after wake.
 # But all safety/acceptance ordering is enforced in the source contract.
