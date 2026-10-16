@@ -4,6 +4,43 @@
 the independent DieSchatten device, and Syax89's upstream PR #87.
 This is an operating plan, not a claim of broad compatibility.
 
+## 2026-10-16 21:33 UTC: PR87 exact-head FULL GESTURE MATRIX **16/16 PASS**
+
+**Physical SL4 AMD / MSHW0231**, Ubuntu kernel `7.0.0-34-generic`.
+The one-shot `pr87-exact-head.sh full-matrix` activated
+the **same exact pinned upstream PR87 source**
+`18f0fe79623e6de4fdf1ae493f82a7048397386a`,
+signed module SHA256
+`61ec6f796d60b6e50d1c1888dc693e6cd135d08a023f1bccb0fc5ade15054d8e`,
+`srcversion=65F0D14FBDFB5E84748373E`.
+
+All **16** spoken, evdev-gated quick/pinch/contacts phases
+passed: 1–5 active fingers, continuous original two-finger
+pinch/expand/hold/release, partial one-finger lift and new
+contact after release. The newer nonblocking speech harness
+did not narrate the previously stale singleton release cue.
+The operator transcript explicitly reports passing source identity,
+driver reset/drop counters and evidence checksums. The exact
+individual counter deltas and raw evdev records were not supplied;
+do not invent them.
+
+Run: `~/sl4a-hardware-runs/pr87-exact-matrix-20261016T213332Z`;
+capture: `cycle-matrix-full`. Afterward
+`RESTORE PASS: working production Gate5 bound` and
+`PR87 FULL MATRIX PASS; source pinned, signed module stable,
+Gate5 restored.` Four top-level evidence hash entries verified.
+
+**Acceptance state: PR87 warm 3/3 PASS; s2idle 2/2 PASS;
+full gesture matrix 16/16 PASS. Outstanding:**
+(1) **exact-PR87 true cold first-HID power-on**, and
+(2) **default-standard negative/opt-out physical control**.
+The previously completed GET6-free mode4 cold trial is a
+different exact driver/protocol, not evidence for the PR87 cold gate.
+Avoid redundant repeat of the successful warm and s2idle tests.
+
+Full chronology:
+[PR87 exact-head physical acceptance](PR87-EXACT-HEAD-PHYSICAL-ACCEPTANCE.md).
+
 ## 2026-10-16 21:06 UTC: PR87 release-voice lag **CONFIRMED**
 
 Read-only evidence comparison of PR87 warm cycle 2
@@ -35,8 +72,10 @@ for true hardware release latency attribution.
 
 Detailed log and all six measured intervals:
 [PR87 exact-head physical acceptance](PR87-EXACT-HEAD-PHYSICAL-ACCEPTANCE.md).
-**Outstanding PR87**: exact-head cold first-HID boot,
-full gesture matrix and standard-mode opt-out control.
+**Historical outstanding status as of this release-voice investigation:**
+exact-head cold first-HID boot, full gesture matrix and standard-mode
+opt-out control. The full gesture matrix subsequently PASSED at 21:33 UTC;
+see newer entry above.
 Production Gate5 remains installed and working.
 
 ## 2026-10-16 20:13 UTC: PR87 exact-head genuine S2IDLE 2/2 **PASS**
