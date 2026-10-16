@@ -2,10 +2,13 @@
 
 ## Mode 4 lifecycle qualification (read before suspending)
 
-After the 2026-10-16 `qualify-warm3` physical pass (3/3 on identical
-signed code), the remaining planned mode4 lifecycle checks are **two actual
-s2idle/resume cycles** and controlled cold boot. These are *not* the
-previous warm-reload tests.
+On 2026-10-16, the physical unit passed `qualify-warm3`
+(3/3 activations of one signed module), then `qualify-s2idle2`
+(2/2 genuine s2idle/resume intervals with spoken and event-verified
+postwake touchscreen tests). **The only remaining planned mode4
+lifecycle test is controlled true cold power-on.** This must be a
+separate, safely self-reverting boot experiment, not a repeat of these
+successful checks.
 
 On the original Surface, the experimental branch provides:
 
@@ -37,9 +40,14 @@ Gate5 mode1; if the laptop never resumes or must be hard rebooted,
 the unchanged installed Gate5 boot configuration still applies.
 A `PASS` must not be claimed without **both** verified actual suspend
 intervals, both successful postresume gesture sessions, recorded logs,
-and final Gate5 restoration. The helper itself is **not yet
-physical-hardware qualified**. Do not use the machine for other work
-while it is testing, and keep work saved before inducing real suspend.
+and final Gate5 restoration. The **exact `dc39813` version was physically qualified 2/2**
+on the SL4 AMD with 5.238s and 23.315s real suspend gaps, two
+spoken postwake `quick` sessions, zero reported frame-drop/reset
+failures, and restored Gate5 mode1. Evidence: `mode4-s2idle2-20261016T173414Z`,
+`mode4-quick-20261016T173525Z`, and
+`mode4-quick-20261016T173808Z`. This does not establish
+true cold boot, long-term field durability, or other device variants.
+For any further testing, save work before inducing real suspend.
 
 `collect.sh` is a read-only evidence harness for the Surface Laptop 4 AMD
 touchscreen (`AMDI0060` and `MSHW0231`). It discovers ACPI, SPI, input, and
