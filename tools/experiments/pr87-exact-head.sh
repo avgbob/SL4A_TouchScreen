@@ -65,6 +65,12 @@ checkout_exact() {
 }
 prepare() {
     checkout_exact
+    # The previous aborted first-cycle run left a SIGNED .ko in this
+    # separate build worktree. Kbuild may consider it up-to-date;
+    # appending another PKCS#7 signature to that existing binary would
+    # destroy the one-build/one-signature provenance guarantee.
+    # Clean only the transient PR driver build objects, never DKMS.
+    make -C "$KDIR" M="$PR_ROOT/driver" clean
     make -C "$KDIR" M="$PR_ROOT/driver" modules
     [[ -s "$MODULE" ]] || die "PR HID .ko missing after build"
     if command -v mokutil >/dev/null && mokutil --sb-state 2>/dev/null |
