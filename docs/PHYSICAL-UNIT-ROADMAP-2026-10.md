@@ -4,6 +4,31 @@
 the independent DieSchatten device, and Syax89's upstream PR #87.
 This is an operating plan, not a claim of broad compatibility.
 
+## Exact PR87 true cold first-HID test: one-shot harness + rollback PREPARED
+
+One-shot helper: `tools/experiments/pr87-coldboot-once.sh`.
+Operator entry: `tools/experiments/pr87-exact-head.sh coldboot-stage`,
+then physical full poweroff and on, then `coldboot-finish`.
+Built on prior mode4 one-shot proven design but **PR87 != mode4**:
+both PR87 experimental and installed Gate5 use standard mode=1,
+so rollback MUST match the exact source `srcversion`, stage/trial
+boot ID and stored production identity instead of relying on mode
+alone. The same exact PR commit `18f0fe79623e6de4fdf1ae493f82a7048397386a`
+is used. Installer, DKMS and persistent modprobe profile remain unchanged.
+The temporary boot service drop-in self-consumes before insertion.
+A separate 20-minute timer restores Gate5 if gestures do not finish.
+Host CI can establish the scripted mock state machine and kernel builds,
+but **cannot** demonstrate real power cycling. Missing/mismatched boot
+ID, previous HID probe, kernel update, expired stage, signature or hash
+mismatch refuse the test. A good run verifies actual post-boot
+live single/two-finger gestures before physical PASS and production
+Gate5 restoration. See
+[exact PR87 acceptance](PR87-EXACT-HEAD-PHYSICAL-ACCEPTANCE.md)
+for precise commands, failure categories and recovery.
+
+**PHYSICAL FIRST-HID COLD PASS STILL PENDING.**
+Do not label the independent mode4 cold success as PR87 cold PASS.
+
 ## PR87 physical negative control: observational PASS after false-negative correction
 
 The exact signed PR87 module was tested with

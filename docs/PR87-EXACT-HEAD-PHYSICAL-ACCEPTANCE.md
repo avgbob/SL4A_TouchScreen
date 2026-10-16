@@ -50,6 +50,80 @@ The analysis remains read-only. **Actual release gaps are still
 not determined** until the corrected tool is run against the
 existing local captures.
 
+## 2026-10-16: exact PR87 cold first-HID one-shot runner PREPARED
+
+A separate `tools/experiments/pr87-coldboot-once.sh` helper implements
+**the last major pending physical qualification**, but this is **NOT YET
+A PHYSICAL COLD-BOOT PASS**. PR code remains pinned at
+`18f0fe79623e6de4fdf1ae493f82a7048397386a`. The helper is
+independent of the earlier GET6-free mode4 coldboot implementation and
+never modifies the upstream PR, installed DKMS package or permanent
+Gate5 modprobe profile.
+
+**Before poweroff** (on the physical Ubuntu SL4 AMD unit):
+```bash
+cd ~/SL4A_TouchScreen-host56
+git fetch https://github.com/avgbob/SL4A_TouchScreen.git experiment/sl4-std-host56-set5
+git switch --detach FETCH_HEAD
+bash tools/experiments/pr87-exact-head.sh preflight
+bash tools/experiments/pr87-exact-head.sh coldboot-stage
+```
+Type **`ARM_PR87`** to confirm staging; save files and fully power off
+with `sudo systemctl poweroff`, then press the POWER button to turn it
+back on. A `reboot` command alone does not qualify this test.
+
+**On the genuinely new boot, after login/unlock:**
+```bash
+cd ~/SL4A_TouchScreen-host56
+bash tools/experiments/pr87-exact-head.sh coldboot-finish
+```
+The boot verifier must report
+`ACTIVE_AWAITING_POSTBOOT_TOUCH`, exact source and signed module
+identity, same expected kernel, and a **different** stage/trial boot
+identifier. The operator then types `COLD_PR87` (only if physically
+powered off) and follows the same spoken one-finger/two-finger
+evdev tracking-ID gated gestures used in successful PR87 warm testing.
+Successful completion invokes helper `finish PASS`, checks Gate5
+source + both controller/touch bindings after rollback and verifies
+root-owned evidence SHA256 checksums. The local capture creates
+`~/sl4a-hardware-runs/pr87-cold-first-hid-*`, while the
+one-use root provenance is stored in `/var/lib/sl4a-pr87-coldboot`.
+
+**Safety audit / abort cases:** staging rejects mismatched
+`/boot/vmlinuz` default-kernel symlinks, non-enrolled signing
+credentials, wrong device/bindings, competing boot service drop-ins,
+any armed mode4 experiment or an already armed PR87 one-shot.
+At boot it consumes the override BEFORE any PR87 module insertion,
+refuses re-entry on the staging boot, compares the two boot IDs and
+kernel versions, enforces 24-hour staging expiry, scans kernel journal
+for earlier HID probes, and rejects any HID already loaded, including
+during AMD initialization. It validates a pinned exact source and
+the copied signed module hash. Only then does it arm a separate
+**20-minute independent systemd rollback timer** before loading the
+experimental HID with
+`raw_mode=N raw_input_beta=Y std_raw_transition=1`,
+`wire_double_opcode=1 skip_std_getfeat=1`.
+Because **PR87 and Gate5 BOTH report mode=1**, rollback authorizes
+unloading only if **trial boot ID + experimental srcversion** match,
+then reloads Gate5 and verifies the expected installed source and both
+bindings. If an earlier probe prevents the experiment, restore
+production HID when it is absent; never displace an unrelated already
+running module.
+
+A physical result must not be inferred from GitHub CI: the emulator
+does not physically cut system power or observe a user's fingers.
+Offline tests mock new/stale boot IDs, earlier probe, stage expiry,
+kernel mismatch, signed-module tampering, watchdog rollback,
+source-specific unload safety and final evidence sealing. The helper's
+`diagnose` is read-only. Stop and inspect if it says
+`INCONCLUSIVE` or rollback cannot confirm both bindings.
+`coldboot-cancel` can disarm a staged experiment; after boot, the
+independent timer is the last-resort recovery if the session is
+interrupted. Full poweroff is not necessary until the user decides
+to run the one-shot test.
+
+**Cold first-HID physical status: PENDING operator execution.**
+
 ## 2026-10-16 21:49 UTC: PR87 standard-negative physical observations **PASS on corrected source contract**
 
 Physical Surface test was run at harness head `7d1ac68b81f4a54bc926dfb8d61c9c10a9598045`, exact PR driver
