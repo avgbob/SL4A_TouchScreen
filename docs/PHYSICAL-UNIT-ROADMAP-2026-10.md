@@ -4,6 +4,41 @@
 the independent DieSchatten device, and Syax89's upstream PR #87.
 This is an operating plan, not a claim of broad compatibility.
 
+## 2026-10-16 21:06 UTC: PR87 release-voice lag **CONFIRMED**
+
+Read-only evidence comparison of PR87 warm cycle 2
+(`pr87-exact-warm3-20261016T193705Z/cycle-2-quick`) against
+the old narrated test script:
+
+- Original first-ID release → final-ID release:
+  **425.775ms in kernel evdev time**, **425.745ms in Python observer**.
+- The `Lift both fingers` prompt was queued **1300.443ms BEFORE**
+  the first release, and `lift` phase begin marked **961.236ms AFTER**.
+- **Both fingers were already reported absent 536.178ms BEFORE**
+  the later `One original finger remains` progress cue was queued.
+- The PASS cue was logged **4802.244ms after** the first release:
+  **4376.499ms after actual last-release event**, consistent with
+  the old **synchronous** intermediate announcement blocking
+  consumption of queued input frames.
+
+**Causal boundary:** the stale `One original finger remains` voice
+could NOT have caused the earlier 425.775ms inter-release interval,
+because its cue occurred only after both contacts had been released.
+That interval is a **measured Linux event gap**, not proven delayed
+driver reporting relative to physical fingertip separation;
+operator timing vs firmware/driver remains unresolved.
+No replacement/reappearing tracking IDs were found. The new
+harness already suppresses the stale voice instruction
+**without changing strict evdev continuity acceptance or PR code**.
+A separate external physical finger-off reference is needed
+for true hardware release latency attribution.
+
+Detailed log and all six measured intervals:
+[PR87 exact-head physical acceptance](PR87-EXACT-HEAD-PHYSICAL-ACCEPTANCE.md).
+**Outstanding PR87**: exact-head cold first-HID boot,
+full gesture matrix and standard-mode opt-out control.
+Production Gate5 remains installed and working.
+
 ## 2026-10-16 20:13 UTC: PR87 exact-head genuine S2IDLE 2/2 **PASS**
 
 The user's third PR87 s2idle attempt completed two genuine
