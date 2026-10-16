@@ -12,7 +12,7 @@ usage() {
 mode=$1
 [[ $mode == --check || $mode == --apply ]] || usage
 kernel=$(realpath -e -- "$2") || usage
-repo=$(cd -- "$(dirname -- "\${BASH_SOURCE[0]}")/../.." && pwd -P)
+repo=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd -P)
 src="$repo/driver"
 
 for path in Makefile Kconfig drivers/spi/Kconfig drivers/spi/Makefile drivers/hid/Kconfig drivers/hid/Makefile; do
@@ -52,7 +52,7 @@ cp -- "$src/spi-amd.c" "$src/spi-amd.h" "$kernel/drivers/spi/sl4a/"
 # It is a duplicate for the staging prototype and must be reconciled upstream.
 cp -- "$src"/*.h "$kernel/drivers/hid/sl4a/"
 for file in "$src"/*.c; do
-    [[ \${file##*/} == spi-amd.c ]] && continue
+    [[ ${file##*/} == spi-amd.c ]] && continue
     cp -- "$file" "$kernel/drivers/hid/sl4a/"
 done
 
