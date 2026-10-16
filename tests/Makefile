@@ -338,6 +338,7 @@ test: protocol_test capimg_decoder_host_test c590_atan2_host_test wire_frames_te
 	$(PYTHON) audit_release_test.py
 	$(PYTHON) live_input_gate_test.py
 	$(PYTHON) guided_session_integrity_test.py
+	$(PYTHON) s2idle_qualification_test.py
 	bash -n ../tools/experiments/host56-mode4.sh
 	$(PYTHON) gate5_data_drain_race_source_test.py
 	$(PYTHON) gate5_installer_profile_source_test.py
