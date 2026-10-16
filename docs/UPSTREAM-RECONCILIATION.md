@@ -1,10 +1,10 @@
 # Surface Laptop AMD Touchscreen
 ## Upstream Reconciliation, Technical Comparison, and Contribution Plan
 
-**Status:** Draft for technical review  
-**Prepared:** October 15, 2026  
-**Repositories:** [Syax89/SL4A_TouchScreen](https://github.com/Syax89/SL4A_TouchScreen) (upstream) · [avgbob/SL4A_TouchScreen](https://github.com/avgbob/SL4A_TouchScreen) (Gate5 fork)  
-**Other contributors reviewed:** DieSchatten, OctoDevStudios, cristinagp  
+- **Status:** Draft for technical review
+- **Prepared:** October 15, 2026
+- **Repositories:** [Syax89/SL4A_TouchScreen](https://github.com/Syax89/SL4A_TouchScreen) (upstream) · [avgbob/SL4A_TouchScreen](https://github.com/avgbob/SL4A_TouchScreen) (Gate5 fork)
+- **Other contributors reviewed:** DieSchatten, OctoDevStudios, cristinagp
 **Scope:** Current default-branch source comparison, merged PRs #84 and #86, and existing hardware-qualification records. No new builds or hardware tests were performed for this document.
 
 ---
