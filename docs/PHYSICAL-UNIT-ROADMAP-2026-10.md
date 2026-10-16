@@ -4,6 +4,25 @@
 the independent DieSchatten device, and Syax89's upstream PR #87.
 This is an operating plan, not a claim of broad compatibility.
 
+## 2026-10-16: Gate5 touchscreen functionality RESTORED on kernel 7.0.0-34
+
+**Physical operator confirmation:** After `sudo modprobe sl4a-spi-amd`,
+the platform driver bound to `sl4a_spi_amd_v2_multi` and the MSHW0231
+touchscreen bound to `sl4a_spi_hid`. Protocol statistics confirmed
+`data=121`, `raw_observed=109`, `frames_dropped=0`, and `irq_count=125`.
+The operator subsequently explicitly confirmed **"it works"** in response
+to checking actual touch input (tapping, dragging and scrolling).
+
+**Verdict:** normal Gate5 input functional on newly booted kernel
+`7.0.0-34-generic` after manual AMD-controller recovery; no driver
+reinstall or reboot required. This **does not** qualify the abandoned
+GET6-free mode4 cold boot or prove all multitouch/pen scenarios on
+kernel34. The boot-abort recovery defect was the omission of
+`sl4a-spi-amd`; both source fallback and staging guard are now patched.
+Retain incident evidence. A future one-shot coldboot trial must be
+staged against the currently running and next-selected same kernel and
+must retain the independent rollback path.
+
 ## 2026-10-16: AMD controller loaded manually; both driver bindings RECOVERED
 
 **Physical hardware follow-up on kernel `7.0.0-34-generic`:**
