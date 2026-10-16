@@ -77,13 +77,21 @@ if command -v systemctl >/dev/null 2>&1; then
         active="$(systemctl is-active "$service" 2>/dev/null || true)"
         if [[ -n "$fragment" ]]; then
             note "service $service: path=$fragment active=$active"
+            if systemctl cat "$service" 2>/dev/null | grep -Eq 'gate3_observe_only='; then
+                stop "$service contains Gate5-only gate3_observe_only; PR87 native module rejects that option"
+            fi
             if [[ "$service" == sl4a-touch-activate.service ]]; then
                 warn "existing activation service requires isolation/disable IN THE TEST KERNEL ONLY; do not alter working Gate5 now"
             fi
         fi
     done
     for drop in /etc/systemd/system/sl4a-touch-activate.service.d/*.conf; do
-        [[ -f "$drop" ]] && warn "activation service drop-in exists: $drop"
+        if [[ -f "$drop" ]]; then
+            warn "activation service drop-in exists: $drop"
+            if grep -Eq 'gate3_observe_only=' "$drop"; then
+                stop "Gate5-only parameter found in activation override: $drop"
+            fi
+        fi
     done
 fi
 bootkernels=(/boot/vmlinuz-*)
@@ -96,6 +104,11 @@ for path in /boot /boot/efi /; do
         note "filesystem at $path: $(df -hP "$path" | tail -n 1 | awk '{print $4 " available"}')"
     fi
 done
+if command -v findmnt >/dev/null 2>&1; then
+    rootfs="$(findmnt -n -o FSTYPE / 2>/dev/null || true)"
+    note "Running root filesystem: ${rootfs:-unknown}"
+    [[ -n "$rootfs" ]] || warn "root filesystem not determined; custom kernel's filesystem support must be confirmed"
+fi
 if command -v dkms >/dev/null 2>&1; then
     note "DKMS installed: yes"
     warn "DKMS may rebuild sl4a-touch against the new kernel and override native module paths"

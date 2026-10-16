@@ -74,6 +74,20 @@ for name in sl4a-spi-amd sl4a-spi-hid; do
     if modinfo -F alias "$work/$name.ko" | grep -Eq '^acpi:'; then
         error "$name unexpectedly auto-loads via an ACPI alias"
     fi
+    if [[ "$name" == sl4a-spi-hid ]]; then
+        params="$(modinfo -p "$work/$name.ko")" ||
+            error "could not inspect PR87 module parameter contract"
+        for param in raw_mode raw_input_beta wire_double_opcode skip_std_getfeat \
+                     std_raw_transition get_noread getfeat_delay_ms std_liveness_ms \
+                     std_liveness_recover wait_reset_kick_ms; do
+            grep -Eq "^$param:" <<<"$params" ||
+                error "packaged PR87 HID module lacks expected qualified parameter $param"
+        done
+        if grep -Eq '^gate3_observe_only:' <<<"$params"; then
+            error "unexpected stale Gate5-only parameter in pinned PR87"
+        fi
+        say "PR87 option contract: 10 accepted cold-test parameters; gate3_observe_only NOT SUPPORTED"
+    fi
     say "packaged $name: path=$path; vermagic=$magic; srcversion=$(modinfo -F srcversion "$work/$name.ko")"
 done
 say "kernel image/headers architecture: amd64"

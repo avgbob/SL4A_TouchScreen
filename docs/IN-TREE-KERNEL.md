@@ -174,3 +174,41 @@ before any physical HID load.
 
 A successful package audit narrows the build/product gap; it does
 not grant permission to install this artifact.
+
+## Parameter compatibility and working-kernel config comparison
+
+The old Gate5 runtime accepted `gate3_observe_only=1`;
+**PR87 does not have that module parameter**. In particular,
+blindly copying the old `sl4a-touch-activate.service`
+module command line can cause an otherwise valid PR87 module
+insertion to fail. The new
+`tools/in-tree/qualified-module-options.sh` verifies
+the **10 parameters** from the actual successful PR87 coldboot,
+including `raw_input_beta=Y` and `std_raw_transition=1`,
+against the pinned driver source. The Debian package audit checks
+the same parameter names against the **packaged compiled module**.
+The host inventory flags any stale `gate3_observe_only` service
+configuration for removal in the **future isolated test boot only**.
+
+A new **read-only** config comparison script audits
+kernel-config regressions and distro-specific trust certificates:
+
+```bash
+python3 tools/in-tree/audit-config-delta.py \
+  "/boot/config-$(uname -r)" \
+  /path/to/staged/linux-6.18.57/.config
+```
+
+It detects missing core boot/storage/EFI options, missing
+native modules, stock SPI-controller conflicts, disabled
+hardware/PM/network/input drivers compared with the working
+kernel, security downgrade and nonexistent distro certificate
+paths. A new/old kernel major version changes Kconfig symbols,
+so the output is conservative; differences need investigation,
+not automatic copying or silent fixes. Passing this comparison
+is **not** boot/signing/firmware approval.
+
+**Never blindly copy a Gate5 command line or an Ubuntu 7.0 kernel
+configuration into an upstream 6.18 source tree and install
+whatever compiles.** Review all warnings, test dependency
+resolution and preserve the current known-good kernel.
