@@ -31,7 +31,10 @@ assert '"Event: time"' in src, "must verify input events, not just file existenc
 assert 'mark(marks, "capture-ready"' in src
 assert 'mark(marks, "gesture-script-end"' in src
 assert "collector_exit_code" in src
-assert '"sudo", "-n", "test", "-s"' in src, "must account for root-owned evidence"
+assert '"sudo", "-n", "sed"' in src, "must read root-owned collector identity"
+assert "selected_event_node(event_capture)" in src
+assert "monitor = subprocess.Popen(" in src
+assert "stop_capture(proc, args.output)" in src
 for dangerous in ('"modprobe"', '"insmod"', '"dkms"', '"reboot"'):
     assert dangerous not in src, f"evidence script may not change modules: {dangerous}"
 
