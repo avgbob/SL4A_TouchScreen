@@ -148,6 +148,7 @@ class GestureGate:
         self.counter = 0
         self.hold_since = None
         self.progress = []
+        self.failed_reason = None
 
     def notice(self, message):
         if message in self.announced:
@@ -199,9 +200,21 @@ class GestureGate:
 
         elif a in ("pinch", "close", "expand"):
             pair = self.ctx.get("pair")
+            if a in ("close", "expand") and pair and (
+                    len(valid) != 2 or ids != pair):
+                # Cannot retry just the continuation against the old pair.
+                # Either the physical contacts broke or tracking reset.
+                self.failed_reason = (
+                    "Original finger tracking was lost during this "
+                    "continuous gesture (expected IDs " +
+                    str(sorted(pair)) + "; observed " + str(sorted(ids)) +
+                    "). Restart the full contact sequence.")
+                self.notice("The original finger contacts were lost. "
+                            "This continuous gesture cannot pass.")
+                return False, self.progress
             if d is not None and len(valid) == 2:
-                if a in ("close", "expand") and pair and ids != pair:
-                    self.notice("Tracking IDs changed. This attempt is invalid.")
+                if pair and ids != pair:
+                    self.failed_reason = "Finger tracking IDs changed during the pinch."
                     return False, self.progress
                 if self.origin is None:
                     self.origin = (self.ctx.get("distance") if a == "expand"
@@ -224,7 +237,14 @@ class GestureGate:
                 self.notice("A finger lifted. Retry without lifting.")
 
         elif a == "hold":
-            if len(valid) == 2 and ids == self.ctx.get("pair"):
+            pair = self.ctx.get("pair")
+            if pair and (len(valid) != 2 or ids != pair):
+                self.failed_reason = (
+                    "Original finger tracking lost during the hold; "
+                    "continuous sequence must restart.")
+                self.notice("The original contacts were lost during the hold.")
+                return False, self.progress
+            if len(valid) == 2 and ids == pair:
                 if self.hold_since is None:
                     self.hold_since = now
                     self.origin = d
@@ -251,8 +271,11 @@ class GestureGate:
                     self.ctx.pop("pair", None)
                     self.ctx.pop("distance", None)
                 elif len(valid) and ids != expected:
-                    self.stage = 0
-                    self.notice("Different fingers detected. Hold the original pair.")
+                    self.failed_reason = (
+                        "Different tracking IDs before release. "
+                        "Original contact chain is broken.")
+                    self.notice("The original pair changed before release.")
+                    return False, self.progress
             elif (len(valid) == 0 and
                   (self.ctx.get("single_completed") or
                    self.ctx.get("pen_contact_completed"))):
