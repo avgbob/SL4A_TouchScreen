@@ -132,7 +132,8 @@ capture() {
     echo "Audibly guided test, timestamped cue markers, evtest and sysfs evidence."
     echo "Evidence destination: $output"
     python3 "$ROOT/tools/hardware_evidence/guided_session.py" \
-        --protocol "$protocol" --case "$run_id" --period p1 --output "$output"
+        --protocol "$protocol" --case "$run_id" --period p1 \
+        --expected-mode 4 --output "$output"
 }
 
 case "${1:-}" in
