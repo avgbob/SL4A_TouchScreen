@@ -54,12 +54,18 @@ assert not send(expand, [(11, 275, 100), (12, 675, 100)], 10)
 assert not send(expand, [(11, 100, 100), (13, 800, 100)], 11)  # ID change
 assert send(expand, [(11, 100, 100), (12, 900, 100)], 12)
 lift = GestureGate("quick-lift", ctx)
+assert not send(lift, [], 12.5), "early lift must not pass merely because pair was stored"
 assert not send(lift, [(11, 100, 100), (12, 900, 100)], 13)
-assert send(lift, [], 14)
+assert send(lift, [], 14), "must see SAME pair down then released"
 
 # Dedicated continuity hold, and no pass on changed tracking IDs.
 g = GestureGate("pinch-far", ctx)
 assert send(g, [(15, 100, 100), (16, 1100, 100)], 15)
+# Starting release with the last stored pair but no fresh DOWN frame is
+# never a PASS, even if the operator lifted during spoken instructions.
+early = GestureGate("pinch-lift", ctx)
+assert not send(early, [], 15.5)
+
 g = GestureGate("pinch-close", ctx)
 assert not send(g, [(15, 100, 100), (16, 1100, 100)], 16)
 assert send(g, [(15, 350, 100), (16, 780, 100)], 17)
