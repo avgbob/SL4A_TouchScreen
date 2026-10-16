@@ -24,6 +24,54 @@ enrolled Ubuntu DKMS MOK. Known-working, installed boot fallback:
 Gate5 `sl4a-touch/1.7.0` mode1, production driver source identity
 `3326E559A916BE5CB52375D` from preceding hardware diagnosis.
 
+## Automated, offline release-latency screening (existing physical captures)
+
+Following the operator's repeated report of “One original finger remains”
+during **every** two-finger test, added a read-only **batch**
+analyzer at `tools/hardware_evidence/release_timing_report.py`.
+This augments (does not replace) the older, single-session
+`audit_release.py`.
+
+After fetching this harness branch on the physical Surface, run:
+
+```bash
+cd ~/SL4A_TouchScreen-host56
+python3 tools/hardware_evidence/release_timing_report.py \
+  ~/sl4a-hardware-runs/pr87-exact-warm3-20261016T193705Z \
+  ~/sl4a-hardware-runs/pr87-exact-s2idle2-20261016T201323Z \
+  ~/sl4a-hardware-runs/mode4-quick-20261016T185822Z
+```
+
+It reads only saved `operator/{cues.tsv,live-evdev.jsonl}`, selects
+verified original two-finger IDs at expansion PASS, and follows
+`2→1→0` (or direct `2→0`) through each gated release verdict.
+It measures the **kernel evdev SYN_REPORT first-to-last release
+interval** where both timestamps exist, otherwise separately
+labels the independent observer `monotonic` measurement. It
+reports contact-ID replacements/reappearance and missing/incomplete
+contact-release evidence **without silently claiming PASS**. It
+prints median, nearest-rank p95 and max across measurable
+sequential releases, plus an **arbitrary screening** flag for
+reported gaps ≥100ms (not a hardware specification or verified
+failure boundary). No raw coordinates or touch trace lines
+are printed; nothing requires sudo, evdev permissions or module
+reload. CI uses synthetic saved guided-session fixtures and
+verifies kernel vs observer timing, direct/sequential releases,
+tracking anomalies, missing zero-contact result and timestamp
+errors.
+
+**Crucial limitation:** recorded timestamps establish when the
+Linux evdev pipeline reported each release, not the physical
+instant the fingertip left the display. Only an independent
+physical reference (e.g., synchronized high-speed video or a
+sensor trigger) and/or driver-internal timestamping can locate
+true touch-to-event delay. This report's **physical outcomes
+remain PENDING until run against the user's saved traces**.
+Do not substitute synthetic CI results for field evidence.
+If a recurrent >100ms gap or replacement ID is observed,
+investigate the exact trace and compare independent mode4/Gate5
+control recordings before altering driver contact retention.
+
 ## 2026-10-16 20:13 UTC: PR87 true s2idle 2/2 **PASS**; release-voice observation
 
 The operator reran the CI-tested `pr87-exact-head.sh s2idle2`
