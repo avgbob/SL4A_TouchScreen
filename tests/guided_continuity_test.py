@@ -99,7 +99,7 @@ assert "One original finger remains. Lift it now." not in voice.speech, (
     "a queued transient 2->1 observation must not become a late command")
 assert "quick-lift:One original finger remains. Lift it now." in markers.getvalue(), (
     "retain the exact intermediate evdev status for later forensic review")
-assert "\\tphase-pass\\tquick-lift;" in markers.getvalue(), (
+assert "\tphase-pass\tquick-lift;" in markers.getvalue(), (
     "only original-pair zero contacts can complete release")
 
 events = queue.Queue()
