@@ -16,6 +16,8 @@ assert 'status --porcelain --untracked-files=no' in harness
 assert 'raw_mode=N raw_input_beta=Y' in harness
 assert 'std_raw_transition=1' in harness
 assert 'skip_std_getfeat=1' in harness
+assert 'make -C "$KDIR" M="$PR_ROOT/driver" clean' in harness
+assert harness.index('make -C "$KDIR" M="$PR_ROOT/driver" clean') < harness.index('make -C "$KDIR" M="$PR_ROOT/driver" modules')
 assert 'root "$KDIR/scripts/sign-file" sha256' in harness
 assert 'modinfo -F srcversion "$MODULE"' in harness
 assert 'field "$HID/srcversion"' in harness
