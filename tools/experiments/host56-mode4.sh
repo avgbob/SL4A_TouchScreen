@@ -198,14 +198,138 @@ qualify_warm_three() {
     )
 }
 
+
+# Suspend/resume test: both platform s2idle transitions occur with one
+# transient mode4 module left loaded. This is intentionally NOT a
+# module-reload test, and does not change /etc/modprobe.d or installed DKMS.
+qualify_s2idle_two() {
+    require_device
+    [[ -r "$SYS" && "$(cat "$SYS")" == 1 ]] || {
+        echo "ERROR: s2idle qualification requires installed Gate5 mode 1 at entry" >&2
+        return 1
+    }
+    [[ -r /sys/power/mem_sleep ]] || {
+        echo "ERROR: kernel mem_sleep policy unavailable" >&2; return 1;
+    }
+    local sleep_mode
+    sleep_mode="$(cat /sys/power/mem_sleep)"
+    [[ "$sleep_mode" == *'[s2idle]'* ]] || {
+        echo "ERROR: actual configured sleep state is NOT s2idle: $sleep_mode" >&2
+        echo "Will not change platform suspend policy automatically." >&2
+        return 1
+    }
+    command -v systemctl >/dev/null || {
+        echo "ERROR: systemctl unavailable; not touching the driver." >&2; return 1;
+    }
+    prepare
+    local root_log="$HOME/sl4a-hardware-runs"
+    local session="$root_log/mode4-s2idle2-$(date -u +%Y%m%dT%H%M%SZ)"
+    mkdir -p "$session"
+    {
+        echo "source_commit=$(git -C "$ROOT" rev-parse HEAD)"
+        echo "signed_module_sha256=$(sha256sum "$MODULE" | cut -d' ' -f1)"
+        echo "kernel=$(uname -r)"
+        echo "mode_before=1"
+        echo "mem_sleep_at_start=$sleep_mode"
+        echo "test_type=s2idle2_postresume_audio_quick"
+    } > "$session/provenance.txt"
+    echo "=== S2IDLE QUALIFICATION; EVIDENCE $session ==="
+    (
+        trap 'restore' EXIT
+        trap 'exit 130' INT
+        trap 'exit 143' TERM
+        activate
+        local cycle before after journal_since
+        for cycle in 1 2; do
+            [[ -r "$SYS" && "$(cat "$SYS")" == 4 ]] || {
+                echo "ERROR: mode4 missing before s2idle cycle $cycle" >&2
+                exit 1
+            }
+            [[ "$(cat /sys/power/mem_sleep)" == *'[s2idle]'* ]] || {
+                echo "ERROR: s2idle ceased to be active" >&2; exit 1
+            }
+            sha256sum "$MODULE" | tee "$session/driver-before-$cycle.sha256"
+            cat "$STATS" > "$session/stats-before-$cycle.txt"
+            python3 "$ROOT/tools/hardware_evidence/speak_operator.py" \
+                "Sleep test $cycle of 2. The laptop will suspend. Wake it with the power button or keyboard. Unlock the screen if needed. Your touchscreen will be tested with spoken instructions after waking."
+            printf 'Type YES to initiate actual s2idle suspend cycle %s/2: ' "$cycle"
+            local confirm
+            IFS= read -r confirm
+            [[ "$confirm" == "YES" || "$confirm" == "yes" ]] || {
+                echo "S2IDLE CANCELLED, preserving Gate5 rollback" >&2
+                exit 1
+            }
+            # Explicit sudo prompt before sleep; never ask during touch.
+            as_root true
+            if (( EUID != 0 )); then sudo -v; fi
+            journal_since="$(date '+%Y-%m-%d %H:%M:%S')"
+            printf '%s\n' "$journal_since" > "$session/journal-since-$cycle.txt"
+            before="$session/clock-before-$cycle.json"
+            after="$session/clock-after-$cycle.json"
+            python3 "$ROOT/tools/hardware_evidence/s2idle_clock.py" \
+                --snapshot "$before"
+            echo "=== ENTERING REAL S2IDLE CYCLE $cycle/2 ==="
+            as_root systemctl suspend
+            # This line should execute only after the system has resumed.
+            python3 "$ROOT/tools/hardware_evidence/s2idle_clock.py" \
+                --snapshot "$after"
+            sleep 2
+            python3 "$ROOT/tools/hardware_evidence/s2idle_clock.py" \
+                --verify "$before" "$after" | tee "$session/clock-verdict-$cycle.txt"
+            [[ -r "$SYS" && "$(cat "$SYS")" == 4 ]] || {
+                echo "ERROR: mode4 did not survive s2idle cycle $cycle" >&2
+                exit 1
+            }
+            [[ "$(sha256sum "$MODULE" | cut -d' ' -f1)" == \
+               "$(cut -d' ' -f1 < "$session/driver-before-$cycle.sha256")" ]] || {
+                echo "ERROR: signed module file changed during suspend cycle $cycle" >&2
+                exit 1
+            }
+            cat "$STATS" > "$session/stats-after-resume-$cycle.txt"
+            # Capture actual PM entry/exit records; do not accept a no-op
+            # systemctl suspend as successful physical S0ix/s2idle testing.
+            as_root journalctl -k -b --since "$journal_since" --no-pager \
+                > "$session/kernel-resume-$cycle.log"
+            grep -q 'PM: suspend entry (s2idle)' \
+                "$session/kernel-resume-$cycle.log" || {
+                echo "ERROR: missing kernel s2idle entry marker for cycle $cycle" >&2
+                exit 1
+            }
+            grep -q 'PM: suspend exit' \
+                "$session/kernel-resume-$cycle.log" || {
+                echo "ERROR: missing kernel suspend-exit marker for cycle $cycle" >&2
+                exit 1
+            }
+            python3 "$ROOT/tools/hardware_evidence/speak_operator.py" \
+                "Laptop awake after suspend cycle $cycle. The touchscreen will now receive a short spoken finger and pinch test."
+            echo "=== POST-S2IDLE TOUCH VALIDATION $cycle/2 ==="
+            capture quick
+            cat "$STATS" > "$session/stats-after-touch-$cycle.txt"
+            echo "=== S2IDLE CYCLE $cycle/2 PASSED ==="
+        done
+        restore
+        [[ -r "$SYS" && "$(cat "$SYS")" == 1 ]] || {
+            echo "ERROR: installed Gate5 did not return after second resume" >&2
+            exit 1
+        }
+        echo "mode_after=1" >> "$session/provenance.txt"
+        ( cd "$session"; sha256sum ./*.txt ./*.json ./*.log > SHA256SUMS.txt )
+        ( cd "$session"; sha256sum -c SHA256SUMS.txt )
+        trap - EXIT
+        echo "S2IDLE 2/2: actual sleep detected, PM markers recorded, post-wake gesture checks passed, Gate5 restored."
+        echo "S2IDLE EVIDENCE: $session"
+    )
+}
+
 case "${1:-}" in
     qualify) qualify "${2:-full}" ;;
     qualify-warm3) qualify_warm_three ;;
+    qualify-s2idle2) qualify_s2idle_two ;;
     prepare) prepare ;;
     activate) activate ;;
     restore) restore ;;
     capture) capture "${2:-quick}" ;;
     audio-check) python3 "$ROOT/tools/hardware_evidence/guided_session.py" --audio-check ;;
     status) show_status ;;
-    *) echo "Usage: $0 {qualify [quick|contacts|full]|qualify-warm3|prepare|activate|audio-check|capture [quick|pinch|contacts|full|stylus]|status|restore}" >&2; exit 2 ;;
+    *) echo "Usage: $0 {qualify [quick|contacts|full]|qualify-warm3|qualify-s2idle2|prepare|activate|audio-check|capture [quick|pinch|contacts|full|stylus]|status|restore}" >&2; exit 2 ;;
 esac
