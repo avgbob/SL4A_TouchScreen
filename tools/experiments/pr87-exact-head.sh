@@ -197,8 +197,134 @@ run_warm_three() {
     echo "PASS_3_OF_3" > "$session/result.txt"
     echo "PR87 WARM 3/3 PASS; evidence: $session"
 }
+
+# Two real suspend cycles with ONE signed PR module continuously loaded.
+# This is not a warm module reload: it audits the PM s2idle entry/exit,
+# CLOCK_BOOTTIME-minus-MONOTONIC sleep gap, and post-wake actual MT events.
+# Keep this separate from the earlier GET6-free mode4 run.
+run_s2idle_two() {
+    preflight
+    checkout_exact
+    [[ -r /sys/power/mem_sleep ]] || die "kernel mem_sleep policy not readable"
+    local sleep_mode
+    sleep_mode="$(cat /sys/power/mem_sleep)"
+    [[ "$sleep_mode" == *'[s2idle]'* ]] ||
+        die "actual selected sleep is not s2idle: $sleep_mode (will not modify policy)"
+    command -v systemctl >/dev/null || die "systemctl not available"
+    [[ -f "$HARNESS_ROOT/tools/hardware_evidence/s2idle_clock.py" &&
+       -f "$HARNESS_ROOT/tools/hardware_evidence/speak_operator.py" ]] ||
+        die "approved physical PM/talking helpers missing"
+
+    echo "REAL PR87 S2IDLE 2/2: machine will physically suspend TWICE."
+    echo "Save your work now. A forced reboot retains the installed Gate5 profile."
+    echo "PR source is pinned; the signed test module stays loaded for both sleeps."
+    echo "Two separate post-wake spoken evdev tests follow; NO permanent boot edits."
+    local confirm
+    printf 'Type S2IDLE to build/sign and begin actual suspend testing: '
+    IFS= read -r confirm
+    [[ "$confirm" == S2IDLE ]] || die "cancelled before driver modifications"
+
+    prepare
+    session="$HOME/sl4a-hardware-runs/pr87-exact-s2idle2-$(date -u +%Y%m%dT%H%M%SZ)"
+    mkdir -p -m 0700 "$session"
+    local signed_hash
+    signed_hash="$(sha "$MODULE")"
+    {
+        echo "source_commit=$PR_HEAD"
+        echo "kernel=$(uname -r)"
+        echo "signed_module_sha256=$signed_hash"
+        echo "module_srcversion=$experiment_src"
+        echo "production_srcversion=$production_src"
+        echo "selected_sleep_policy=$sleep_mode"
+        echo "test=2_genuine_s2idle_gaps_postwake_evdev_pr87"
+    } > "$session/provenance.txt"
+    printf 'INCOMPLETE\n' > "$session/result.txt"
+    trap on_exit EXIT
+    trap 'exit 130' INT
+    trap 'exit 143' TERM
+
+    load_pr
+    local cycle journal_since before after
+    for cycle in 1 2; do
+        echo "=== PR87 S2IDLE CYCLE $cycle / 2 ==="
+        [[ "$(cat /sys/power/mem_sleep)" == *'[s2idle]'* ]] ||
+            die "s2idle selection changed before cycle $cycle"
+        [[ "$(field "$MODE")" == 1 &&
+           "$(field "$HID/srcversion")" == "$experiment_src" &&
+           "$(binding "$CONTROLLER")" == sl4a_spi_amd_v2_multi &&
+           "$(binding "$TOUCH")" == sl4a_spi_hid && -r "$STATS" ]] ||
+            die "PR87 module/bindings not healthy before suspend cycle $cycle"
+        [[ "$(sha "$MODULE")" == "$signed_hash" ]] ||
+            die "PR signed module file changed before cycle $cycle"
+        cat "$STATS" > "$session/stats-before-sleep-$cycle.txt"
+        python3 "$HARNESS_ROOT/tools/hardware_evidence/speak_operator.py" \
+            "Suspend test $cycle of 2. Your computer will sleep. Wake with the power button or keyboard, unlock the screen and return to this terminal for the spoken post-wake touchscreen test."
+        printf 'Type YES to initiate actual s2idle cycle %s/2: ' "$cycle"
+        local cycle_confirm
+        IFS= read -r cycle_confirm
+        [[ "$cycle_confirm" == YES || "$cycle_confirm" == yes ]] ||
+            die "cycle $cycle not confirmed, safely restoring Gate5"
+        root true
+        if (( EUID != 0 )); then sudo -v; fi
+        journal_since="$(date '+%Y-%m-%d %H:%M:%S')"
+        printf '%s\n' "$journal_since" > "$session/journal-since-$cycle.txt"
+        before="$session/clock-before-$cycle.json"
+        after="$session/clock-after-$cycle.json"
+        python3 "$HARNESS_ROOT/tools/hardware_evidence/s2idle_clock.py" \
+            --snapshot "$before"
+        echo "=== REQUESTING REAL SYSTEM SUSPEND ==="
+        root systemctl suspend
+        echo "=== WAITING FOR REAL SUSPEND CLOCK GAP / WAKE ==="
+        if ! python3 "$HARNESS_ROOT/tools/hardware_evidence/s2idle_clock.py" \
+            --wait-after "$before" "$after" --timeout-seconds 75 \
+            | tee "$session/clock-verdict-$cycle.txt"; then
+            root journalctl -k -b --since "$journal_since" --no-pager \
+                > "$session/kernel-resume-$cycle.log" || true
+            die "no verified >=2s real sleep interval after cycle $cycle"
+        fi
+        sleep 2
+        [[ "$(field "$HID/srcversion")" == "$experiment_src" &&
+           "$(field "$MODE")" == 1 &&
+           "$(binding "$CONTROLLER")" == sl4a_spi_amd_v2_multi &&
+           "$(binding "$TOUCH")" == sl4a_spi_hid && -r "$STATS" ]] ||
+            die "exact PR87 module/controller/touch did not survive sleep cycle $cycle"
+        [[ "$(sha "$MODULE")" == "$signed_hash" ]] ||
+            die "PR module file changed during sleep $cycle"
+        cat "$STATS" > "$session/stats-after-resume-$cycle.txt"
+        root journalctl -k -b --since "$journal_since" --no-pager \
+            > "$session/kernel-resume-$cycle.log"
+        grep -q 'PM: suspend entry (s2idle)' \
+            "$session/kernel-resume-$cycle.log" ||
+            die "kernel has no genuine s2idle entry marker for cycle $cycle"
+        grep -q 'PM: suspend exit' "$session/kernel-resume-$cycle.log" ||
+            die "kernel has no suspend exit marker for cycle $cycle"
+
+        # Post-wake speech requires interactive HEARD confirmation;
+        # display text or a successful audio-process exit is not enough.
+        python3 "$HARNESS_ROOT/tools/hardware_evidence/speak_operator.py" \
+            --confirm --retries 5 \
+            "The laptop is awake after PR87 suspend cycle $cycle. This is the post-wake voice checkpoint. After you hear me, confirm YES in the terminal and follow the spoken one finger and two finger touchscreen tests."
+        echo "=== REAL POST-WAKE TOUCH CAPTURE $cycle / 2 ==="
+        capture "s2idle-$cycle" quick |
+            tee "$session/capture-$cycle.log"
+        [[ "$(sha "$MODULE")" == "$signed_hash" ]] ||
+            die "signed module changed after gesture cycle $cycle"
+        echo "=== PR87 S2IDLE CYCLE $cycle / 2 PASSED ==="
+    done
+    restore
+    printf 'PASS_2_OF_2\n' > "$session/result.txt"
+    # Capture local provenance, logs and counters, without uploading raw
+    # evdev/touch traces off the user's computer.
+    ( cd "$session"; find . -maxdepth 1 -type f ! -name SHA256SUMS.txt \
+        -print0 | sort -z | xargs -0 -r sha256sum > SHA256SUMS.txt )
+    ( cd "$session"; sha256sum -c SHA256SUMS.txt )
+    echo "PR87 S2IDLE 2/2 PASS: real clock+PM gaps, postwake gestures, same signed module, Gate5 restored."
+    echo "S2IDLE EVIDENCE: $session"
+}
+
 case "${1:-}" in
     preflight) preflight ;;
     warm3) run_warm_three ;;
-    *) echo "Usage: bash $0 {preflight|warm3}" >&2; exit 2 ;;
+    s2idle2) run_s2idle_two ;;
+    *) echo "Usage: bash $0 {preflight|warm3|s2idle2}" >&2; exit 2 ;;
 esac
