@@ -35,6 +35,20 @@ assert '"sudo", "-n", "sed"' in src, "must read root-owned collector identity"
 assert "selected_event_node(event_capture)" in src
 assert "monitor = subprocess.Popen(" in src
 assert "stop_capture(proc, args.output)" in src
+# Physical failure 2026-10-16: monitor subprocess cannot be launched with
+# non-interactive sudo after the collector has consumed its sudo ticket.
+assert '["sudo", sys.executable, "-u",' in src, "live monitor must permit a TTY password prompt"
+assert '["sudo", "-n", sys.executable, "-u",' not in src
+assert 'subprocess.run(["sudo", "-v"], check=True)' in src
+assert 'ready = frames.get(timeout=90)' in src
+smoke = (root / "tools/hardware_evidence/verify_live_monitor.py").read_text()
+assert 'MODE.read_text().strip()' in smoke
+assert 'find_bridge()' in smoke and 'MSHW0231 Touchscreen' in smoke
+assert 'live_capture(audio, marks' in smoke
+assert '"quick-one"' in smoke
+assert '["sudo", sys.executable, "-u", str(MONITOR)' in smoke
+for token in ('"insmod"', '"modprobe"', '"dkms"', '"reboot"'):
+    assert token not in smoke, "smoke test must not modify the kernel module"
 for dangerous in ('"modprobe"', '"insmod"', '"dkms"', '"reboot"'):
     assert dangerous not in src, f"evidence script may not change modules: {dangerous}"
 
