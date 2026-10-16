@@ -19,8 +19,7 @@ done
 [[ "$(cat "$out/source-flavor.txt")" == pr87 ]] || error "wrong source flavor"
 [[ "$(cat "$out/integration-commit.txt")" =~ ^[0-9a-f]{40}$ ]] ||
     error "invalid integration commit identity"
-[[ "$(git hash-object -- "$out/pinned-driver-blobs.txt")" ==
-   5b51fbd0596eeb4dddee76a3e899cd2ce7fc045e ]] ||
+[[ "$(git hash-object -- "$out/pinned-driver-blobs.txt")" == 5b51fbd0596eeb4dddee76a3e899cd2ce7fc045e ]] ||
     error "source blob manifest differs from known qualified PR87"
 (
     cd "$out"

@@ -19,6 +19,7 @@ jobs:
       - uses: actions/checkout@v5
       - name: Audit pinned PR87 sources and BOTH staging layouts (no kernel install)
         run: |
+          bash -n tools/in-tree/audit-packages.sh tools/in-tree/surface-host-preflight.sh
           bash tools/in-tree/source-selector-test.sh
           bash tools/in-tree/audit.sh
           bash tools/kernel_integration/selftest.sh
@@ -95,6 +96,13 @@ jobs:
           cd /tmp/sl4a-kernel-output
           sha256sum ./*.deb *.txt kernel.config > SHA256SUMS.txt
           ls -lh
+
+      - name: Reject malformed, unsigned-by-assumption or missing native Debian driver packages
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash tools/in-tree/audit-packages.sh /tmp/sl4a-kernel-output | tee /tmp/sl4a-kernel-output/PACKAGE-AUDIT.txt
+          (cd /tmp/sl4a-kernel-output && sha256sum PACKAGE-AUDIT.txt >> SHA256SUMS.txt)
 
       - name: Upload experimental test packages
         if: success()

@@ -117,3 +117,60 @@ separate subsystem maintainer review and supported hardware data.
 custom kernel's boot, driver autoload, native module load on the
 machine, native cold/PM behavior, broader Surface models, stylus,
 spontaneous post-DONE reset/rearm and long-running stability.
+
+## Pre-install audit gates added after the first successful build
+
+The first native-kernel build validated that the `.ko` files existed
+**in the build tree**, but did not inspect the contents of the actual
+`.deb` artifacts. Before use on a machine, this is not sufficient.
+
+The separate `tools/in-tree/audit-packages.sh` now validates the
+**real output archive**, including:
+- SHA256 digests of the image, headers, config and source provenance;
+- exact PR #87 source commit and immutable 14-source-file blob manifest;
+- expected Linux `6.18.57-sl4a-pr87` release, `amd64` architecture,
+  distinct experimental package and kernel configuration;
+- absence of enabled competing built-in stock AMD SPI controller;
+- the actual Debian image containing both native modules at
+  `/lib/modules/<release>/kernel/drivers/staging/sl4a/`;
+- extracted module ELF metadata via `modinfo`, matching `vermagic`
+  and no accidental ACPI autoload aliases.
+
+The package audit runs as a **required** CI step before artifact
+upload. A `PACKAGE-AUDIT.txt` report and its checksum go into
+the artifact. It **does not** prove a signed/bootable kernel,
+actual laptop configuration, firmware compatibility, bootloader
+integration or working hardware.
+
+The new `tools/in-tree/surface-host-preflight.sh` is entirely
+read-only and needs no sudo. On the **physical Surface**, run:
+
+```bash
+cd ~/SL4A_TouchScreen-host56
+git fetch https://github.com/avgbob/SL4A_TouchScreen.git experiment/in-tree-kernel
+git show FETCH_HEAD:tools/in-tree/surface-host-preflight.sh > /tmp/sl4a-surface-preflight.sh
+bash /tmp/sl4a-surface-preflight.sh
+```
+
+It records only read-only checks: active kernel/config, UEFI/Secure
+Boot, expected ACPI IDs and bindings, module provenance, remaining
+one-shot drop-ins, activation service, number of known bootable
+kernels, free space and DKMS presence. It prints explicit
+**STOP** and **WARN** results; a nonzero exit code indicates
+a stop. Importantly, with Secure Boot still enabled, the
+current **unsigned** generic CI artifact should STOP rather than
+proceed to installation.
+
+**Release-blocking items before a real first boot:** generate a
+Surface-specific build from `/boot/config-$(uname -r)` and address
+any Ubuntu-specific certificate paths rather than silently
+discarding certificate trust; verify UEFI image signing and MOK
+acceptance; plan a separate one-time boot entry and already proven
+fall-back kernel; neutralize automatic DKMS/native module competition
+and `sl4a-touch-activate.service` **only in the experimental boot
+environment**, not in the current working setup. Verify the
+**packaged** module precedence and explicit qualified parameters
+before any physical HID load.
+
+A successful package audit narrows the build/product gap; it does
+not grant permission to install this artifact.
