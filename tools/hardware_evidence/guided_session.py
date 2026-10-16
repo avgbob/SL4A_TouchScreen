@@ -375,8 +375,12 @@ def verify_run_integrity(expected_mode, source):
             f"loaded transition mode {mode}, expected {expected_mode}")
     if not source.is_file():
         raise RuntimeError("locally built signed module missing: " + str(source))
-    if probe(["git", "-C", str(ROOT), "status", "--porcelain", "--untracked-files=no"]):
-        raise RuntimeError("source worktree has uncommitted tracked changes")
+    dirty = subprocess.run(
+        ["git", "-C", str(ROOT), "status", "--porcelain",
+         "--untracked-files=no"], capture_output=True, text=True)
+    if dirty.returncode or dirty.stdout.strip():
+        raise RuntimeError("source worktree is dirty or unreadable: " +
+                           (dirty.stdout.strip() or dirty.stderr.strip()))
     revision = probe(["git", "-C", str(ROOT), "rev-parse", "HEAD"])
     if len(revision) != 40:
         raise RuntimeError("could not identify full source commit SHA")
@@ -426,7 +430,7 @@ def finalize_manifest(output):
         for path in sorted(output.rglob("*")):
             if path == manifest or not path.is_file() or path.is_symlink():
                 continue
-            fp.write(f"{file_sha(path)}  {path.relative_to(output)}\\n")
+            fp.write(f"{file_sha(path)}  {path.relative_to(output)}\n")
     # Verify the completed manifest, not merely its successful write.
     p = subprocess.run(["sha256sum", "--check", "--status", str(manifest)],
                        cwd=output, capture_output=True, text=True)
@@ -636,6 +640,7 @@ def main():
             if guide_error is None:
                 guide_error = str(e)
             props["integrity_and_counters"] = "FAIL: " + str(e)
+        props["guide_error"] = guide_error or ""
         operator = args.output / "operator"
         # Only the new directory created for this run is chowned; original
         # driver, MOK and persistent configuration remain untouched.
