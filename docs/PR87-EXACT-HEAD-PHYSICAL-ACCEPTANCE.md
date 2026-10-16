@@ -51,6 +51,63 @@ The analysis remains read-only. **Actual release gaps are still
 not determined** until the corrected tool is run against the
 existing local captures.
 
+## 2026-10-16 21:06 UTC: PR87 warm-2 425ms gap versus voice-cue timing **RESOLVED AS TWO SEPARATE OBSERVATIONS**
+
+The physical operator ran
+`tools/hardware_evidence/release_outlier_detail.py` on the
+already saved `pr87-exact-warm3-20261016T193705Z/cycle-2-quick`
+evdev frames and spoken-cue timestamps. No module was touched.
+
+All times below are in the Python observer's **monotonic** domain,
+relative to when the first original tracking ID disappeared;
+the independent kernel evdev event-to-event gap was
+**425.775 ms**, agreeing with Python observer's **425.745 ms**.
+
+| Observed stage | Relative to first released finger |
+| --- | ---: |
+| `Lift both fingers now` speech queued/started | −1300.443 ms |
+| First original ID released | 0.000 ms |
+| Both original IDs gone | +425.745 ms |
+| `lift` phase marked begin after blocking speech | +961.236 ms |
+| `One original finger remains` progress cue queued | +961.923 ms |
+| Release PASS cue | +4802.244 ms |
+
+**Key causal discovery:** The stale intermediate **progress cue
+was logged 536.178 ms AFTER the final zero-contact evdev frame**.
+The transcript and source show `guided_session.Audio.speak()`
+runs synchronously, while the input-event monitor thread continues
+recording frames. The runner replayed the queued `2→1` event
+AFTER the `2→1→0` physical event chain was already emitted;
+the old version spoke the stale message and held up the PASS
+cue a further **3840.321ms** (progress cue to PASS).
+The actual zero-contact frame existed well before the narrated
+“one remains”. The new harness suppresses **only this
+misleading spoken instruction** while preserving its timestamped
+evdev evidence and strict original-ID, zero-contact acceptance.
+
+**Correction of preceding hypothesis:** The narrator's
+`One original finger remains` line **cannot have CAUSED this
+425.775ms kernel first-to-last release interval**, because
+that cue was not even queued until more than half a second
+AFTER both releases. The original `Lift both fingers now`
+instruction started over a second *before* the first release.
+The **actual reason** Linux saw 425.775ms between first/second
+releases is **not determined** without a physical finger-off
+reference. It could reflect non-simultaneous human action,
+device/firmware processing, or driver delay. Do not attribute
+this gap to speech or a driver fault from these data alone.
+
+**Engineering disposition:** stale voice-reporting behavior
+CONFIRMED in the old test harness; actual second-contact
+release evdev-event timing OUTLIER OBSERVED but driver
+latency NOT QUALIFIED. The real PR87 module still passed
+warm3 and s2idle2 under previously defined touch-validity
+criteria, and Gate5 remains installed. No hardware retest
+is needed to establish the narration timing error.
+Future latency qualification, if needed, should use a tone
+and an externally measured physical release instant
+rather than synchronous TTS progress messages.
+
 ## 2026-10-16 20:56 UTC: physical saved evdev release interval screening COMPLETE
 
 The corrected offline analyzer was rerun on the Surface's real,
