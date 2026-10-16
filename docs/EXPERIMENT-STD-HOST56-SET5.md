@@ -61,8 +61,8 @@ or `/etc/modprobe.d/sl4a-spi-hid.conf`.
 
 ```bash
 cd /home/jo/SL4A_TouchScreen
-git fetch origin
-git worktree add /home/jo/SL4A_TouchScreen-host56 origin/experiment/sl4-std-host56-set5
+git fetch https://github.com/avgbob/SL4A_TouchScreen.git experiment/sl4-std-host56-set5
+git worktree add --detach /home/jo/SL4A_TouchScreen-host56 FETCH_HEAD
 cd /home/jo/SL4A_TouchScreen-host56
 
 # Host test before module reload; does not touch hardware.
