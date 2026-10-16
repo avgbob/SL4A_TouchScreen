@@ -112,6 +112,38 @@ This is a fresh hardware qualification; the prior two successful
 gesture-level observations remain historically valid but do not
 qualify sustained tracking. Gate5 rollback remains automatic.
 
+### 2026-10-16 ~16:18 UTC: continuous gestures reached final two-finger release
+
+The latest physical run at checkout `5cba3b5`, evidence
+`mode4-full-20261016T161746Z`, used a Secure Boot-signed, temporary
+mode4 module (signed binary SHA256
+`84086c66654f20163b3db5c34ceb7af9ed82670b2cb36d6567c6e91dde49890c`).
+The one-finger gesture, the full **quick pinch→expand→release**, then the
+second **far→close→hold→expand** chain were each event-gated and
+advanced successfully. On `pinch-lift` (test 9 of 16), the test runner
+rejected `Different tracking IDs before release` and stopped as
+**INCONCLUSIVE**. Installed Gate5 mode 1 was automatically restored.
+No full 16-test or cold/s2idle acceptance has been claimed.
+
+**Verified harness issue:** the old release verifier required the
+original **two-ID set** until an entirely empty frame, which wrongly
+rejects a natural two-finger lift that emits
+`{A,B} → {A} → {}` or `{A,B} → {B} → {}`.
+A new gate permits only monotonically shrinking **subsets of the original
+IDs**, ultimately requiring the empty frame. New, substituted, or
+previously released-and-reappearing IDs remain hard failures.
+Independent host tests cover both valid sequential release and real
+tracking-ID substitution.
+
+**Saved-evidence audit still needed:** run the read-only
+`python3 tools/hardware_evidence/audit_release.py
+~/sl4a-hardware-runs/mode4-full-20261016T161746Z` after fetching the
+updated worktree. It prints the actual ID transitions and timestamps
+without printing touch coordinates. If the failing frame had one
+original ID, the old gate was demonstrably a false rejection. If the
+frame contains a **new** ID, treat the input continuity as an unresolved
+driver/algorithm question; do not quietly waive it.
+
 ## 2. Mandatory sound-and-evidence policy for physical tests
 
 **2026-10-16 usability correction:** audible *tones alone* are inadequate when
