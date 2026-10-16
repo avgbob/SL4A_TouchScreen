@@ -15,7 +15,14 @@ import statistics
 import sys
 
 
-PAIRS = {"quick-lift": "quick-expand", "pinch-lift": "pinch-expand"}
+# guided_session.PROTOCOLS["quick"] and ["pinch"] emit UNPREFIXED
+# labels ("expand", "lift"). The prefixed names are older synthetic/
+# alternate labels and remain accepted for compatibility. The original
+# analyzer accidentally required only prefixes and returned zero results
+# on every real physical quick session.
+PAIRS = {"lift": "expand",
+         "quick-lift": "quick-expand",
+         "pinch-lift": "pinch-expand"}
 
 
 def load(session):
@@ -125,23 +132,41 @@ def analyze(session):
                             e == "gesture-progress" and
                             detail.startswith(lift_label + ":One original finger remains")
                             for _, e, detail in cues)})
+    if not results:
+        observed = sorted({detail.split(";", 1)[0] for _, event, detail in cues
+                           if event == "phase-pass"})
+        results.append({"phase": "-", "status": "NO_MATCHING_RELEASE_PHASE",
+                        "observed_passes": observed})
     return results
 
 
 def candidates(root):
     root = root.expanduser()
-    if root.is_dir() and (root / "operator/live-evdev.jsonl").is_file():
-        return [root]
     if not root.is_dir():
         raise ValueError(f"not a directory: {root}")
-    return sorted({p.parent.parent for p in root.rglob("operator/live-evdev.jsonl")
-                   if ("pr87-" in str(p) or "mode4-" in str(p))})
+    # Cues must be the discovery anchor. If live-evdev is missing,
+    # include that session and report an actionable error, not 0 rows.
+    if ((root / "operator/cues.tsv").exists() or
+            (root / "operator/live-evdev.jsonl").exists()):
+        return [root]
+    paths = set(root.rglob("operator/cues.tsv"))
+    paths.update(root.rglob("operator/live-evdev.jsonl"))
+    return sorted({p.parent.parent for p in paths})
 
 
 def report(roots, threshold=100.0, output=None):
     rows = []
     for root in roots:
-        for session in candidates(root):
+        sessions = candidates(root)
+        if not sessions:
+            rows.append({
+                "session": str(root.expanduser()), "phase": "-",
+                "status": "NO_CAPTURE_FOUND",
+                "detail": "No operator/cues.tsv or operator/live-evdev.jsonl "
+                          "beneath this directory. Inspect existing capture layout."
+            })
+            continue
+        for session in sessions:
             try:
                 measures = analyze(session)
                 for entry in measures:
@@ -174,6 +199,11 @@ def report(roots, threshold=100.0, output=None):
         note = "intermediate voice recorded" if row.get("intermediate_announced") else ""
         if row.get("violations"):
             note = ",".join(row["violations"])
+        if row.get("observed_passes") is not None:
+            note = "Recorded phase-pass labels: " + (
+                ", ".join(row["observed_passes"]) or "(none)")
+        if row.get("detail"):
+            note = row["detail"]
         lines.append(f"{row['session']}: {row['phase']} | {status} | "
                      f"first->last={result} {note}")
     lines.append("")
@@ -193,7 +223,7 @@ def report(roots, threshold=100.0, output=None):
         print(f"Summary written to: {output}")
     return 1 if not rows or any(
         r["status"].startswith(("UNREADABLE", "MISSING", "INCOMPLETE",
-                                "TRACKING_ANOMALY")) for r in rows) else 0
+                                "TRACKING_ANOMALY", "NO_")) for r in rows) else 0
 
 
 def main():
