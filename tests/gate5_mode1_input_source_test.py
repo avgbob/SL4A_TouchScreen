@@ -14,20 +14,22 @@ def require(cond, msg):
 
 eligibility = """\
 (std_raw_transition == 1 ||
-\t\t       std_raw_transition == 3)"""
+\t\t       std_raw_transition == 3 ||
+\t\t       (std_raw_transition == 4 && shid->std_host56_mshw0231))"""
 
 eligibility_probe = """\
 (std_raw_transition == 1 ||
-\t      std_raw_transition == 3)"""
+\t      std_raw_transition == 3 ||
+\t      (std_raw_transition == 4 && shid->std_host56_mshw0231))"""
 
 require(
     eligibility in core,
-    "mode1/mode3 beta input DATA-path eligibility missing"
+    "mode1/mode3/mode4 beta input DATA-path eligibility missing"
 )
 
 require(
     eligibility_probe in core,
-    "mode1/mode3 beta input probe eligibility missing"
+    "mode1/mode3/mode4 beta input probe eligibility missing"
 )
 
 require(
