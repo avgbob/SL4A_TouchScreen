@@ -16,8 +16,7 @@ sl4a_select_source() {
             [[ -f "$repo/kernel-pins/pr87/DRIVER-BLOBS.txt" ]] || {
                 echo "ERROR: PR87 blob manifest missing" >&2; return 1;
             }
-            [[ "$(git hash-object -- "$repo/kernel-pins/pr87/DRIVER-BLOBS.txt")" ==
-                "5b51fbd0596eeb4dddee76a3e899cd2ce7fc045e" ]] || {
+            [[ "$(git hash-object -- "$repo/kernel-pins/pr87/DRIVER-BLOBS.txt")" == "5b51fbd0596eeb4dddee76a3e899cd2ce7fc045e" ]] || {
                 echo "ERROR: frozen PR87 blob manifest itself has changed" >&2; return 1;
             }
             while read -r sha name; do
