@@ -4,6 +4,48 @@
 the independent DieSchatten device, and Syax89's upstream PR #87.
 This is an operating plan, not a claim of broad compatibility.
 
+## Latest result — 2026-10-16 17:34–17:39 UTC: mode4 **s2idle 2/2 PASS**
+
+**Physical test:** Surface Laptop 4 AMD / kernel `7.0.0-31-generic`,
+exact checkout **`dc39813`**. Temporary existing-MOK-signed mode4
+driver SHA256:
+`de10c9769ec97b51a91dd86fcef6570e9f1dd205f4a82303339d773c8d7e7304`.
+Main immutable session:
+`~/sl4a-hardware-runs/mode4-s2idle2-20261016T173414Z`.
+
+Both suspends used the **same loaded mode4 module** (no module reload
+between cycles). The corrected harness observed genuine
+`CLOCK_BOOTTIME - CLOCK_MONOTONIC` sleep gaps,
+checked `PM: suspend entry (s2idle)` and `PM: suspend exit`
+kernel markers, confirmed the driver remained in mode4, and
+required a **heard spoken post-wake checkpoint** before gesture tests.
+The full short event-gated `quick` gesture chain passed after **each**
+resume; source identity, counters, resets, dropped frames and
+capture checksums passed in both trace bundles.
+
+| Cycle | Actual measured suspend | Event-gated post-wake trace | Result |
+| --- | --- | --- | --- |
+| 1 | **5.238 seconds** | `mode4-quick-20261016T173525Z` | PASS |
+| 2 | **23.315 seconds** | `mode4-quick-20261016T173808Z` | PASS |
+
+Final transcript confirmed `S2IDLE 2/2`, all main-session
+`SHA256SUMS.txt` entries verified, **Gate5 mode 1 restored** and
+the permanent boot profile unchanged.
+
+**Qualification summary, exact physical-unit code only:** full planned
+gesture coverage (across independent sessions); **warm reload 3/3**;
+**real s2idle 2/2**. The three completed lifecycle groups are
+independently evidence-backed, but **true cold power-on in mode4 is
+still untested**, as are unrelated upstream PR #87 and other machines.
+Do not default-enable mode4.
+
+**Next:** design/review a safe *one-shot true cold-power-on* experiment
+with an independently timed, boot-persistent rollback and recovery
+path before changing any startup configuration. A normal reboot or
+poweroff presently loads the working Gate5 mode1 and **is not** a
+mode4 cold boot test. Do not alter DKMS, Secure Boot keys or boot
+parameters casually for this last test.
+
 ## 2026-10-16 17:06 UTC: FIRST s2idle attempt INCONCLUSIVE (script timing race)
 
 The tester ran `qualify-s2idle2` from exact checkout **`81a633c`**
@@ -27,7 +69,7 @@ queued/return before true sleep; the immediate clock sample can thus
 preempt the actual sleep. Kernel PM logs from the device are needed to
 determine whether/when the OS actually slept.
 
-**Harness fixed but NOT YET physically retested:** poll
+**Historical incident (subsequently corrected and physically passed 2/2):** poll
 `CLOCK_BOOTTIME - CLOCK_MONOTONIC` until a proven >=2-second suspend
 gap appears, bounded to 75 seconds of awake time. On timeout,
 preserve kernel PM log and fail INCONCLUSIVE with voice when possible.
@@ -519,7 +561,9 @@ but does not replace exact-head lifecycle qualification.
 - No new MOK key, BIOS change, firmware flash, or installer-default switch
   during controlled comparisons. Keep mode1 as recovery anchor.
 
-**Next physical action:** confirm audio works on the Surface, then prepare
-and qualify the **post-watchdog-fix mode4 revision** starting with a warm
-reload and the audible quick+pinch session. PR87 exact-head hardware
-qualification follows once its own safe loader is prepared.
+**Current next physical action:** mode4 true cold-power-on qualification
+requires a reviewed boot-time, automatically self-reverting one-shot setup.
+Do not repeat already-passed mode4 quick/contacts/warm/s2idle test
+batches merely to reach this stage. PR87 exact-head hardware
+qualification is an independent track and follows only with its
+own proven loader and exact-source evidence.
