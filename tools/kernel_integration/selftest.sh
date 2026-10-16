@@ -29,4 +29,17 @@ if bash "$script" --apply "$kernel" >/dev/null 2>&1; then
     echo 'FAIL: repeated staging was not blocked' >&2
     exit 1
 fi
+# When a built kernel header tree is supplied, compile the staged layouts too.
+# This uses external-module Kbuild as a smoke check, NOT a full in-tree build.
+if [[ -n "${SL4A_BUILD_KDIR:-}" ]]; then
+    [[ -f "$SL4A_BUILD_KDIR/Makefile" ]] || {
+        echo "SL4A_BUILD_KDIR is not a kernel header build directory" >&2
+        exit 1
+    }
+    make -C "$SL4A_BUILD_KDIR" M="$kernel/drivers/spi/sl4a" CONFIG_SL4A_AMD_SPI=m modules
+    make -C "$SL4A_BUILD_KDIR" M="$kernel/drivers/hid/sl4a" CONFIG_SL4A_HID_SPI=m modules
+    test -s "$kernel/drivers/spi/sl4a/sl4a-spi-amd.ko"
+    test -s "$kernel/drivers/hid/sl4a/sl4a-spi-hid.ko"
+    printf 'PASS: staged SPI and HID modules compiled against %s\n' "$SL4A_BUILD_KDIR"
+fi
 printf 'PASS: preflight, source copy, Kconfig, whitespace, and duplicate protection\n'
