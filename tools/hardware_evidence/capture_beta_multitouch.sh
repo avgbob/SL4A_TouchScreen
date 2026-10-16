@@ -6,7 +6,7 @@ set -o pipefail
 
 usage() {
 	cat <<'EOF'
-Usage: tools/hardware_evidence/capture_beta_multitouch.sh --duration SECONDS --output FILE
+Usage: tools/hardware_evidence/capture_beta_multitouch.sh --duration SECONDS --output FILE [--stop-file PATH]
 
 Discovers the SL4A heatmap-backed multitouch bridge by its driver-owned input
 identity ("MSHW0231 Touchscreen") and multitouch capabilities, then records a
@@ -17,6 +17,7 @@ EOF
 
 duration=""
 output=""
+stop_file=""
 while [ "$#" -gt 0 ]; do
 	case "$1" in
 		--duration)
@@ -27,6 +28,11 @@ while [ "$#" -gt 0 ]; do
 		--output)
 			[ "$#" -ge 2 ] || { usage >&2; exit 2; }
 			output="$2"
+			shift 2
+			;;
+		--stop-file)
+			[ "$#" -ge 2 ] || { usage >&2; exit 2; }
+			stop_file="$2"
 			shift 2
 			;;
 		--help|-h)
@@ -122,8 +128,26 @@ umask 077
 	printf 'properties='
 	cat "$input/properties"
 	printf '\n# Raw evtest output follows\n'
-	timeout --signal=INT "$duration" evtest "$device"
+	# A guided session's stop marker ends this recorder after the last
+	# verified contact/release, instead of consuming its whole timeout.
+	timeout --signal=INT "$duration" evtest "$device" &
+	evtest_pid=$!
+	stopped=0
+	if [ -n "$stop_file" ]; then
+		for ((tick=0; tick<duration*4; tick++)); do
+			if [ -e "$stop_file" ]; then
+				stopped=1
+				kill -INT "$evtest_pid" 2>/dev/null || true
+				break
+			fi
+			kill -0 "$evtest_pid" 2>/dev/null || break
+			sleep .25
+		done
+	fi
+	wait "$evtest_pid"
 	status=$?
+	# Early-stop requested by the validated guide is an expected exit.
+	if [ "$stopped" -eq 1 ]; then status=0; fi
 	printf '\n# evtest_exit_status=%s\n' "$status"
 } > "$output" 2>&1
 
