@@ -353,13 +353,22 @@ def read_live_events(proc, q, destination):
 
 
 def selected_event_node(path):
-    """Use the collector's own discovered eventN, not a hardcoded node."""
+    """Use the collector's discovered eventN; reauthenticate only BEFORE touch."""
     start = time.monotonic()
+    renewed = False
     while time.monotonic() - start < 25:
         p = subprocess.run(["sudo", "-n", "sed", "-n",
                             "s/^device=\\(\\/dev\\/input\\/event[0-9]*\\)$/\\1/p",
                             str(path)], text=True, capture_output=True,
                            timeout=5)
+        if p.returncode and "password is required" in p.stderr.lower():
+            if renewed:
+                raise RuntimeError(
+                    "sudo still denies reading evtest device after interactive "
+                    "reauthentication; do not start the gesture test")
+            subprocess.run(["sudo", "-v"], check=True)
+            renewed = True
+            continue
         match = re.search(r"/dev/input/event[0-9]+", p.stdout)
         if match:
             return match.group(0)
