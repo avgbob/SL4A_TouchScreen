@@ -15,6 +15,7 @@ drivers.
 Options:
   --output DIRECTORY       New bundle directory (default: sl4a-linux-trace-<UTC>)
   --duration SECONDS       Session duration, from 1 through 3600 (default: 20)
+  --stop-file PATH         End bounded capture early when marker file appears
    --capture-direct-touch   Capture an optional bounded standard-HID direct-touch evtest trace
    --capture-beta-multitouch Capture the SL4A heatmap-backed multitouch bridge
    --capture-stylus         Capture an optional bounded stylus evtest trace
@@ -27,6 +28,7 @@ duration=20
 capture_direct_touch=0
 capture_beta_multitouch=0
 capture_stylus=0
+stop_file=""
 while [ "$#" -gt 0 ]; do
 	case "$1" in
 		--output)
@@ -50,6 +52,11 @@ while [ "$#" -gt 0 ]; do
 		--capture-stylus)
 			capture_stylus=1
 			shift
+			;;
+		--stop-file)
+			[ "$#" -ge 2 ] || { usage >&2; exit 2; }
+			stop_file="$2"
+			shift 2
 			;;
 		--help|-h)
 			usage
@@ -211,7 +218,7 @@ done'
 
 if [ "$capture_direct_touch" -eq 1 ]; then
 	"$(dirname "${BASH_SOURCE[0]}")/capture_direct_touch.sh" --duration "$duration" \
-		--output "$output/input/direct-touch.evtest.txt" &
+		--output "$output/input/direct-touch.evtest.txt" ${stop_file:+--stop-file "$stop_file"} &
 	evtest_pid=$!
 	evtest_status="running"
 else
@@ -220,7 +227,7 @@ else
 fi
 if [ "$capture_beta_multitouch" -eq 1 ]; then
 	bash "$(dirname "${BASH_SOURCE[0]}")/capture_beta_multitouch.sh" --duration "$duration" \
-		--output "$output/input/beta-multitouch.evtest.txt" &
+		--output "$output/input/beta-multitouch.evtest.txt" ${stop_file:+--stop-file "$stop_file"} &
 	beta_multitouch_pid=$!
 	beta_multitouch_status="running"
 else
@@ -229,7 +236,7 @@ else
 fi
 if [ "$capture_stylus" -eq 1 ]; then
 	"$(dirname "${BASH_SOURCE[0]}")/capture_stylus.sh" --duration "$duration" \
-		--output "$output/input/stylus.evtest.txt" &
+		--output "$output/input/stylus.evtest.txt" ${stop_file:+--stop-file "$stop_file"} &
 	stylus_pid=$!
 	stylus_status="running"
 else
@@ -237,8 +244,16 @@ else
 	stylus_status="not-requested"
 fi
 
-# Preserve a defined session even when no input trace was requested.
-sleep "$duration"
+# Preserve normal bounded timing, while allowing audibly guided sessions to
+# end promptly after all actual gesture gates pass. No stop file => old behavior.
+if [ -z "$stop_file" ]; then
+	sleep "$duration"
+else
+	for ((tick=0; tick<duration*4; tick++)); do
+		[ -e "$stop_file" ] && break
+		sleep .25
+	done
+fi
 if [ -n "$evtest_pid" ]; then
 	wait "$evtest_pid"
 	evtest_status=$?
