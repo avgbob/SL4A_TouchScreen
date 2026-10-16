@@ -40,18 +40,18 @@ assert 'PASS_3_OF_3' in harness
 # because "local cycle=... protocol=... out=...$protocol" refers to
 # protocol before local assigns it under set -u. Simulate with a shell
 # stub for python3, an ordinary temporary stats file and no hardware.
-cap = harness.split("capture() {\\n", 1)[1].split("\\n}\\nrun_warm_three()", 1)[0]
-real_capture = "capture() {\\n" + cap + "\\n}\\n"
+cap = harness.split("capture() {\n", 1)[1].split("\n}\nrun_warm_three()", 1)[0]
+real_capture = "capture() {\n" + cap + "\n}\n"
 with tempfile.TemporaryDirectory(prefix="pr87-capture-regression-") as td:
     td = Path(td)
-    (td / "stats.txt").write_text("reset_rsp=1\\nframes_dropped=0\\ndata=25\\nraw_observed=25\\n")
+    (td / "stats.txt").write_text("reset_rsp=1\nframes_dropped=0\ndata=25\nraw_observed=25\n")
     runner = (
-        "set -Eeuo pipefail\\n"
-        'session="$1"\\nSTATS="$2"\\nPR_ROOT="$3"\\n'
-        'HARNESS_ROOT="$4"\\n'
-        'python3() { printf "%s\\\\n" "$@" > "$session/collector-argv.txt"; }\\n'
-        + real_capture + "\\n"
-        + 'capture "1" "quick"\\n'
+        "set -Eeuo pipefail\n"
+        'session="$1"\nSTATS="$2"\nPR_ROOT="$3"\n'
+        'HARNESS_ROOT="$4"\n'
+        'python3() { printf "%s\\\n" "$@" > "$session/collector-argv.txt"; }\n'
+        + real_capture + "\n"
+        + 'capture "1" "quick"\n'
     )
     check = subprocess.run(
         ["bash", "-c", runner, "capture-regression", str(td),
@@ -63,10 +63,10 @@ with tempfile.TemporaryDirectory(prefix="pr87-capture-regression-") as td:
     assert (td / "stats-before-1.txt").read_text() == (td / "stats.txt").read_text()
     assert (td / "stats-after-1.txt").read_text() == (td / "stats.txt").read_text()
     argv = (td / "collector-argv.txt").read_text()
-    assert "--protocol\\nquick\\n" in argv
-    assert "--expected-mode\\n1\\n" in argv
-    assert "--source-root\\n" + str(td / "driver") + "\\n" in argv
-    assert "--output\\n" + str(td / "cycle-1-quick") + "\\n" in argv
+    assert "--protocol\nquick\n" in argv
+    assert "--expected-mode\n1\n" in argv
+    assert "--source-root\n" + str(td / "driver") + "\n" in argv
+    assert "--output\n" + str(td / "cycle-1-quick") + "\n" in argv
 
 for bad in ('dkms install', 'update-initramfs', 'grub-install', 'mokutil --import'):
     assert bad not in harness
