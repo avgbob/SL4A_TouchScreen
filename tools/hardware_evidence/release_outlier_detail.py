@@ -89,12 +89,36 @@ def examine(session):
                     f"{after:.3f} ms" if after >= 0 else
                     f"  final 0-contact frame recorded {-after:.3f} ms AFTER voice-cue mark"
                 )
+    if progress:
+        # Auditable conclusion: progress cue is logged before TTS playback.
+        # A cue AFTER the final 0-contact frame cannot have caused the
+        # preceding 2->1->0 input-event interval.
+        after_final = (progress[-1] - t0) * 1000
+        if after_final >= 0:
+            output.append(
+                "TIMELINE VERDICT: the intermediate 'one finger remains' "
+                "announcement was QUEUED AFTER both releases had already "
+                "been recorded, by "
+                f"{after_final:.3f} ms. It cannot explain the earlier "
+                "first-to-last evdev release interval."
+            )
+        else:
+            output.append(
+                "TIMELINE VERDICT: the intermediate cue was logged BEFORE "
+                "the final release; timing alone cannot show whether the "
+                "spoken instruction affected the operator's lift."
+            )
+        # Cue-processing delay is NOT touchscreen latency.
+        output.append(
+            f"Gesture PASS recorded {(passed-t0)*1000:.3f} ms "
+            "AFTER the final zero-contact input frame."
+        )
     output += [
         "Tracking-ID anomalies: " + (", ".join(sorted(anomalies)) if anomalies else "none observed"),
         "The progress cue is marked BEFORE speech synthesis playback; this",
         "does not timestamp hearing or actual fingertip separation.",
         "Kernel event-to-event gaps are not physical touch release latency.",
-        "Do not conclude a driver bug from a delayed human release response."
+        "Do not conclude a driver bug or physical lift time from a queued voice cue."
     ]
     for line in output:
         print(line)
