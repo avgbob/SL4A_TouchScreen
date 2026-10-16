@@ -70,6 +70,46 @@ confounder. Do not promote mode 4 to default.
 Initial CI for commit `308f914` passed, including host tests and kernel
 builds; hardware and regression conclusions are separate.
 
+### 2026-10-16 corrected mode-4 event-gated run: two gestures pass; continuity inconclusive
+
+Physical run `mode4-full-20261016T155826Z` used corrected standard
+bridge/watchdog code at checkout `fad839f` and a temporarily signed
+mode4 module. Spoken cue preflight, the live evdev monitor, and the
+read-only evidence collector started. Actual event-gated observations:
+
+- `quick-one`: single-finger movement **and release PASSED**.
+- `quick-pinch`: two-finger closing motion **PASSED**.
+- `quick-expand`: the original pair's IDs no longer matched; three
+  attempts of continuation failed and the session was correctly
+  recorded **INCONCLUSIVE**, not a full mode4 qualification PASS.
+- The one-command `qualify` wrapper restored DKMS Gate5 mode 1.
+
+Independent **read-only analysis of saved input events** showed pinch
+IDs `[1, 2]`; the first observed contact loss was a frame with
+**no contacts +3.114 s** after the pinch PASS. The next spoken expansion
+instruction did not begin until **+13.65 s**, and expand GO did not
+occur until **+19.67 s**. The original pair therefore disappeared
+**during the excessively long spoken gap**, 10.54 seconds before the
+next instruction. Later different-ID frames came from repeated
+continuation attempts and should not be counted as distinct failures.
+
+The evidence does **not** reveal whether the tester deliberately lifted,
+the controller stopped reporting contacts, or the software tracker
+released them. It demonstrates why that run cannot be used to judge
+uninterrupted touch ID continuity, **not** a proven driver failure.
+
+**Harness correction:** independent gestures retain full audible
+countdowns, while connected pinch→expand→hold→lift actions get
+immediate spoken transitions; all intervening evdev frames are checked.
+A lost pair now stops the connected sequence immediately as
+INCONCLUSIVE rather than retrying its last movement. Host behavioral
+tests for preserved and interrupted contact chains are green. These
+changes have **not yet passed an end-to-end physical run**. The first
+two gesture passes remain historical evidence for the previous runner.
+
+See [physical-unit roadmap](PHYSICAL-UNIT-ROADMAP-2026-10.md) for
+remaining hardware steps. Do not promote mode 4 to default.
+
 DieSchatten's independent 13.5-inch MSHW0231 unit uses a different **raw-mode**
 sequence: report 0x56 with all-six-`FF` payload, ~37–40 ms delay, SET5,
 and **no GET6**. That combination produced CapImg on his unit; GET6 paths
