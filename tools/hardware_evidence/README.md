@@ -18,11 +18,16 @@ without modifying that policy. It builds/signs with the existing enrolled
 MOK; temporarily activates mode4, then speaks a **power-state warning**
 and requires an explicit typed `YES` before **each** actual
 `systemctl suspend`. Wake with the keyboard/power button, unlock the
-screen if necessary, and leave the original shell running. It verifies
-`CLOCK_BOOTTIME` advanced relative to monotonic time, records kernel
-`PM: suspend entry (s2idle)` and `PM: suspend exit`, checks mode4 still
-loaded, and runs an audible, event-verified four-gesture `quick` test
-**after each wake**. It preserves source hashes, counters, kernel logs,
+screen if necessary, and leave the original shell running. It **waits** for
+`CLOCK_BOOTTIME` to advance relative to monotonic time by at least two
+seconds (rather than incorrectly assuming the suspend-request command
+returns only after wake), then records kernel `PM: suspend entry
+(s2idle)` and `PM: suspend exit` markers. It checks mode4 still
+loaded and plays a **post-wake spoken checkpoint**, requiring the
+operator's explicit typed `YES` that the words were actually heard
+after unlocking. Playback errors are retried; muted/silent audio
+or a no-op sleep cannot pass. Only after the post-wake voice
+confirmation does the event-verified four-gesture `quick` test begin. It preserves source hashes, counters, kernel logs,
 clock snapshots and links to both full raw evdev evidence bundles under a
 `~/sl4a-hardware-runs/mode4-s2idle2-*` session folder.
 
