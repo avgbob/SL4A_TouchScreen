@@ -36,6 +36,34 @@ assert '--protocol "$protocol"' in harness
 assert 'sha256sum' in harness
 assert 'PASS_3_OF_3' in harness
 
+# The real PM test is intentionally NOT silently simulated on CI: it
+# depends on hardware suspension and an operator hearing audio after wake.
+# But all safety/acceptance ordering is enforced in the source contract.
+assert 's2idle2) run_s2idle_two' in harness
+suspend = harness.split('run_s2idle_two() {\n', 1)[1].split('\n}\ncase ', 1)[0]
+assert "preflight" in suspend and "checkout_exact" in suspend
+assert "[s2idle]" in suspend
+assert 'Type S2IDLE to build/sign' in suspend
+assert suspend.index('Type S2IDLE to build/sign') < suspend.index('    prepare\n')
+assert 'trap on_exit EXIT' in suspend
+assert suspend.index('trap on_exit EXIT') < suspend.index('    load_pr\n')
+assert suspend.count('    load_pr\n') == 1  # same signed driver across both sleeps
+assert 'for cycle in 1 2; do' in suspend
+assert 'Type YES to initiate actual s2idle cycle' in suspend
+assert 'root systemctl suspend' in suspend
+assert '--wait-after "$before" "$after" --timeout-seconds 75' in suspend
+assert "PM: suspend entry (s2idle)" in suspend
+assert "PM: suspend exit" in suspend
+assert suspend.index('--wait-after "$before"') < suspend.index('POST-WAKE TOUCH CAPTURE')
+assert '--confirm --retries 5' in suspend
+assert suspend.index('--confirm --retries 5') < suspend.index('capture "s2idle-$cycle" quick')
+assert 'signed_hash="$(sha "$MODULE")"' in suspend
+assert suspend.count('[[ "$(sha "$MODULE")" == "$signed_hash" ]]') >= 2
+assert 'field "$HID/srcversion")" == "$experiment_src"' in suspend
+assert suspend.index('    restore\n') < suspend.index("printf 'PASS_2_OF_2")
+assert 'sha256sum -c SHA256SUMS.txt' in suspend
+
+
 # Execute the REAL capture() shell body, not just a source grep.
 # The first Surface run loaded exact PR87 correctly but stopped here:
 #   line 146: protocol: unbound variable
