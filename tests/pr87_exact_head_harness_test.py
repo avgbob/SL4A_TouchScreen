@@ -49,7 +49,7 @@ with tempfile.TemporaryDirectory(prefix="pr87-capture-regression-") as td:
         "set -Eeuo pipefail\n"
         'session="$1"\nSTATS="$2"\nPR_ROOT="$3"\n'
         'HARNESS_ROOT="$4"\n'
-        'python3() { printf "%s\\\n" "$@" > "$session/collector-argv.txt"; }\n'
+        'python3() { printf "%s|" "$@" > "$session/collector-argv.txt"; }\n'
         + real_capture + "\n"
         + 'capture "1" "quick"\n'
     )
@@ -63,10 +63,10 @@ with tempfile.TemporaryDirectory(prefix="pr87-capture-regression-") as td:
     assert (td / "stats-before-1.txt").read_text() == (td / "stats.txt").read_text()
     assert (td / "stats-after-1.txt").read_text() == (td / "stats.txt").read_text()
     argv = (td / "collector-argv.txt").read_text()
-    assert "--protocol\nquick\n" in argv
-    assert "--expected-mode\n1\n" in argv
-    assert "--source-root\n" + str(td / "driver") + "\n" in argv
-    assert "--output\n" + str(td / "cycle-1-quick") + "\n" in argv
+    assert "--protocol|quick|" in argv
+    assert "--expected-mode|1|" in argv
+    assert "--source-root|" + str(td / "driver") + "|" in argv
+    assert "--output|" + str(td / "cycle-1-quick") + "|" in argv
 
 for bad in ('dkms install', 'update-initramfs', 'grub-install', 'mokutil --import'):
     assert bad not in harness
