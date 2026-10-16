@@ -118,7 +118,7 @@ class Audio:
                               capture_output=True, text=True, timeout=5)
         if done.returncode:
             raise RuntimeError(f"Audio playback failed: {done.stderr.strip()}")
-    
+
     def preflight(self):
         print("AUDIO CHECK: you must actually HEAR two tones.", flush=True)
         self.play("pre")
