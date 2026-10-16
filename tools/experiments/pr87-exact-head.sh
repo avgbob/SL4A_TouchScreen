@@ -143,7 +143,11 @@ load_pr() {
     echo "PR87 ACTIVE: verified loaded PR srcversion $experiment_src"
 }
 capture() {
-    local cycle="$1" protocol="$2" out="$session/cycle-$cycle-$protocol"
+    # Bash expands a single `local` command before any names declared
+    # in that command become available. Under `set -u`, using $protocol
+    # while declaring it makes the first real capture fail immediately.
+    local cycle="$1" protocol="$2"
+    local out="$session/cycle-$cycle-$protocol"
     local tag="pr87-$protocol-$cycle-$(date -u +%Y%m%dT%H%M%SZ)"
     cat "$STATS" > "$session/stats-before-$cycle.txt"
     python3 "$HARNESS_ROOT/tools/hardware_evidence/guided_session.py" \
