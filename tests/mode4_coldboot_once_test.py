@@ -48,6 +48,14 @@ assert 'AMD_binding=' in fallback_body and 'HID_binding=' in fallback_body
 assert 'touch input NOT yet verified' in fallback_body
 assert 'controller_driver" != sl4a_spi_amd_v2_multi' in fallback_body
 assert 'touch_driver" != sl4a_spi_hid' in fallback_body
+# Do not stage from the exact broken state seen on kernel 7.0.0-34:
+# modprobe exposes mode1 but controller and touchscreen are unbound.
+stage_body = original.split('\nstage() {',1)[1].split('\nboot() {',1)[0]
+assert 'controller_binding" != sl4a_spi_amd_v2_multi' in stage_body
+assert 'touch_binding" != sl4a_spi_hid' in stage_body
+assert '! -r "$STATS"' in stage_body
+assert 'REFUSE staging: working Gate5 needs BOTH driver bindings' in stage_body
+assert stage_body.index('REFUSE staging: working Gate5 needs BOTH driver bindings') < stage_body.index('install -m 0755 "$0" "$HELPER"')
 assert 'std_raw_transition=4' in original
 assert 'modprobe -r sl4a-spi-hid' in original
 assert 'modprobe sl4a-spi-hid' in original
