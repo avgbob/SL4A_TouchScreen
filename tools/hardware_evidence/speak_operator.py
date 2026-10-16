@@ -37,12 +37,25 @@ def say_and_confirm(message, confirm=False, retries=1,
             if not sys.stdin.isatty():
                 raise RuntimeError("Audible post-wake confirmation requires "
                                    "an interactive terminal")
-            response = input(
-                "Did you actually HEAR the post-wake spoken instructions? "
-                "Type YES to start touchscreen checks: ").strip()
-            if response.upper() != "YES":
+            # "yes", "Yes", and "YES" were already accepted via .upper().
+            # Field transcript: "Yes" echoed BEFORE the prompt, then
+            # another "yes" after it. Buffered/mixed keystrokes may
+            # be read as one invalid line even though user meant YES.
+            # Retry typos without ever advancing without explicit consent.
+            for attempt in range(1, 4):
+                response = input(
+                    "Did you actually HEAR the post-wake spoken instructions? "
+                    "Type YES (any case) to start touchscreen checks: ").strip()
+                if response.casefold() == "yes":
+                    break
+                if attempt < 3:
+                    print("Confirmation not recognized. Please type only YES "
+                          "(or yes), then press Enter. No touch PASS yet.",
+                          flush=True)
+            else:
                 raise RuntimeError(
-                    "Post-wake speech unconfirmed: stopping without touch PASS")
+                    "Post-wake speech unconfirmed after 3 attempts: "
+                    "stopping without touch PASS")
     return 0
 
 
