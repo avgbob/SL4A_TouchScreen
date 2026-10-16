@@ -5,6 +5,7 @@ Runs cue audio as the desktop user; grants root only to the established
 read-only evtest/journal collector. No install, reload, or power operations.
 """
 import argparse
+from concurrent.futures import ThreadPoolExecutor
 import datetime as dt
 import hashlib
 import json
@@ -237,6 +238,17 @@ def guide(audio, marks, phases, process=None):
     mark(marks, "gesture-script-end")
 
 
+def _play_progress_if_active(audio, announcement, cancelled):
+    """Narrate feedback without holding up the live evdev consumer.
+
+    The event-gate thread may cancel not-yet-started feedback when a
+    gesture has already finished, so its next phase cannot inherit a
+    stale instruction. Voice exceptions are checked by the caller.
+    """
+    if not cancelled.is_set():
+        audio.speak(announcement)
+
+
 def live_capture(audio, marks, phases, events, evidence_proc):
     """Verify evdev gestures with uninterrupted physical contact continuity.
 
@@ -285,59 +297,81 @@ def live_capture(audio, marks, phases, events, evidence_proc):
                 phase_started = time.monotonic()
                 mark(marks, "phase-begin", f"{label};attempt={attempt}")
 
-            deadline = time.monotonic() + 22
-            while time.monotonic() < deadline:
-                if evidence_proc.poll() is not None:
-                    raise RuntimeError("Evidence collector exited during live test")
-                try:
-                    frame = events.get(timeout=.25)
-                except queue.Empty:
-                    continue
-                if frame.get("kind") == "error":
-                    raise RuntimeError("live input monitor failed: " +
-                                       str(frame.get("error")))
-                if frame.get("kind") != "frame":
-                    continue
-                # For a continuation, this includes *all* frames from the
-                # gap occupied by spoken instructions, so a lift or ID swap
-                # during that gap cannot be silently ignored.
-                if frame.get("monotonic", 0) < phase_started:
-                    continue
-                success, speech = gate.feed(frame)
-                for announcement in speech:
-                    mark(marks, "gesture-progress", f"{label}:{announcement}")
-                    # This is a TRANSIENT evdev state, often {A,B}->{A}->{}.
-                    # Speaking "Lift it now" takes longer than that state:
-                    # by playback time the operator has usually lifted BOTH
-                    # fingers. Keep the timestamped tracking-ID evidence, but
-                    # do not turn this intermediate observation into a stale
-                    # physical instruction. The gate STILL requires empty
-                    # contact set before it can PASS and rejects new IDs.
-                    if (gate.action == "lift" and
-                            announcement == "One original finger remains. Lift it now."):
+            # Only reactive progress narration is asynchronous. Spoken
+            # phase instructions remain serial; at the phase boundary the
+            # worker is joined before the next command, avoiding overlapping
+            # instructions. A separate monitor thread preserves all evdev
+            # frames and tracking IDs regardless of voice playback.
+            cancelled = threading.Event()
+            progress_futures = []
+            with ThreadPoolExecutor(max_workers=1,
+                                    thread_name_prefix="sl4a-progress") as progress_voice:
+                deadline = time.monotonic() + 22
+                while time.monotonic() < deadline:
+                    if evidence_proc.poll() is not None:
+                        raise RuntimeError("Evidence collector exited during live test")
+                    try:
+                        frame = events.get(timeout=.25)
+                    except queue.Empty:
                         continue
-                    audio.speak(announcement)
-                if gate.failed_reason:
-                    reason = f"{label}: {gate.failed_reason}"
-                    mark(marks, "phase-inconclusive",
-                         f"{label};attempt={attempt};{reason}")
-                    audio.speak("The original finger tracking was lost. "
-                                "This continuous gesture cannot pass. "
-                                "The recording is being saved for review.")
-                    raise RuntimeError(reason + "; evidence retained as INCONCLUSIVE")
-                if success:
-                    mark(marks, "phase-pass",
-                         f"{label};attempt={attempt};last_frame={frame.get('seq')}")
-                    if context.get("pair"):
-                        context["pair_last_pass_mono"] = frame["monotonic"]
-                    audio.play("go")
-                    # The next action is intentionally short and immediate
-                    # while two fingers are still held against the glass.
-                    if not context.get("pair"):
-                        audio.speak("Detected. Test passed.")
-                    results.append((label, "PASS", attempt))
-                    passed = True
-                    break
+                    if frame.get("kind") == "error":
+                        raise RuntimeError("live input monitor failed: " +
+                                           str(frame.get("error")))
+                    if frame.get("kind") != "frame":
+                        continue
+                    # For a continuation, this includes *all* frames from the
+                    # gap occupied by spoken instructions, so a lift or ID swap
+                    # during that gap cannot be silently ignored.
+                    if frame.get("monotonic", 0) < phase_started:
+                        continue
+                    success, speech = gate.feed(frame)
+                    for announcement in speech:
+                        mark(marks, "gesture-progress", f"{label}:{announcement}")
+                        # This is a TRANSIENT evdev state, often {A,B}->{A}->{}.
+                        # Speaking "Lift it now" takes longer than that state:
+                        # by playback time the operator has usually lifted BOTH
+                        # fingers. Keep the timestamped tracking-ID evidence, but
+                        # do not turn this intermediate observation into a stale
+                        # physical instruction. The gate STILL requires empty
+                        # contact set before it can PASS and rejects new IDs.
+                        if (gate.action == "lift" and
+                                announcement == "One original finger remains. Lift it now."):
+                            continue
+                        # Non-blocking: evdev frames can arrive while speech plays.
+                        # A bounded backlog is an error, not an excuse to silently
+                        # lose a required "lift now" instruction.
+                        if sum(not f.done() for f in progress_futures) >= 4:
+                            raise RuntimeError("progress narration backlog; capture INCONCLUSIVE")
+                        progress_futures.append(
+                            progress_voice.submit(_play_progress_if_active,
+                                                  audio, announcement, cancelled))
+                    if gate.failed_reason:
+                        cancelled.set()
+                        reason = f"{label}: {gate.failed_reason}"
+                        mark(marks, "phase-inconclusive",
+                             f"{label};attempt={attempt};{reason}")
+                        audio.speak("The original finger tracking was lost. "
+                                    "This continuous gesture cannot pass. "
+                                    "The recording is being saved for review.")
+                        raise RuntimeError(reason + "; evidence retained as INCONCLUSIVE")
+                    if success:
+                        cancelled.set()
+                        mark(marks, "phase-pass",
+                             f"{label};attempt={attempt};last_frame={frame.get('seq')}")
+                        if context.get("pair"):
+                            context["pair_last_pass_mono"] = frame["monotonic"]
+                        audio.play("go")
+                        # The next action is intentionally short and immediate
+                        # while two fingers are still held against the glass.
+                        if not context.get("pair"):
+                            audio.speak("Detected. Test passed.")
+                        results.append((label, "PASS", attempt))
+                        passed = True
+                        break
+                cancelled.set()
+            # Check worker errors rather than marking a voice failure PASS.
+            for pending in progress_futures:
+                pending.result()
             if passed:
                 break
             mark(marks, "phase-retry", f"{label};attempt={attempt}")

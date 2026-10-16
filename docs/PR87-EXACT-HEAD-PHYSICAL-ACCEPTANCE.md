@@ -51,6 +51,25 @@ The analysis remains read-only. **Actual release gaps are still
 not determined** until the corrected tool is run against the
 existing local captures.
 
+## 2026-10-16: nonblocking reactive voice/event-loop hardening
+
+Experimental *harness-only* change (not part of Syax89 PR #87
+and not a production touchscreen driver modification): progress
+announcements run on one serialized background speech worker while
+the event gate immediately consumes all queued evdev frames.
+The worker is joined between gesture phases to avoid overlapping
+spoken instructions; the existing timestamped `gesture-progress`
+markers, zero-contact completion, ID-reappearance checks and
+original-pair continuity remain mandatory. Feedback not yet begun
+is cancelled after a gesture passes, and a bounded narration
+backlog or a speech-worker exception makes the run inconclusive.
+
+A synthetic slow-voice regression injects two tracked finger frames
+while progress speech is deliberately delayed and requires the
+pinch PASS event timestamp to precede voice completion. This checks
+event-loop independence, not physical touchscreen release latency.
+No hardware results or prior acceptance statuses change.
+
 ## 2026-10-16 21:06 UTC: PR87 warm-2 425ms gap versus voice-cue timing **RESOLVED AS TWO SEPARATE OBSERVATIONS**
 
 The physical operator ran

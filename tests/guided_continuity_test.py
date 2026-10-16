@@ -102,6 +102,46 @@ assert "quick-lift:One original finger remains. Lift it now." in markers.getvalu
 assert "\tphase-pass\tquick-lift;" in markers.getvalue(), (
     "only original-pair zero contacts can complete release")
 
+
+# Regression: slow spoken progress must not block the gate from consuming
+# the next event frame. The capture may wait for audio at the boundary,
+# but the pinch PASS timestamp must precede completion of slow speech.
+class SlowProgressVoice(FakeVoice):
+    def __init__(self, events):
+        super().__init__(events)
+        self.progress_start = None
+        self.progress_end = None
+
+    def speak(self, message):
+        if message == "Go." and self.go_count == 1:
+            self.speech.append(message)
+            self.go_count += 1
+            def spaced_pinch():
+                self.put([(11, 100, 200), (12, 900, 200)])
+                threading.Timer(.085, lambda: self.put(
+                    [(11, 300, 200), (12, 600, 200)])).start()
+            threading.Timer(.03, spaced_pinch).start()
+        elif message == "Two fingers detected. Continue without lifting.":
+            self.progress_start = time.monotonic()
+            time.sleep(.35)
+            self.progress_end = time.monotonic()
+            super().speak(message)
+        else:
+            super().speak(message)
+
+events = queue.Queue()
+voice = SlowProgressVoice(events)
+markers = io.StringIO()
+res = live_capture(voice, markers, phases[:2], events, Collector())
+assert all(r[1] == "PASS" for r in res)
+pinch_pass = [float(line.split("\t")[1])
+              for line in markers.getvalue().splitlines()
+              if "\tphase-pass\tquick-pinch;" in line]
+assert len(pinch_pass) == 1 and voice.progress_start is not None
+assert voice.progress_start <= pinch_pass[0] < voice.progress_end, (
+    "slow reactive TTS blocked live event processing until voice playback ended")
+assert "Two fingers detected. Continue without lifting." in voice.speech
+
 events = queue.Queue()
 voice = FakeVoice(events, broken=True)
 markers = io.StringIO()
