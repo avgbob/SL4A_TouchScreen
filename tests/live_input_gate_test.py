@@ -45,7 +45,7 @@ assert ctx["single_completed"]
 pinch = GestureGate("quick-pinch", ctx)
 assert not send(pinch, [(11, 100, 100)], 6)  # one finger != two
 assert not send(pinch, [(11, 100, 100), (12, 1000, 100)], 7)
-assert not send(pinch, [(11, 150, 100), (12, 800, 100)], 8)
+assert not send(pinch, [(11, 120, 100), (12, 970, 100)], 8)
 assert send(pinch, [(11, 275, 100), (12, 675, 100)], 9)
 assert ctx["pair"] == frozenset((11, 12))
 
