@@ -240,6 +240,8 @@ with tempfile.TemporaryDirectory(prefix="pr87-coldboot-state-") as work:
     assert (base/"result").read_text().strip() == "INCONCLUSIVE_EARLIER_HID_PROBE"
     assert not dropin.exists()
     assert "insmod" not in (t/"call.log").read_text()
+    assert (temp/"srcversion").read_text().strip() == "PROD", (
+        "earlier probe rejection must restore Gate5, not leave HID absent")
     (t/"earlier-hid").unlink()
 
     # Independent timer firing before operator confirmation must restore

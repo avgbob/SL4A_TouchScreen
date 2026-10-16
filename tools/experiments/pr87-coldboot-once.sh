@@ -187,7 +187,7 @@ stage() {
     note "ARMED for one future DIFFERENT boot; power off physically"
     echo "STAGED. Fully power OFF: sudo systemctl poweroff"
     echo "After pressing power button and logging in:"
-    echo "  bash tools/experiments/host56-pr87.sh coldboot-finish"
+    echo "  bash tools/experiments/pr87-exact-head.sh coldboot-finish"
 }
 boot() {
     require_root
@@ -248,6 +248,10 @@ boot() {
             "$BASE/boot-before-hid.log"; then
         note "INCONCLUSIVE: earlier HID probe already appears in kernel journal"
         write_state result "INCONCLUSIVE_EARLIER_HID_PROBE"
+        # We are NOT permitted to call this the first experimental HID,
+        # but the normal service is currently overridden. Restore Gate5
+        # rather than leaving the machine with no HID module at all.
+        fallback
         return 0
     fi
     if [[ "$(sha256sum "$BASE/signed-pr87.ko" | awk '{print $1}')" != "$(field module_sha)" ]]; then
@@ -272,6 +276,11 @@ boot() {
            "$BASE/boot-after-amd.log"; then
         note "INCONCLUSIVE: HID initialized during AMD controller setup"
         write_state result "INCONCLUSIVE_HID_AUTOLOADED"
+        # If the AMD phase left no module, return to installed Gate5.
+        # Do not displace an already-running HID from the boot service.
+        if [[ ! -d /sys/module/sl4a_spi_hid ]]; then
+            fallback
+        fi
         cancel_timer; return 0
     fi
     if ! insmod "$BASE/signed-pr87.ko" \
@@ -302,7 +311,7 @@ rollback() {
     unhook
     rm -f "$BASE/armed" 2>/dev/null || true
     # Both PR87 and Gate5 run standard transport mode=1. Source identity,
-    # trial boot ID and changed-production SHA jointly authorize unloading.
+    # trial boot ID and distinct module srcversion jointly authorize unloading.
     if [[ -d "$BASE" &&
           "$(field trial_boot_id)" == "$(current_boot)" &&
           "$(mode)" == 1 &&
