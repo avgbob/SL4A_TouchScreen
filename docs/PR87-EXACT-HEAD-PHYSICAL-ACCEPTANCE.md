@@ -1,15 +1,20 @@
 # Syax89 PR #87 — exact-head hardware acceptance campaign
 
-**Current status (2026-10-16):** **exact-head PR #87 warm 3/3
-PASS on physical MSHW0231 / kernel `7.0.0-34-generic`**. All
-three separate module activations used the same signed `.ko`, passed
-spoken live single-finger and original two-finger pinch→expand→release
-events, source/counter/integrity gates, and restored installed Gate5
-after each. Two genuine s2idle resumes, a real cold first-HID load,
-full gesture matrix and default-standard negative control are
-**STILL PENDING** on PR87. The first, earlier warm attempt aborted
-before any gesture due to a shell harness bug and must remain
-**INCONCLUSIVE** (not counted in the 3/3).
+**Current status (2026-10-16):** **exact-head PR #87 warm
+3/3 PASS and genuine s2idle post-wake 2/2 PASS** on physical MSHW0231,
+kernel `7.0.0-34-generic`. The signed PR `.ko` was stable across
+three separate warm activations and both real sleep cycles; source,
+evdev event-gated fingers, counter/integrity checks and production
+Gate5 restoration all passed in the test-runner reports.
+**A real cold first-HID load, full gesture matrix and
+default-standard negative control are STILL PENDING** on PR87.
+Prior incomplete warm/harness and voice-confirmation attempts are
+retained separately and are not counted as completed tests.
+The operator notes that all quick two-finger releases speak
+“One original finger remains” while fingers may already be off.
+This is a transient 2→1→0 tracking-ID status, *not* a PASS with
+one contact held, but absolute release delay is not measured from
+the pasted terminal log; see the focused release-narration audit.
 PR: https://github.com/Syax89/SL4A_TouchScreen/pull/87
 Exact pinned test driver revision:
 `18f0fe79623e6de4fdf1ae493f82a7048397386a`.
@@ -18,6 +23,58 @@ Ubuntu kernel `7.0.0-34-generic`, Secure Boot enabled with existing
 enrolled Ubuntu DKMS MOK. Known-working, installed boot fallback:
 Gate5 `sl4a-touch/1.7.0` mode1, production driver source identity
 `3326E559A916BE5CB52375D` from preceding hardware diagnosis.
+
+## 2026-10-16 20:13 UTC: PR87 true s2idle 2/2 **PASS**; release-voice observation
+
+The operator reran the CI-tested `pr87-exact-head.sh s2idle2`
+with source `18f0fe79623e6de4fdf1ae493f82a7048397386a`,
+signed `.ko` SHA256
+`61ec6f796d60b6e50d1c1888dc693e6cd135d08a023f1bccb0fc5ade15054d8e`,
+loaded `srcversion=65F0D14FBDFB5E84748373E`, kernel
+`7.0.0-34-generic`.
+
+The runner verified a genuine s2idle sleep gap of **158.454s**
+in cycle 1 and **324.521s** in cycle 2, corresponding kernel
+PM entry/exit logs, the same signed PR driver remaining loaded,
+readable controller/HID bindings and protocol statistics, and
+two separately completed audible post-wake live evdev tests
+(single finger move + 2 original fingers pinch→expand→release).
+Both test sessions reported live gate, identity, reset/drop
+and evidence checksum **PASS**. After cycle2, the runner
+unloaded only the matching experimental module, verified
+production Gate5 restored and reported
+`PR87 S2IDLE 2/2 PASS`.
+
+**Physical evidence remains on the unit:**
+`~/sl4a-hardware-runs/pr87-exact-s2idle2-20261016T201323Z`,
+`cycle-s2idle-1-quick`, `cycle-s2idle-2-quick`,
+plus verified top-level PM/clock/journal/stats/result checksums.
+The terminal transcript does NOT include the raw evdev timing
+files or physical finger-off timestamps, so no release latency
+is calculated.
+
+**User-raised release observation:** on **every** two-finger
+test, the voice said `One original finger remains. Lift it now.`
+after `Lift both fingers now.` and before `Detected. Test passed.`.
+Source audit shows the instruction is emitted on a recorded
+intermediate original pair contact change `{A,B}->{A}` (or B),
+while the gate cannot pass until `{}`. Therefore it does
+**not mean a lingering finger was accepted as a PASS**, but
+speech is emitted synchronously and can describe an already
+expired frame by the time the words finish playing. A voice-
+only correction now retains this transitional state as a
+timestamped `gesture-progress` marker without broadcasting
+a stale physical direction; the strict pair identity and
+zero-contact acceptance criteria remain **unchanged**.
+If the user observes persistent phantom touch or click/drag
+after release outside this voice test, analyze the saved evdev
+`operator/live-evdev.jsonl` and cue markers before ruling out
+a decoder/tracker issue. The new narration source change was
+made **after** this physical PASS and does not alter the
+tested PR driver revision.
+
+**This exact-head PR still needs cold boot, full matrix,
+and default-standard opt-out physical checks.**
 
 ## 2026-10-16 first PR87 s2idle attempt: real sleep PASS, gesture INCOMPLETE
 
