@@ -46,7 +46,7 @@ All **interactive** physical touch/stylus sessions now use:
 Reusable runner on the **experiment branch**:
 `tools/hardware_evidence/guided_session.py`.
 
-Available cued protocols: `quick` (one finger/pinch/expand/lift),
+Available cued protocols: `full` (all quick + pinch + contacts under ONE audio preflight and ONE evidence bundle), `quick` (one finger/pinch/expand/lift),
 `pinch` (same two contact IDs maintained far→close→hold→expand→lift),
 `contacts` (1–5 contacts/one-finger lift/recontact),
 `stylus` (hover/contact/lift), and `single --input-source direct`
@@ -66,14 +66,14 @@ python3 tools/hardware_evidence/guided_session.py --audio-check
 
 ```sh
 python3 tools/hardware_evidence/guided_session.py \
-    --protocol pinch --case mode4-warm-01-pinch \
-    --output "$HOME/sl4a-hardware-runs/mode4-warm-01-pinch"
+    --protocol full --case mode4-warm-01-full \
+    --output "$HOME/sl4a-hardware-runs/mode4-warm-01-full"
 ```
 
 For temporary mode4 the wrapper also supports:
 `bash tools/experiments/host56-mode4.sh audio-check`,
 `bash tools/experiments/host56-mode4.sh capture quick`,
-`capture pinch`, `capture contacts`, and `capture stylus`.
+`capture full`, `capture pinch`, `capture contacts`, and `capture stylus`.
 It refuses to take a mode4 capture if a different mode is loaded.
 
 ## 3. Desk work FIRST (no physical unit)
@@ -118,7 +118,7 @@ It refuses to take a mode4 capture if a different mode is loaded.
 
 | ID | Test | Physical work / evidence |
 | --- | --- | --- |
-| M4-1 | Warm reload #1 | Load signed temporary mode4; run `quick`, `pinch` and `contacts` once **without** another reload; check CapImg, tracking IDs and contact releases |
+| M4-1 | Warm reload #1 | Load signed temporary mode4; run **one `full` audible capture** (quick + pinch + contacts under one preflight/evtest file); check CapImg, IDs and releases |
 | M4-2 | Warm reload #2 | One reload + short audible `quick` |
 | M4-3 | Warm reload #3 | One reload + short audible `quick` |
 | M4-4 | s2idle #1 (>=30s) | Resume + `quick`, fresh descriptors and CapImg |
@@ -150,8 +150,9 @@ Syax89's requested exact-head acceptance evidence:
 - No fake standard-liveness logging, no early-DATA body abandonment,
   raw transport behavior retained, and host/kernel CI confirmed.
 
-Use exactly the same acoustic/trace protocols and evidence indexing as
-mode4, but build and load PR87 **from its own source**. A successful
+Use the same **single `full` run then short `quick` lifecycle runs**,
+acoustic/trace protocols and evidence indexing as mode4, but build and
+load PR87 **from its own source**. A successful
 mode4 test cannot be counted as PR87 physical acceptance.
 
 ## 7. Quality / release matrix AFTER upstream acceptance
@@ -180,6 +181,10 @@ real MT events and working gestures, correct input release, no added
 `frames_dropped`, and no unexpected reset after DONE. One reset response
 during startup is expected. For conservative standard control, require
 ordinary single-touch events; **do not require CapImg**.
+
+These operator-guided cases are **unblinded engineering runs**, even though
+they reuse the existing read-only collector with the `p1` artifact label.
+They must never be misrepresented as the distinct E1 blinded crossover.
 
 Every failed/inconclusive run is retained. A console claim that "pinch
 worked" without a timestamped gesture trace is useful operator evidence,
