@@ -164,6 +164,36 @@ This experiment copies only the missing **feature-write order** onto the
 existing **standard HID-over-SPI** transport. A result will not establish
 equivalence to his raw transport, power cycle, read register policy or firmware.
 
+### 2026-10-16 16:38 UTC: **all seven remaining contacts PASS on physical mode4**
+
+The operator ran `bash tools/experiments/host56-mode4.sh qualify contacts`
+from **checkout `14a8991`**, signed driver SHA256
+`f6de86ede8ee9d05adbce85ad842aa0aa2f202d7ad85d1c37976d840a86eef0e`,
+kernel `7.0.0-31-generic`. Recorded immutable local evidence:
+`~/sl4a-hardware-runs/mode4-contacts-20261016T163800Z`.
+
+**All seven actual event-gated phases passed** with audible, confirmed
+instructions: 1, 2, 3, 4, and 5 fingers with verified release, selective
+two-finger→one-finger→all-up, and lift/recontact with a new ID. The
+collector's final report stated source/signature integrity, actual MT
+events, reset and frame-drop checks, and evidence checksums **PASS**.
+The runner restored the unchanged production Gate5 **mode 1** after
+the session.
+
+This completes the **planned behavioral gesture coverage across two
+separate mode4 hardware runs**: the previous `quick`+multi-stage pinch
+observations and offline-confirmed normal release, plus this 7/7
+contact run. It is not one 16/16 uninterrupted session or a lifecycle
+qualification. It also does **not** validate Syax89's separate GET6
+write-only PR #87 SHA or the other contributor's distinct raw transport.
+
+**Next:** repeated warm activation, two suspend/resume tests, and a true
+cold-boot test only after implementing a safe, rollback-equipped opt-in.
+The `qualify-warm3` wrapper builds/signs once, then runs **three
+separate warm activations**, each with a short audible event-verified
+`quick` capture and immediate Gate5 rollback. Do not mark the three
+warm cycles as passed until their physical logs and checksums exist.
+
 ## Opt-in mode 4
 
 ```text
