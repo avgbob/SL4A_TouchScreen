@@ -159,13 +159,53 @@ qualify() {
     )
 }
 
+# Three distinct warm activations of the exact SAME signed mode4 binary.
+# Each activation receives its own short spoken quick session and immutable
+# evidence folder; Gate5 is restored between cycles and on any failure.
+# Does not request suspend, restart or change the installed DKMS/boot profile.
+qualify_warm_three() {
+    require_device
+    [[ -r "$SYS" && "$(cat "$SYS")" == 1 ]] || {
+        echo "ERROR: warm qualification requires working Gate5 mode 1 at entry." >&2
+        return 1
+    }
+    prepare  # Build/sign ONCE; subsequent cycles reuse identical module.
+    (
+        trap 'restore' EXIT
+        trap 'exit 130' INT
+        trap 'exit 143' TERM
+        local cycle
+        for cycle in 1 2 3; do
+            [[ -r "$SYS" && "$(cat "$SYS")" == 1 ]] || {
+                echo "ERROR: baseline Gate5 missing before warm cycle $cycle" >&2
+                exit 1
+            }
+            echo "=== WARM ACTIVATION $cycle OF 3: same module SHA256 ==="
+            sha256sum "$MODULE"
+            activate
+            # Every session requires a confirmed spoken preflight and verifies
+            # actual CapImg + MT events, reset deltas and zero dropped frames.
+            capture quick
+            restore
+            [[ -r "$SYS" && "$(cat "$SYS")" == 1 ]] || {
+                echo "ERROR: Gate5 restoration failed after cycle $cycle" >&2
+                exit 1
+            }
+            echo "=== WARM CYCLE $cycle/3 PASSED; GATE5 RESTORED ==="
+        done
+        trap - EXIT
+        echo "WARM 3/3: all short spoken captures passed; Gate5 mode 1 restored."
+    )
+}
+
 case "${1:-}" in
     qualify) qualify "${2:-full}" ;;
+    qualify-warm3) qualify_warm_three ;;
     prepare) prepare ;;
     activate) activate ;;
     restore) restore ;;
     capture) capture "${2:-quick}" ;;
     audio-check) python3 "$ROOT/tools/hardware_evidence/guided_session.py" --audio-check ;;
     status) show_status ;;
-    *) echo "Usage: $0 {qualify [quick|contacts|full]|prepare|activate|audio-check|capture [quick|pinch|contacts|full|stylus]|status|restore}" >&2; exit 2 ;;
+    *) echo "Usage: $0 {qualify [quick|contacts|full]|qualify-warm3|prepare|activate|audio-check|capture [quick|pinch|contacts|full|stylus]|status|restore}" >&2; exit 2 ;;
 esac
