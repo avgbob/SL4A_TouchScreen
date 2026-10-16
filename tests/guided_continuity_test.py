@@ -1,0 +1,96 @@
+#!/usr/bin/env python3
+"""Behavioral mock: every voiced transition preserves live input continuity."""
+import io
+from pathlib import Path
+import queue
+import sys
+import time
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] /
+                       "tools/hardware_evidence"))
+from guided_session import live_capture
+
+
+class Collector:
+    def poll(self):
+        return None
+
+
+class FakeVoice:
+    def __init__(self, events, broken=False):
+        self.events = events
+        self.broken = broken
+        self.speech = []
+        self.go_count = 0
+        self.seq = 0
+
+    def put(self, touches):
+        self.seq += 1
+        self.events.put({"kind": "frame", "seq": self.seq,
+                         "monotonic": time.monotonic(),
+                         "contacts": [{"id": id_, "x": x, "y": y}
+                                      for id_, x, y in touches],
+                         "tip": bool(touches), "pen": False})
+
+    def speak(self, message):
+        self.speech.append(message)
+        if message == "Go.":
+            self.go_count += 1
+            if self.go_count == 1:
+                self.put([(1, 100, 100)])
+                self.put([(1, 200, 100)])
+                self.put([])
+            elif self.go_count == 2:
+                self.put([(11, 100, 200), (12, 900, 200)])
+                self.put([(11, 300, 200), (12, 600, 200)])
+        elif message == "Now move those SAME two fingers apart.":
+            if self.broken:
+                # A physical finger lift while the instruction plays
+                # invalidates this pair, even if new contacts appear later.
+                self.put([])
+                self.put([(21, 100, 200), (22, 950, 200)])
+            else:
+                self.put([(11, 300, 200), (12, 600, 200)])
+                self.put([(11, 100, 200), (12, 950, 200)])
+        elif message == "Lift both fingers now.":
+            self.put([])
+
+    def play(self, cue):
+        assert cue in ("go", "end")
+
+
+phases = [
+    ("quick-one", "Move one finger, then lift.", 8),
+    ("quick-pinch", "Pinch with two fingers.", 8),
+    ("quick-expand", "Expand same two fingers.", 8),
+    ("quick-lift", "Lift both fingers.", 5),
+]
+
+events = queue.Queue()
+voice = FakeVoice(events)
+markers = io.StringIO()
+res = live_capture(voice, markers, phases, events, Collector())
+assert [entry[0] for entry in res] == [v[0] for v in phases]
+assert all(entry[1] == "PASS" for entry in res)
+assert voice.go_count == 2, (
+    "the expand/lift continuation must skip full spoken countdown")
+assert voice.speech.count("5") == 2
+assert "Now move those SAME two fingers apart." in voice.speech
+assert "Lift both fingers now." in voice.speech
+assert markers.getvalue().count("\tphase-pass\t") == 4
+
+events = queue.Queue()
+voice = FakeVoice(events, broken=True)
+markers = io.StringIO()
+try:
+    live_capture(voice, markers, phases[:3], events, Collector())
+except RuntimeError as exc:
+    assert "tracking" in str(exc).lower(), str(exc)
+    assert "INCONCLUSIVE" in str(exc)
+else:
+    raise AssertionError("lost IDs during the voiced transition produced a false PASS")
+assert voice.go_count == 2
+assert markers.getvalue().count("\tphase-pass\t") == 2
+assert "\tphase-inconclusive\tquick-expand" in markers.getvalue()
+assert not any("Detected. Test passed." in v for v in voice.speech[-4:])
+print("spoken contact-chain transitions and irreversible ID loss: PASS")
