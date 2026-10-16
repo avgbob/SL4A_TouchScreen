@@ -236,13 +236,47 @@ def live_capture(audio, marks, phases, events, evidence_proc):
         passed = False
         for attempt in range(1, 4):
             gate = GestureGate(label, context)
-            audio.speak(f"Test {number} of {len(phases)}. {prompt}")
-            mark(marks, "phase-instruction", f"{label};attempt={attempt};{prompt}")
-            # Spoken countdown is not an arbitrary test deadline.
-            for n in (5, 4, 3, 2, 1):
-                audio.speak(str(n))
-            audio.speak("Go.")
-            mark(marks, "phase-begin", f"{label};attempt={attempt}")
+            release_pair = gate.action == "lift" and context.get("pair")
+            if release_pair:
+                # A voice/countdown saying "lift" would invite the operator to
+                # lift BEFORE recording starts. Instead observe the ORIGINAL
+                # pair alive in THIS phase, then give the lift instruction.
+                audio.speak("Keep both fingers touching the screen. "
+                            "Do not lift them yet.")
+                preflight_start = time.monotonic()
+                preflight_end = preflight_start + 8
+                while time.monotonic() < preflight_end and gate.stage != 1:
+                    if evidence_proc.poll() is not None:
+                        raise RuntimeError("Evidence collector exited during release check")
+                    try:
+                        sample = events.get(timeout=.25)
+                    except queue.Empty:
+                        continue
+                    if sample.get("kind") == "error":
+                        raise RuntimeError("live input monitor failed: " +
+                                           str(sample.get("error")))
+                    if (sample.get("kind") == "frame" and
+                            sample.get("monotonic", 0) >= preflight_start):
+                        gate.feed(sample)
+                if gate.stage != 1:
+                    mark(marks, "phase-retry",
+                         f"{label};attempt={attempt};original pair not observed down")
+                    audio.speak("The original two fingers are not both down. "
+                                "This attempt did not pass.")
+                    continue
+                mark(marks, "phase-instruction", f"{label};attempt={attempt};release armed")
+                phase_started = time.monotonic()
+                mark(marks, "phase-begin", f"{label};attempt={attempt}")
+                audio.speak("Both original fingers confirmed. Lift them now.")
+            else:
+                audio.speak(f"Test {number} of {len(phases)}. {prompt}")
+                mark(marks, "phase-instruction", f"{label};attempt={attempt};{prompt}")
+                # Spoken countdown is a GO cue, never a substitute for data.
+                for n in (5, 4, 3, 2, 1):
+                    audio.speak(str(n))
+                audio.speak("Go.")
+                phase_started = time.monotonic()
+                mark(marks, "phase-begin", f"{label};attempt={attempt}")
             deadline = time.monotonic() + 22
             while time.monotonic() < deadline:
                 if evidence_proc.poll() is not None:
@@ -257,7 +291,7 @@ def live_capture(audio, marks, phases, events, evidence_proc):
                 if frame.get("kind") != "frame":
                     continue
                 # Reject frames emitted while we were still saying the prompt.
-                if frame.get("monotonic", 0) < deadline - 22:
+                if frame.get("monotonic", 0) < phase_started:
                     continue
                 success, speech = gate.feed(frame)
                 for announcement in speech:
@@ -268,6 +302,9 @@ def live_capture(audio, marks, phases, events, evidence_proc):
                          f"{label};attempt={attempt};last_frame={frame.get('seq')}")
                     audio.play("go")
                     audio.speak("Detected. Test passed.")
+                    if gate.action in ("far", "pinch", "close", "expand", "hold"):
+                        audio.speak("Keep both fingers touching until I tell "
+                                    "you to lift.")
                     results.append((label, "PASS", attempt))
                     passed = True
                     break
