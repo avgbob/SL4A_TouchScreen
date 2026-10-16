@@ -265,21 +265,38 @@ class GestureGate:
         elif a == "lift":
             expected = self.ctx.get("pair")
             if expected is not None:
-                # A prior phase's pair is only an expectation, NOT proof
-                # of present contact. Before accepting an empty frame,
-                # observe both original IDs DOWN in THIS release phase.
-                if len(valid) == 2 and ids == expected:
-                    self.stage = 1
-                elif len(valid) == 0 and self.stage == 1:
-                    self.good = True
-                    self.ctx.pop("pair", None)
-                    self.ctx.pop("distance", None)
-                elif len(valid) and ids != expected:
+                # Releasing two fingers is generally NOT an atomic input
+                # event: the kernel can report {A,B} -> {A} -> {} (or B).
+                # A surviving ORIGINAL ID is valid. Never accept a NEW ID,
+                # or reappearance of one already lifted, as continuity.
+                # stage=1 may be prearmed by live_capture using the
+                # immediately preceding accepted original-pair frame.
+                if not valid:
+                    if self.stage in (1, 2):
+                        self.good = True
+                        self.ctx.pop("pair", None)
+                        self.ctx.pop("distance", None)
+                elif not ids.issubset(expected):
                     self.failed_reason = (
-                        "Different tracking IDs before release. "
+                        "New tracking ID appeared during release. "
                         "Original contact chain is broken.")
-                    self.notice("The original pair changed before release.")
+                    self.notice("New finger tracking ID during release.")
                     return False, self.progress
+                elif self.stage == 0:
+                    if ids == expected:
+                        self.stage = 1
+                        self.ids = expected
+                elif self.stage in (1, 2):
+                    remaining = self.ids if self.ids is not None else expected
+                    if not ids.issubset(remaining):
+                        self.failed_reason = (
+                            "Previously released tracking ID reappeared.")
+                        self.notice("Finger tracking ID reappeared during release.")
+                        return False, self.progress
+                    self.ids = ids
+                    if len(ids) == 1:
+                        self.stage = 2
+                        self.notice("One original finger remains. Lift it now.")
             elif (len(valid) == 0 and
                   (self.ctx.get("single_completed") or
                    self.ctx.get("pen_contact_completed"))):
