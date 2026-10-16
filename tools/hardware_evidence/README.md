@@ -31,6 +31,54 @@ period and case. It calls the existing read-only collector and trace bundle
 helpers, writes a worksheet and role-boundary instructions, and generates a
 SHA-256 checksum list. It neither accepts nor reveals profile information.
 
+## Audible, operator-guided physical qualification (2026-10)
+
+For **interactive** contact-count and pinch tests, use
+[`guided_session.py`](guided_session.py) rather than silently running
+a bare `evtest` window. Our earlier ad-hoc terminal-bell countdowns
+were not collected into a reusable test runner.
+
+The guide:
+
+- checks whether the operator can actually hear real WAV cue tones
+  from `paplay`, `pw-play`, or `aplay`; refuses to begin if not;
+- runs the acoustic **5-4-3-2-1** countdown, an audible GO for every
+  gesture phase, **3-2-1** phase endings, and STOP/complete sounds;
+- saves **UTC and monotonic phase markers** synchronized with the event
+  capture, plus module/case identity and before/after sysfs counters;
+- runs audio as the desktop user while invoking the collector under sudo
+  for the privileged input-device read;
+- requires a new evidence directory and verifies actual `evtest` events,
+  not merely input device registration;
+- cannot install/reload/unload the kernel module or change the boot profile.
+
+Test the sound output **before** any module activation:
+
+```sh
+python3 tools/hardware_evidence/guided_session.py --audio-check
+```
+
+One first-pass, single-bundle sequence runs **all** quick, pinch and contact
+cues with one audible preflight and one evtest recording:
+
+```sh
+python3 tools/hardware_evidence/guided_session.py \
+  --protocol full --case warm-01-full \
+  --output "$HOME/sl4a-hardware-runs/warm-01-full"
+```
+
+For subsequent warm reload/resume cases, use `--protocol quick`;
+for a direct-touch control use `--protocol single --input-source direct`;
+for pen use `--protocol stylus` (auto-selects stylus input).
+The `--demo` option exercises printed cues **without sound/hardware**
+for CI or script development only; a demo is not a qualification run.
+
+**Blinding caution:** these are expressly **unblinded hardware
+engineering sessions**. They reuse the read-only collector but include
+actual activation/driver metadata. Do not call them E1 blinded sessions
+or infer compatibility from a single physical test. The [roadmap](../../docs/PHYSICAL-UNIT-ROADMAP-2026-10.md)
+separates upstream PR87 exact-head acceptance, mode4 and future E1 tests.
+
 ## Usage
 
 Run from the repository root. No privilege escalation is performed or needed
