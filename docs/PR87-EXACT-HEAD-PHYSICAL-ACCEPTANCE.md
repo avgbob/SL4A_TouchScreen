@@ -1,11 +1,15 @@
 # Syax89 PR #87 — exact-head hardware acceptance campaign
 
-**Current status (2026-10-16):** first warm attempt reached a
-SIGNED **PR87 module activation PASS** but the event-gated gesture
-capture did NOT start due to a host-harness `set -u` error.
-Installed Gate5 automatically restored; warm 3/3 is **NOT YET
-QUALIFIED**. Corrected harness has CI-backed regression tests.
-The physical unit has NOT yet run the corrected warm capture.
+**Current status (2026-10-16):** **exact-head PR #87 warm 3/3
+PASS on physical MSHW0231 / kernel `7.0.0-34-generic`**. All
+three separate module activations used the same signed `.ko`, passed
+spoken live single-finger and original two-finger pinch→expand→release
+events, source/counter/integrity gates, and restored installed Gate5
+after each. Two genuine s2idle resumes, a real cold first-HID load,
+full gesture matrix and default-standard negative control are
+**STILL PENDING** on PR87. The first, earlier warm attempt aborted
+before any gesture due to a shell harness bug and must remain
+**INCONCLUSIVE** (not counted in the 3/3).
 PR: https://github.com/Syax89/SL4A_TouchScreen/pull/87
 Exact pinned test driver revision:
 `18f0fe79623e6de4fdf1ae493f82a7048397386a`.
@@ -14,6 +18,41 @@ Ubuntu kernel `7.0.0-34-generic`, Secure Boot enabled with existing
 enrolled Ubuntu DKMS MOK. Known-working, installed boot fallback:
 Gate5 `sl4a-touch/1.7.0` mode1, production driver source identity
 `3326E559A916BE5CB52375D` from preceding hardware diagnosis.
+
+## 2026-10-16 19:37 UTC: PR87 exact-head WARM 3/3 **PASS**
+
+Physical log pasted by operator. Target: Surface Laptop 4 AMD
+MSHW0231, Ubuntu `7.0.0-34-generic`, production Gate5
+`srcversion=3326E559A916BE5CB52375D`, both controller and touchscreen
+bound.
+
+- **Exact source:** `18f0fe79623e6de4fdf1ae493f82a7048397386a`
+  (GET6 write-only; NOT the independent GET6-free mode4).
+- **Same signed test binary in all 3 warm loads:**
+  SHA256 `61ec6f796d60b6e50d1c1888dc693e6cd135d08a023f1bccb0fc5ade15054d8e`;
+  `srcversion=65F0D14FBDFB5E84748373E`.
+- **Evidence root:**
+  `~/sl4a-hardware-runs/pr87-exact-warm3-20261016T193705Z`.
+  The source log reports distinct
+  `cycle-1-quick`, `cycle-2-quick`, `cycle-3-quick` evidence
+  directories, each with a recorded `operator` provenance folder.
+- **All 3 cycles:** `PR87 ACTIVE: verified loaded PR srcversion ...`;
+  audible preflight confirmed by user; event-gated single-finger move
+  and release PASS; original two fingers detected through
+  pinch→expansion→sequential lifting PASS; runner reported
+  `All live gesture gates, source identity, resets, frame drops and
+  evidence checksums passed`; `RESTORE PASS: working production
+  Gate5 bound` at the end of each cycle.
+- **Final runner verdict:** `PR87 WARM 3/3 PASS`. The runner
+  recorded no change to DKMS or persistent boot options. User hasn't
+  supplied the individual counter snapshots or raw evdev files in
+  this message, so do not invent numeric delta totals or represent
+  them as independently inspected here.
+
+**Qualification:** 3 independent PR87 exact-head warm activations +
+3 genuine quick gesture/counter/integrity sessions + 3 driver
+restorations **PASS**. This is not yet an s2idle/cold/full
+matrix/default control PASS. Keep PR draft pending those tests.
 
 ## Why a separate campaign?
 
