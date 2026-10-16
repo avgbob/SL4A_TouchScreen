@@ -39,7 +39,7 @@ assert 'PASS_3_OF_3' in harness
 # The full-matrix runner must use the same pin/sign/restore safety
 # boundary as warm qualification, but only one activation and no s2idle.
 assert 'full-matrix) run_full_matrix' in harness
-matrix = harness.split('run_full_matrix() {\n', 1)[1].split('\n}\n\n# Two real suspend cycles', 1)[0]
+matrix = harness.split('run_full_matrix() {\n', 1)[1].split('\n}\n\n# Explicit negative control', 1)[0]
 assert matrix.index('    preflight\n') < matrix.index('    checkout_exact\n')
 assert matrix.index('Type MATRIX to build/sign') < matrix.index('    prepare\n')
 assert matrix.index('    trap on_exit EXIT\n') < matrix.index('    load_pr\n')
@@ -54,6 +54,9 @@ assert 'field "$HID/srcversion")" == "$experiment_src"' in matrix
 assert 'sha256sum -c SHA256SUMS.txt' in matrix
 for forbidden in ("systemctl suspend", "reboot", "dkms install"):
     assert forbidden not in matrix
+
+assert 'load_pr_standard_negative' not in matrix
+assert 'run_standard_negative()' not in matrix
 
 # Exact-PR standard-mode opt-out is its OWN reversible loading path.
 assert 'standard-negative) run_standard_negative' in harness
