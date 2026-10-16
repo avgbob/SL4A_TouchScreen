@@ -368,9 +368,12 @@ def selected_event_node(path):
 
 
 def stop_capture(proc, output):
-    """Request orderly collector close so manifests and checksums get written."""
+    """Ask for sudo renewal *after hands are off* if the ticket expired."""
     marker = output / "trace/sl4a-guided-complete.flag"
-    subprocess.run(["sudo", "-n", "touch", str(marker)], check=True)
+    # Full contact testing may outlast the sudo timestamp. Revalidate with a
+    # foreground terminal prompt only after all gestures or a stopped test.
+    subprocess.run(["sudo", "-v"], check=True)
+    subprocess.run(["sudo", "touch", str(marker)], check=True)
     return proc.wait(timeout=25)
 
 
@@ -578,14 +581,22 @@ def main():
                         "direct": "direct-touch.evtest.txt",
                         "beta": "beta-multitouch.evtest.txt",
                     }[input_source]
+                    # The collector's sudo ticket may have expired during
+                    # sysfs snapshots and evtest startup (observed on SL4).
+                    # Authenticate HERE, before announcing any gesture.
+                    # This never asks for a password while fingers are down.
+                    subprocess.run(["sudo", "-v"], check=True)
                     event_device = selected_event_node(event_capture)
+                    # Do not use -n or start_new_session: a policy requiring
+                    # reauthentication must be allowed to prompt on the TTY.
+                    # The monitor is read-only and runs until terminated below.
                     monitor = subprocess.Popen(
-                        ["sudo", "-n", sys.executable, "-u",
+                        ["sudo", sys.executable, "-u",
                          str(ROOT / "tools/hardware_evidence/live_input_gate.py"),
                          "--stream", "--source", input_source,
                          "--device", event_device],
                         stdout=subprocess.PIPE, stderr=monitor_err,
-                        text=True, bufsize=1, start_new_session=True)
+                        text=True, bufsize=1)
                     frames = queue.Queue(maxsize=4096)
                     reader = threading.Thread(
                         target=read_live_events,
@@ -594,7 +605,7 @@ def main():
                     # Fail closed unless the monitor itself confirms the
                     # validated MSHW0231 event node was opened.
                     try:
-                        ready = frames.get(timeout=9)
+                        ready = frames.get(timeout=90)
                     except queue.Empty as e:
                         raise RuntimeError("live input monitor did not start") from e
                     if ready.get("kind") != "ready":
@@ -679,6 +690,10 @@ def main():
             props["integrity_and_counters"] = "FAIL: " + str(e)
         props["guide_error"] = guide_error or ""
         operator = args.output / "operator"
+        # No sudo calls during finger contact. Refresh after the gestures
+        # before the final evidence transfer, because a long guided run can
+        # expire the terminal ticket.
+        subprocess.run(["sudo", "-v"], check=True)
         # Only the new directory created for this run is chowned; original
         # driver, MOK and persistent configuration remain untouched.
         subprocess.run(["sudo", "cp", str(markers_file), str(operator/"cues.tsv")], check=True)
@@ -690,7 +705,7 @@ def main():
         for artifact, title in ((live_jsonl, "live-evdev.jsonl"),
                                 (monitor_errors, "live-monitor-stderr.txt")):
             if artifact.exists():
-                subprocess.run(["sudo", "-n", "cp", str(artifact),
+                subprocess.run(["sudo", "cp", str(artifact),
                                 str(operator/title)], check=True)
         subprocess.run(["sudo", "chown", "-R", f"{os.getuid()}:{os.getgid()}",
                         str(args.output)], check=True)
