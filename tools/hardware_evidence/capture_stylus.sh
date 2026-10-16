@@ -172,7 +172,8 @@ umask 077
 	printf '\n# Raw evtest output follows\n'
 	# A guided session's stop marker ends this recorder after the last
 	# verified contact/release, instead of consuming its whole timeout.
-	timeout --signal=INT "$duration" evtest "$device" &
+	# Flush every input event to disk as it arrives, including on early stop.
+	timeout --signal=INT "$duration" stdbuf -oL -eL evtest "$device" &
 	evtest_pid=$!
 	stopped=0
 	if [ -n "$stop_file" ]; then
