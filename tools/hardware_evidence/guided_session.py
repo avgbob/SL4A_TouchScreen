@@ -237,14 +237,19 @@ def main():
                     # The collector first snapshots sysfs before starting
                     # evtest. Wait for the trace manifest instead of guessing.
                     start = time.monotonic()
-                    manifest = args.output / "trace/manifest.txt"
-                    while not manifest.exists():
+                    event_capture = args.output / "trace/input" / (
+                        "stylus.evtest.txt" if args.protocol == "stylus"
+                        else "beta-multitouch.evtest.txt")
+                    while subprocess.run(["sudo", "-n", "test", "-s",
+                                           str(event_capture)], check=False).returncode != 0:
                         if proc.poll() is not None:
-                            raise RuntimeError("collector exited before trace manifest")
+                            raise RuntimeError("collector exited before event capture started")
                         if time.monotonic() - start > 20:
-                            raise RuntimeError("collector did not start trace within 20 seconds")
-                        time.sleep(.2)
-                    safe_sleep(3, proc)
+                            raise RuntimeError("event capture did not begin within 20 seconds")
+                        time.sleep(.3)
+                    # The collector owns its output directory as root (0700).
+                    # Checking it without sudo falsely reports "not found".
+                    safe_sleep(2, proc)
                     mark(marks, "capture-ready", f"mode={mode}")
                     countdown(audio, marks, 5, proc)
                     guide(audio, marks, phases, proc)
@@ -274,8 +279,8 @@ def main():
             raise RuntimeError("CAPTURE INCOMPLETE; evidence saved, do not mark PASS")
         captured = args.output/"trace/input"/("stylus.evtest.txt" if args.protocol=="stylus"
                                                else "beta-multitouch.evtest.txt")
-        if not captured.is_file() or "evtest" not in captured.read_text(errors="replace"):
-            raise RuntimeError("No valid evtest trace found; do not mark PASS")
+        if not captured.is_file() or "Event: time" not in captured.read_text(errors="replace"):
+            raise RuntimeError("No captured evtest input events; do not mark PASS")
         print(f"\nCAPTURE SAVED: {args.output}\n"
               f"Run metadata and cue timestamps: {operator}\n"
               "This is evidence capture, not an automatic hardware PASS.",
