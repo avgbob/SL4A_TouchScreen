@@ -23,6 +23,7 @@ cfg="$kernel_root/.config"
     -e MODULES -e ACPI -e SPI -e HID -e INPUT -e STAGING \
     -d SPI_AMD \
     -e BLK_DEV_NVME -m DRM_AMDGPU -m HID_MULTITOUCH \
+    -e DRM_EFIDRM -e DRM_FBDEV_EMULATION -e FRAMEBUFFER_CONSOLE \
     -m AMD_PMC \
     -m SL4A_SPI_AMD -m SL4A_SPI_HID \
     --set-str LOCALVERSION "-sl4a-gate5"
@@ -35,6 +36,9 @@ grep -qx 'CONFIG_SL4A_SPI_HID=m' "$cfg"
 grep -qx 'CONFIG_BLK_DEV_NVME=y' "$cfg"
 grep -qx 'CONFIG_DRM_AMDGPU=m' "$cfg"
 grep -qx 'CONFIG_HID_MULTITOUCH=m' "$cfg"
+grep -qx 'CONFIG_DRM_EFIDRM=y' "$cfg"
+grep -qx 'CONFIG_DRM_FBDEV_EMULATION=y' "$cfg"
+grep -qx 'CONFIG_FRAMEBUFFER_CONSOLE=y' "$cfg"
 if grep -Eq '^CONFIG_SPI_AMD=[ym]' "$cfg"; then
     echo "FAIL: native CONFIG_SPI_AMD may compete with experimental controller" >&2
     exit 1
