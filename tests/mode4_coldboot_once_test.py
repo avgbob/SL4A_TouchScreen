@@ -183,6 +183,8 @@ with tempfile.TemporaryDirectory(prefix="mode4-coldboot-state-") as work:
     (base/"stage_boot_id").write_text("before-test4\n")
     (base/"result").write_text("ARMED_NOT_TESTED\n")
     bootid.write_text("test4-boot\n")
+    if temp.exists():
+        shutil.rmtree(temp)  # a fresh physical boot cannot retain old modules
     dropin.write_text("temporary override")
     modulepath.write_bytes(b"synthetic signed module binary")
     (t/"earlier-hid").write_text("prior boot probe")
@@ -199,6 +201,8 @@ with tempfile.TemporaryDirectory(prefix="mode4-coldboot-state-") as work:
     (base/"stage_boot_id").write_text("before-test5\n")
     (base/"result").write_text("ARMED_NOT_TESTED\n")
     bootid.write_text("test5-boot\n")
+    if temp.exists():
+        shutil.rmtree(temp)
     dropin.write_text("temporary override")
     (t/"call.log").write_text("")
     call("boot")
