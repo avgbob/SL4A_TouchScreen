@@ -1,19 +1,67 @@
 #!/usr/bin/env python3
-"""Read-only, offline TTS for lifecycle tests. Never load or change a driver."""
-import sys
+"""User-session offline TTS for lifecycle tests. Never modify a driver.
+
+After wake, an explicit confirmation prevents a silent/muted audio device,
+unready PipeWire/PulseAudio session, or locked desktop from being treated
+as a successful audible operator prompt.
+"""
+import argparse
 from pathlib import Path
+import sys
 import tempfile
+import time
 
 from guided_session import Audio
 
 
-def main():
-    if len(sys.argv) < 2:
-        print("usage: speak_operator.py MESSAGE", file=sys.stderr)
-        return 2
+def say_and_confirm(message, confirm=False, retries=1,
+                    pause_seconds=2.0):
     with tempfile.TemporaryDirectory(prefix="sl4a-lifecycle-audio-") as folder:
-        Audio(Path(folder)).speak(" ".join(sys.argv[1:]))
+        audio = Audio(Path(folder))
+        errors = []
+        for trial in range(1, retries + 1):
+            try:
+                audio.speak(message)
+                errors = []
+                break
+            except (RuntimeError, OSError) as exc:
+                errors.append(str(exc))
+                if trial < retries:
+                    print("Audio service unavailable; retrying after desktop wake "
+                          f"({trial}/{retries})", flush=True)
+                    time.sleep(pause_seconds)
+        if errors:
+            raise RuntimeError("Speech could not be played after waking: " +
+                               errors[-1])
+        if confirm:
+            if not sys.stdin.isatty():
+                raise RuntimeError("Audible post-wake confirmation requires "
+                                   "an interactive terminal")
+            response = input(
+                "Did you actually HEAR the post-wake spoken instructions? "
+                "Type YES to start touchscreen checks: ").strip()
+            if response.upper() != "YES":
+                raise RuntimeError(
+                    "Post-wake speech unconfirmed: stopping without touch PASS")
     return 0
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--confirm", action="store_true",
+                        help="do not continue until operator confirms audible speech")
+    parser.add_argument("--retries", type=int, default=1)
+    parser.add_argument("words", nargs="+")
+    args = parser.parse_args()
+    if not 1 <= args.retries <= 8:
+        parser.error("--retries must be in the range 1..8")
+    try:
+        return say_and_confirm(" ".join(args.words),
+                               confirm=args.confirm,
+                               retries=args.retries)
+    except (RuntimeError, EOFError, KeyboardInterrupt) as exc:
+        print("VOICE INCOMPLETE: " + str(exc), file=sys.stderr)
+        return 1
 
 
 if __name__ == "__main__":
