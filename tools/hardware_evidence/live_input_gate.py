@@ -186,15 +186,41 @@ class GestureGate:
 
         elif a in self.N and self.label.startswith("contacts-"):
             target = self.N[a]
-            if len(valid) == target:
-                self.counter += 1
-                if self.counter >= 2 and self.stage == 0:
-                    self.stage = 1
-                    self.notice(f"{target} fingers detected. Lift all fingers now.")
-            elif len(valid) == 0 and self.stage == 1:
-                self.good = True
-            elif self.stage == 0:
-                self.counter = 0
+            if self.stage == 0:
+                # Two successive frames with the SAME contact IDs establish
+                # the requested count. A momentary extra contact is not PASS.
+                if len(valid) == target:
+                    if ids != self.ids:
+                        self.ids = ids
+                        self.counter = 1
+                    else:
+                        self.counter += 1
+                    if self.counter >= 2:
+                        self.stage = 1
+                        self.notice(
+                            f"{target} fingers detected. Lift all fingers now.")
+                else:
+                    self.counter = 0
+                    self.ids = None
+            else:
+                # Real multi-finger release is sequential: accept any
+                # monotonically shrinking subset of the original IDs until
+                # all contacts are up, but NEVER a new/reappearing ID.
+                original = self.ids
+                if not ids.issubset(original):
+                    self.failed_reason = (
+                        "New tracking ID appeared during contact-count release.")
+                    self.notice("Unexpected new contact during release.")
+                    return False, self.progress
+                previous = getattr(self, "release_last_ids", original)
+                if not ids.issubset(previous):
+                    self.failed_reason = (
+                        "Previously lifted contact ID reappeared.")
+                    self.notice("Previously lifted finger reappeared.")
+                    return False, self.progress
+                self.release_last_ids = ids
+                if len(valid) == 0:
+                    self.good = True
 
         elif a == "far":
             if len(valid) == 2 and d is not None and d > 100:
