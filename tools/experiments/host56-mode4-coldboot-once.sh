@@ -119,6 +119,15 @@ boot() {
         write_state result "INCONCLUSIVE_PREEXISTING_HID"
         return 0
     fi
+    # Also reject an HID module that loaded and UNLOADED earlier in this
+    # boot. Merely testing /sys/module at this instant is insufficient
+    # to prove this is truly the first HID initialization since power-on.
+    if journalctl -k -b --no-pager 2>/dev/null |
+       grep -Eq 'sl4a_spi_hid.*probe begin|input: MSHW0231 Touchscreen'; then
+        note "INCONCLUSIVE: earlier HID probe already appears in kernel journal"
+        write_state result "INCONCLUSIVE_EARLIER_HID_PROBE"
+        return 0
+    fi
     if [[ "$(sha256sum "$BASE/signed-mode4.ko" | awk '{print $1}')" != "$(field module_sha)" ]]; then
         note "ERROR signed copy changed"; fallback; return 1
     fi
@@ -131,8 +140,10 @@ boot() {
     if ! modprobe sl4a-spi-amd; then
         note "ERROR AMD controller load"; fallback; cancel_timer; return 1
     fi
-    if [[ -d /sys/module/sl4a_spi_hid ]]; then
-        note "INCONCLUSIVE: HID automatically loaded during AMD initialization"
+    if [[ -d /sys/module/sl4a_spi_hid ]] ||
+       journalctl -k -b --no-pager 2>/dev/null |
+           grep -Eq 'sl4a_spi_hid.*probe begin|input: MSHW0231 Touchscreen'; then
+        note "INCONCLUSIVE: HID initialized during AMD controller setup"
         write_state result "INCONCLUSIVE_HID_AUTOLOADED"
         cancel_timer; return 0
     fi
