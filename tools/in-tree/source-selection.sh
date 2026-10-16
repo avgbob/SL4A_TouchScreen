@@ -9,8 +9,7 @@ sl4a_select_source() {
         pr87)
             root="$repo/kernel-pins/pr87/driver"
             [[ -f "$repo/kernel-pins/pr87/SOURCE-COMMIT" &&
-               "$(cat "$repo/kernel-pins/pr87/SOURCE-COMMIT")" ==
-                   "18f0fe79623e6de4fdf1ae493f82a7048397386a" ]] || {
+               "$(cat "$repo/kernel-pins/pr87/SOURCE-COMMIT")" == "18f0fe79623e6de4fdf1ae493f82a7048397386a" ]] || {
                 echo "ERROR: pinned PR87 commit identity mismatch" >&2; return 1;
             }
             [[ -f "$repo/kernel-pins/pr87/DRIVER-BLOBS.txt" ]] || {
