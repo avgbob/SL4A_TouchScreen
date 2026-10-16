@@ -239,7 +239,7 @@ def live_capture(audio, marks, phases, events, evidence_proc):
             audio.speak(f"Test {number} of {len(phases)}. {prompt}")
             mark(marks, "phase-instruction", f"{label};attempt={attempt};{prompt}")
             # Spoken countdown is not an arbitrary test deadline.
-            for n in (3, 2, 1):
+            for n in (5, 4, 3, 2, 1):
                 audio.speak(str(n))
             audio.speak("Go.")
             mark(marks, "phase-begin", f"{label};attempt={attempt}")
