@@ -51,7 +51,7 @@ fallback() {
         controller_driver="$(basename "$(readlink -f "$controller_path/driver")")"
     fi
     if [[ -L /sys/bus/acpi/devices/MSHW0231:00/physical_node/driver ]]; then
-        touch_driver="$(basename "$(readlink -f /sys/bus/acpi/devices/MSHW0231:00/physical_node/driver")")"
+        touch_driver="$(basename "$(readlink -f "/sys/bus/acpi/devices/MSHW0231:00/physical_node/driver")")"
     fi
     note "FALLBACK live_mode=$(mode) AMD_binding=${controller_driver:-NONE} HID_binding=${touch_driver:-NONE}; touch input NOT yet verified"
     if [[ "$(mode)" != 1 ||
