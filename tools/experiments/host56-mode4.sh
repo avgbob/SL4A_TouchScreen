@@ -340,15 +340,73 @@ qualify_s2idle_two() {
     )
 }
 
+
+# True cold start: unlike warm "activate", boot's normal late activation
+# service substitutes the signed mode4 HID module only ONCE. No DKMS rewrite.
+# User must shut down completely and physically power on to qualify cold.
+coldboot_stage() {
+    require_device
+    [[ -r "$SYS" && "$(cat "$SYS")" == 1 ]] || {
+        echo "ERROR: working Gate5 mode1 must be loaded before staging." >&2
+        return 1
+    }
+    echo "This temporarily adds ONE root-owned systemd ExecStart drop-in."
+    echo "It does NOT edit your production Gate5 modprobe profile or DKMS."
+    echo "The boot hook deletes itself BEFORE first HID initialization."
+    echo "A separate 20-minute systemd timer restores Gate5 if no test finishes."
+    echo "A forced REBOOT after consumption returns to original Gate5."
+    echo "This only qualifies a physical POWER-OFF then POWER-ON, not reboot."
+    printf 'Type ARM to build/sign and stage the one-use cold-boot hook: '
+    local confirm
+    IFS= read -r confirm
+    [[ "$confirm" == ARM ]] || {
+        echo "CANCELLED; no changes to boot." >&2; return 1
+    }
+    prepare
+    as_root bash "$ROOT/tools/experiments/host56-mode4-coldboot-once.sh" \
+        stage "$MODULE" "$(git -C "$ROOT" rev-parse HEAD)"
+}
+
+coldboot_finish() {
+    local hook=/usr/local/libexec/sl4a-mode4-coldboot-once
+    [[ -x "$hook" ]] || {
+        echo "ERROR: coldboot not staged or helper missing" >&2; return 1
+    }
+    "$hook" verify || return 1
+    printf 'Was the laptop fully powered OFF and then powered ON? Type COLD: '
+    local confirm
+    IFS= read -r confirm
+    [[ "$confirm" == COLD ]] || {
+        echo "Not claiming cold boot. Restore Gate5 or let watchdog run." >&2
+        as_root "$hook" finish FAIL || true
+        return 1
+    }
+    # Reuse the same spoken preflight + real evdev quick gate as warm/s2idle.
+    # On any ordinary capture failure we still perform immediate Gate5
+    # rollback. A killed shell or hung process has a separate timer.
+    if capture quick; then
+        as_root "$hook" finish PASS
+        echo "COLD-BOOT ACCEPTANCE: one first mode4 HID activation, gestures PASS, Gate5 RESTORED."
+    else
+        as_root "$hook" finish FAIL || true
+        echo "COLD-BOOT INCONCLUSIVE/FAIL; original Gate5 recovery attempted." >&2
+        return 1
+    fi
+}
+
 case "${1:-}" in
     qualify) qualify "${2:-full}" ;;
     qualify-warm3) qualify_warm_three ;;
     qualify-s2idle2) qualify_s2idle_two ;;
+    coldboot-stage) coldboot_stage ;;
+    coldboot-finish) coldboot_finish ;;
+    coldboot-status) /usr/local/libexec/sl4a-mode4-coldboot-once verify ;;
+    coldboot-cancel) as_root /usr/local/libexec/sl4a-mode4-coldboot-once cancel ;;
     prepare) prepare ;;
     activate) activate ;;
     restore) restore ;;
     capture) capture "${2:-quick}" ;;
     audio-check) python3 "$ROOT/tools/hardware_evidence/guided_session.py" --audio-check ;;
     status) show_status ;;
-    *) echo "Usage: $0 {qualify [quick|contacts|full]|qualify-warm3|qualify-s2idle2|prepare|activate|audio-check|capture [quick|pinch|contacts|full|stylus]|status|restore}" >&2; exit 2 ;;
+    *) echo "Usage: $0 {qualify [quick|contacts|full]|qualify-warm3|qualify-s2idle2|coldboot-stage|coldboot-finish|coldboot-status|coldboot-cancel|prepare|activate|audio-check|capture [quick|pinch|contacts|full|stylus]|status|restore}" >&2; exit 2 ;;
 esac
