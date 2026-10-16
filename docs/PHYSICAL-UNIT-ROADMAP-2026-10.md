@@ -22,6 +22,29 @@ References: [Gate5 qualification](GATE5-QUALIFICATION.md),
 
 ## 2. Mandatory sound-and-evidence policy for physical tests
 
+**2026-10-16 usability correction:** audible *tones alone* are inadequate when
+the tester's hands obstruct the laptop screen and the terminal does not scroll.
+The guided runner now uses **offline synthesized SPOKEN instructions**,
+requires a spoken-message preflight, and monitors the exact kernel evdev device
+live. The next action starts **only after** the requested finger count,
+tracking-ID continuity, movement direction, or release is actually observed;
+a `sleep` duration **never counts as PASS**. It speaks positive recognition
+(e.g. "Two fingers detected. Lift all fingers now.") and repeats an unsuccessful
+instruction up to three times. Three unsuccessful attempts **stop and preserve
+INCONCLUSIVE evidence**, rather than skip or invent a successful action.
+
+Ubuntu speech engine prerequisite: `espeak-ng` (offline; no subscription).
+If missing, `sudo apt install espeak-ng`; ordinary audio playback still uses
+the existing working `paplay`, `pw-play` or `aplay`.
+
+A second read-only evdev monitor observes the live contacts while the
+existing `evtest` collector retains the bounded, checksum-protected raw
+trace. A stop marker closes that collector early **after a verified session**,
+instead of waiting for the worst-case timeout. The raw JSONL monitor trace,
+speech/phase markers and collector artifacts are preserved for review.
+**Not yet hardware-qualified:** the new audio/event gate needs its first
+end-to-end test on the Surface before replacing previous evidence practices.
+
 Our earlier September one-off tests used `printf '\a'` terminal bells,
 prompt/sleep sequences and `test.markers` timestamps while running `evtest`.
 Those cues were not centralized and terminal-bell output is not proof the
