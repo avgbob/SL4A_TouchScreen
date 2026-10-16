@@ -5,8 +5,9 @@
 16-phase gesture matrix PASS** on one physical MSHW0231,
 kernel `7.0.0-34-generic`. The experimental signed PR `.ko` was
 verified and production Gate5 restored by the respective runners.
-**Real exact-PR87 cold first-HID load and default-standard
-negative/opt-out control are STILL PENDING.** The full matrix is
+**Real exact-PR87 cold first-HID load is STILL PENDING.** The default-standard
+opt-out device-registration check is PASS by retrospective correction of one
+original verifier false negative (original capture remains marked INCONCLUSIVE). The full matrix is
 a warm module activation, not a cold boot or default-standard test.
 Earlier incomplete warm/harness, postwake voice-confirmation attempts,
 and the 425.775ms evdev release-gap outlier are retained as separate
@@ -49,7 +50,49 @@ The analysis remains read-only. **Actual release gaps are still
 not determined** until the corrected tool is run against the
 existing local captures.
 
-## Default-standard physical negative control: prepared, NOT yet run
+## 2026-10-16 21:49 UTC: PR87 standard-negative physical observations **PASS on corrected source contract**
+
+Physical Surface test was run at harness head `7d1ac68b81f4a54bc926dfb8d61c9c10a9598045`, exact PR driver
+`18f0fe79623e6de4fdf1ae493f82a7048397386a`, signed SHA256
+`61ec6f796d60b6e50d1c1888dc693e6cd135d08a023f1bccb0fc5ade15054d8e`,
+module `srcversion=65F0D14FBDFB5E84748373E`, kernel
+`7.0.0-34-generic`. The signed PR module loaded in opt-out
+`raw_mode=N raw_input_beta=N std_raw_transition=0`.
+The in-field verifier printed `INCONCLUSIVE` with exactly one error:
+`standard HID discovery not ready: ready='ready'`.
+This was a **harness false negative**. Source inspection of
+the **exact driver** confirms `ready_show()` emits literal
+`"ready"` for true and `"not ready"` for false;
+`spi-hid-core.h` defines `SPI_HID_SEQ_DONE=4`, which matches
+the saved observed `standard_seq_state="4"`. The original
+verifier incorrectly demanded `ready=="1"`.
+
+The uploaded terminal's full saved-verdict JSON shows:
+- both HID descriptor counters equal to 1;
+- `bridge_input_instances=[]` (no additional CapImg MT input);
+- all three opt-out parameters correct; module identity matched;
+- passive `raw_observed=0` (recorded only, **NOT a PASS criterion**);
+- no other errors.
+
+The original test script correctly treated its own false-negative
+verdict as failure and ran rollback: **`RESTORE PASS: working
+production Gate5 bound`**. No physical touchscreen retest is
+necessary to reinterpret these **already captured** observations.
+The original file's `INCONCLUSIVE` text is retained as immutable
+historical evidence, while the updated read-only
+`pr87_standard_negative.py --review-saved-json` mode explicitly
+re-adjudicates only that exact known error and fails closed on
+unexpected errors or missing/mismatched fields. The overall
+physical **opt-out/device-registration acceptance category is PASS
+on corrected source contract (retrospective audit)**. Do not
+mistake this for on-device `0x0c` dispatch proof.
+
+**Outstanding exact-PR87 physical gate:** true cold first-HID
+power-off/on activation. Spontaneous post-DONE reset is a separate
+untested contingency, not automatically required for the known
+cold/warm/suspend/matrix/opt-out categories.
+
+## Default-standard physical negative control: initial preparation notes
 
 Use `bash tools/experiments/pr87-exact-head.sh standard-negative`
 on the physical Surface to test the *same pinned PR87 source*

@@ -4,6 +4,24 @@
 the independent DieSchatten device, and Syax89's upstream PR #87.
 This is an operating plan, not a claim of broad compatibility.
 
+## PR87 physical negative control: observational PASS after false-negative correction
+
+The exact signed PR87 module was tested with
+`raw_mode=N raw_input_beta=N std_raw_transition=0`.
+The uploaded terminal reported `ready='ready'`, `seq_state='4'`,
+both descriptor counters 1, no extra `MSHW0231 Touchscreen`
+input instance, and matching module source identity.
+The original checker returned `INCONCLUSIVE` solely because it
+expected `ready='1'`. Exact PR source defines textual `ready`
+and sequencer DONE=4, so the physical observations satisfy the
+intended opt-out control. The runner then **restored Gate5**.
+The original verdict is preserved and a read-only saved-verdict
+re-review route was added with strict error and identity checks.
+**This does not physically prove report 0x0c HID-dispatch behavior.**
+**Only the true PR87 first-HID cold-power-on gate remains** from
+the defined physical categories; an unforced spontaneous-reset
+scenario has not been observed.
+
 ## PR87 default-standard negative-control runner: READY FOR PHYSICAL TEST
 
 Added `pr87-exact-head.sh standard-negative`, using the same pinned
@@ -19,8 +37,12 @@ synthetic sysfs fixtures; a separate compiled production-handler test
 covers 0x0c policy. Restores installed production Gate5 on exit
 and writes a private local evidence bundle.
 
-**Physical result remains PENDING.** True exact PR87 cold first-HID
-power-on still separately pending. No new PR driver changes.
+**Physical result (later, 21:49 UTC):** the hardware run's captured
+flags/descriptor counters/MT-bridge inventory all satisfy the corrected
+source contract; its original verifier incorrectly expected ready=1
+instead of the driver's literal ready='ready'. See retrospective audit
+below. True exact PR87 cold first-HID power-on remains pending.
+No PR driver source changes.
 
 ## 2026-10-16 21:33 UTC: PR87 exact-head FULL GESTURE MATRIX **16/16 PASS**
 

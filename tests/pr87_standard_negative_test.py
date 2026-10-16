@@ -6,7 +6,7 @@ import tempfile
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] /
                        "tools/hardware_evidence"))
-from pr87_standard_negative import examine, main
+from pr87_standard_negative import examine, main, recheck_saved, LEGACY_READY_ERROR
 
 
 with tempfile.TemporaryDirectory(prefix="pr87-negative-") as td:
@@ -22,8 +22,8 @@ with tempfile.TemporaryDirectory(prefix="pr87-negative-") as td:
     for key, val in (("raw_mode", "N"), ("raw_input_beta", "N"),
                      ("std_raw_transition", "0")):
         (param / key).write_text(val)
-    (spi / "ready").write_text("1")
-    (spi / "seq_state").write_text("5")
+    (spi / "ready").write_text("ready")
+    (spi / "seq_state").write_text("4")
     (spi / "protocol_stats").write_text(
         "reset_rsp=1\ndevice_desc=1\nrpt_desc=1\ndata=24\n"
         "getfeat_resp=0\nframes_dropped=0\nirq_count=25\n"
@@ -55,13 +55,65 @@ with tempfile.TemporaryDirectory(prefix="pr87-negative-") as td:
     assert examine(root, "EXACTPR")["verdict"] == "PASS_NEGATIVE_CONTROL"
     check_result = examine(root, "WRONG")
     assert check_result["verdict"] == "INCONCLUSIVE"
-    (spi / "ready").write_text("0")
+    (spi / "ready").write_text("not ready")
     check("standard HID not ready")
     (spi / "ready").write_text("1")
+    check("incorrect numeric ready alias")
+    (spi / "ready").write_text("ready")
+    (spi / "seq_state").write_text("5")
+    check("not in SPI_HID_SEQ_DONE")
+    (spi / "seq_state").write_text("4")
     (spi / "protocol_stats").write_text("device_desc=1\nrpt_desc=0\nraw_observed=0\n")
     check("missing report descriptor")
     (spi / "protocol_stats").unlink()
     check("protocol stats unavailable")
     inventory.rename(root / "class/input-missing")
     check("input inventory unavailable")
+
+    # This snapshot reproduces the exact hardware printout: every
+    # *physical* observation is good, only the original 1-vs-"ready"
+    # verifier verdict was mistaken.
+    snapshot = {
+        "bridge_input_instances": [],
+        "errors": [LEGACY_READY_ERROR],
+        "expected_pr87_srcversion": "EXACTPR",
+        "limitations": "Does not infer CapImg publishing from silence",
+        "loaded_srcversion": "EXACTPR",
+        "module_parameters": {"raw_mode": "N", "raw_input_beta": "N",
+                              "std_raw_transition": "0"},
+        "observed_passive_capimg_frames": 0,
+        "report_0x0c_dispatch_policy":
+            "NOT_PROVEN_BY_THIS_FIELD_CHECK; compiled production-handler test required",
+        "standard_hid_descriptor_responses": {"device_desc": 1, "rpt_desc": 1},
+        "standard_hid_ready": "ready",
+        "standard_seq_state": "4",
+        "verdict": "INCONCLUSIVE",
+    }
+    import json
+    saved = root / "saved-hardware.json"
+    saved.write_text(json.dumps(snapshot))
+    good = recheck_saved(snapshot, "EXACTPR")
+    assert good["verdict"] == "PASS_REVIEWED_SAVED_CAPTURE", good
+    assert good["original_file_unchanged"] is True
+    assert main(["--expected-srcversion", "EXACTPR",
+                 "--review-saved-json", str(saved)]) == 0
+    assert json.loads(saved.read_text()) == snapshot, "historical evidence mutated"
+    for field, wrong in (
+        ("bridge_input_instances", ["input9"]),
+        ("standard_hid_ready", "not ready"),
+        ("standard_seq_state", "5"),
+        ("observed_passive_capimg_frames", None),
+    ):
+        trial = dict(snapshot, **{field: wrong})
+        assert recheck_saved(trial, "EXACTPR")["verdict"] == "INCONCLUSIVE", field
+    bad = dict(snapshot, module_parameters={"raw_mode": "Y",
+                                            "raw_input_beta": "N",
+                                            "std_raw_transition": "0"})
+    assert recheck_saved(bad, "EXACTPR")["verdict"] == "INCONCLUSIVE"
+    bad = dict(snapshot, errors=[LEGACY_READY_ERROR, "new tracking ID"])
+    assert recheck_saved(bad, "EXACTPR")["verdict"] == "INCONCLUSIVE"
+    assert recheck_saved(snapshot, "WRONG")["verdict"] == "INCONCLUSIVE"
+    missing = dict(snapshot)
+    missing.pop("standard_hid_descriptor_responses")
+    assert recheck_saved(missing, "EXACTPR")["verdict"] == "INCONCLUSIVE"
 print("PR87 default-standard negative-control offline/fail-closed: PASS")
