@@ -53,11 +53,9 @@ prepare() {
         # Verify with the same privileges used to sign, and preserve the
         # underlying output if trust verification genuinely fails.
         local mok_test_output
-        mok_test_output="$(as_root mokutil --test-key "$cert" 2>&1)" || {
-            echo "ERROR: failed to check Ubuntu MOK enrollment:" >&2
-            echo "$mok_test_output" >&2
-            exit 1
-        }
+        # mokutil's exit status varies across versions; its reported
+        # enrollment state is the trust decision (same as the DKMS installer).
+        mok_test_output="$(as_root mokutil --test-key "$cert" 2>&1 || true)"
         if ! grep -qi 'already enrolled' <<<"$mok_test_output"; then
             echo "ERROR: Ubuntu signing key is not enrolled:" >&2
             echo "$mok_test_output" >&2
