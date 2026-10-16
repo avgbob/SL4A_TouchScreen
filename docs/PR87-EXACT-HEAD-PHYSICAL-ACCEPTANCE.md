@@ -1,20 +1,18 @@
 # Syax89 PR #87 — exact-head hardware acceptance campaign
 
 **Current status (2026-10-16):** **exact-head PR #87 warm
-3/3 PASS and genuine s2idle post-wake 2/2 PASS** on physical MSHW0231,
-kernel `7.0.0-34-generic`. The signed PR `.ko` was stable across
-three separate warm activations and both real sleep cycles; source,
-evdev event-gated fingers, counter/integrity checks and production
-Gate5 restoration all passed in the test-runner reports.
-**A real cold first-HID load, full gesture matrix and
-default-standard negative control are STILL PENDING** on PR87.
-Prior incomplete warm/harness and voice-confirmation attempts are
-retained separately and are not counted as completed tests.
-The operator notes that all quick two-finger releases speak
-“One original finger remains” while fingers may already be off.
-This is a transient 2→1→0 tracking-ID status, *not* a PASS with
-one contact held, but absolute release delay is not measured from
-the pasted terminal log; see the focused release-narration audit.
+3/3 PASS, genuine s2idle post-wake 2/2 PASS, and full physical
+16-phase gesture matrix PASS** on one physical MSHW0231,
+kernel `7.0.0-34-generic`. The experimental signed PR `.ko` was
+verified and production Gate5 restored by the respective runners.
+**Real exact-PR87 cold first-HID load and default-standard
+negative/opt-out control are STILL PENDING.** The full matrix is
+a warm module activation, not a cold boot or default-standard test.
+Earlier incomplete warm/harness, postwake voice-confirmation attempts,
+and the 425.775ms evdev release-gap outlier are retained as separate
+historical evidence. The old narration occasionally spoke a stale
+one-contact cue; a subsequent harness revision suppressed that stale
+speech without changing PR87 source or the zero-contact PASS gate.
 PR: https://github.com/Syax89/SL4A_TouchScreen/pull/87
 Exact pinned test driver revision:
 `18f0fe79623e6de4fdf1ae493f82a7048397386a`.
@@ -51,21 +49,58 @@ The analysis remains read-only. **Actual release gaps are still
 not determined** until the corrected tool is run against the
 existing local captures.
 
-## Full-matrix physical acceptance runner (prepared; not physically run)
+## 2026-10-16 21:33 UTC: exact-head full physical matrix **16/16 PASS**
 
-The one-shot `tools/experiments/pr87-exact-head.sh full-matrix`
-loads the exact pinned PR #87 HID once and invokes
-`guided_session.py --protocol full` with all quick/pinch/contact
-gestures and continuous original tracking-ID gates. It requires
-`MATRIX` operator confirmation before build/sign/load, checks
-source/module identity, and restores the working production Gate5
-driver on normal exit and in its EXIT/interrupt trap. CI checks
-shell syntax and pinning, confirmation order, activation count,
-rollback order, evidence hashes, and forbidden persistent changes.
+The operator ran `bash tools/experiments/pr87-exact-head.sh full-matrix`
+on the physical SL4 AMD MSHW0231, kernel `7.0.0-34-generic`.
+Local evidence:
+`~/sl4a-hardware-runs/pr87-exact-matrix-20261016T213332Z`,
+capture `cycle-matrix-full`. This report is based on the shared
+terminal transcript and runner verdict; the local per-frame raw
+evidence and individual counter values have not been uploaded
+or independently audited.
 
-**Hardware matrix is NOT yet reported PASS.** The command also does
-NOT qualify cold first-HID boot or default-standard opt-out behavior.
-Do not count CI as physical touchscreen evidence.
+The one-shot runner confirmed installed working Gate5
+`srcversion=3326E559A916BE5CB52375D` before testing.
+It fetched/pinned exact PR87 source
+`18f0fe79623e6de4fdf1ae493f82a7048397386a`,
+built and signed the experimental HID (SHA256
+`61ec6f796d60b6e50d1c1888dc693e6cd135d08a023f1bccb0fc5ade15054d8e`,
+`srcversion=65F0D14FBDFB5E84748373E`), and loaded
+that exact PR module successfully.
+
+The spoken/event-gated full suite reported PASS for **all 16**
+phases: quick one/pinch/expand/lift (4), connected
+pinch far/close/hold/expand/lift (5), and contact-count
+one/two/three/four/five plus one-lift and recontact (7).
+It exercised 1–5 detected fingers, continuous original-ID
+tracking, staggered release and recontact. Importantly,
+the previously recurring stale spoken “One original finger remains”
+prompt **did not appear** during this run using the revised
+nonblocking narration harness; the transcript still does not
+physically measure finger-off latency.
+
+The capture printed:
+`All live gesture gates, source identity, resets, frame drops and
+evidence checksums passed for this session.`
+Afterward the runner reported
+`RESTORE PASS: working production Gate5 bound`,
+validated the four reported top-level checksum entries, then
+`PR87 FULL MATRIX PASS; source pinned, signed module stable,
+Gate5 restored.` Thus the full-matrix acceptance category is
+**COMPLETE** for this exact source and one unit.
+
+The first attempted matrix command in the same transcript was
+stopped before driver loading by failed sudo authentication.
+A second attempt typed lowercase `matrix` and was safely
+cancelled before touching the driver. Neither counts as a
+physical test failure. The final `MATRIX` attempt completed PASS.
+
+**Still unqualified:** exact PR87 cold first-HID
+power-on activation and physical default-standard
+negative/opt-out behavior. The GET6-free mode4 cold-boot
+success is a **different driver revision/activation protocol**,
+and cannot substitute for the PR87-specific cold trial.
 
 ## 2026-10-16: nonblocking reactive voice/event-loop hardening
 
