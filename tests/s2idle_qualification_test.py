@@ -86,4 +86,45 @@ assert 'response.upper() != "YES"' in audio
 assert "Speech could not be played after waking" in audio
 for token in ("insmod", "modprobe", "systemctl"):
     assert token not in audio, "speech helper must never mutate hardware"
+# Verify actual post-wake hearing acknowledgement gates the test.
+import builtins
+voice_path = root / "tools/hardware_evidence/speak_operator.py"
+voice_spec = importlib.util.spec_from_file_location("speak_operator", voice_path)
+# The voice helper imports the sibling guided_session module.
+sys.path.insert(0, str(voice_path.parent))
+voice = importlib.util.module_from_spec(voice_spec)
+voice_spec.loader.exec_module(voice)
+class FakeAudio:
+    def __init__(self, folder):
+        self.folder = folder
+    def speak(self, words):
+        if words == "DEVICE MUTED":
+            raise RuntimeError("no audio")
+class FakeTTY:
+    def isatty(self):
+        return True
+voice.Audio = FakeAudio
+original_tty = sys.stdin
+original_input = builtins.input
+try:
+    sys.stdin = FakeTTY()
+    builtins.input = lambda _: "YES"
+    assert voice.say_and_confirm("heard", confirm=True) == 0
+    builtins.input = lambda _: "no"
+    try:
+        voice.say_and_confirm("not heard", confirm=True)
+    except RuntimeError as e:
+        assert "unconfirmed" in str(e).lower()
+    else:
+        raise AssertionError("silence/muted sound cannot pass post-wake checkpoint")
+    try:
+        voice.say_and_confirm("DEVICE MUTED", confirm=True, retries=1)
+    except RuntimeError as e:
+        assert "Speech could not be played" in str(e)
+    else:
+        raise AssertionError("audio playback error cannot advance to touch test")
+finally:
+    builtins.input = original_input
+    sys.stdin = original_tty
+
 print("s2idle clock proof, operator permission and rollback contracts: PASS")
