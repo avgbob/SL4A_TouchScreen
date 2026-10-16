@@ -135,14 +135,23 @@ previously released-and-reappearing IDs remain hard failures.
 Independent host tests cover both valid sequential release and real
 tracking-ID substitution.
 
-**Saved-evidence audit still needed:** run the read-only
-`python3 tools/hardware_evidence/audit_release.py
-~/sl4a-hardware-runs/mode4-full-20261016T161746Z` after fetching the
-updated worktree. It prints the actual ID transitions and timestamps
-without printing touch coordinates. If the failing frame had one
-original ID, the old gate was demonstrably a false rejection. If the
-frame contains a **new** ID, treat the input continuity as an unresolved
-driver/algorithm question; do not quietly waive it.
+**Saved-evidence audit CONFIRMED (2026-10-16):** from
+`mode4-full-20261016T161746Z`, final expansion's original IDs
+were **[3, 4]**. The release instruction began +0.550s after expansion
+PASS and the release phase began +2.812s. The recorded evdev sequence
+is **[3,4] → [4] at +2.953s → [] at +2.963s**. Of the 20
+frames examined, **no unexpected new tracking ID** was observed
+during release. The old gate definitively **false-rejected a normal
+sequential two-finger lift**. This closes the specific release-identity
+question on the original evidence (not an end-to-end full qualification).
+A fixed validator and host regression test already passed CI.
+
+To save physical-unit time, **do not rerun the eight working gestures**
+simply to reach the seven untouched `contacts` cases.
+Finish those with a separate spoken `qualify contacts` session on
+the same experimental driver path, with Gate5 restored automatically.
+Keep the first eight observations and this audit independently labeled;
+do not claim one uninterrupted full 16-test run has passed.
 
 ## 2. Mandatory sound-and-evidence policy for physical tests
 
