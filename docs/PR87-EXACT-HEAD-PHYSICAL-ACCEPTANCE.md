@@ -1,6 +1,11 @@
 # Syax89 PR #87 — exact-head hardware acceptance campaign
 
-**Current status:** prepared, NOT YET physically executed as of 2026-10-16.
+**Current status (2026-10-16):** first warm attempt reached a
+SIGNED **PR87 module activation PASS** but the event-gated gesture
+capture did NOT start due to a host-harness `set -u` error.
+Installed Gate5 automatically restored; warm 3/3 is **NOT YET
+QUALIFIED**. Corrected harness has CI-backed regression tests.
+The physical unit has NOT yet run the corrected warm capture.
 PR: https://github.com/Syax89/SL4A_TouchScreen/pull/87
 Exact pinned test driver revision:
 `18f0fe79623e6de4fdf1ae493f82a7048397386a`.
@@ -30,6 +35,48 @@ reports, raw with/without tracker, pre-HID drain ownership and
 watchdog policy. Both kernel builds and host tests passed at
 https://github.com/avgbob/SL4A_TouchScreen/actions/runs/38952701397.
 These are **host/CI results only**.
+
+## 2026-10-16 first physical warm attempt: INCOMPLETE, safe Gate5 restore
+
+Physical command
+`bash tools/experiments/pr87-exact-head.sh warm3` on
+Surface kernel `7.0.0-34-generic` first confirmed:
+
+```text
+BASELINE PASS: Gate5=3326E559A916BE5CB52375D, both bindings active
+PR SOURCE PINNED: 18f0fe79623e6de4fdf1ae493f82a7048397386a
+EXPERIMENT READY:
+ signed SHA256=61ec6f796d60b6e50d1c1888dc693e6cd135d08a023f1bccb0fc5ade15054d8e
+ srcversion=65F0D14FBDFB5E84748373E
+=== PR87 WARM CYCLE 1 / 3 ===
+PR87 ACTIVE: verified loaded PR srcversion 65F0D14FBDFB5E84748373E
+tools/experiments/pr87-exact-head.sh: line 146: protocol: unbound variable
+RESTORE: unload only matching PR87 experimental HID
+RESTORE PASS: working production Gate5 bound; test touch physically
+```
+
+Root cause: `capture()` declared
+`local cycle="$1" protocol="$2" out="$session/cycle-$cycle-$protocol"`
+in **one** Bash `local` command, so the `out` initializer
+expanded `protocol` before it had a value under `set -u`.
+The actual driver had loaded before this shell error; **NO
+GESTURE CAPTURE OCCURRED**, and no 1/3 or 3/3 PASS is claimed.
+
+The correction declares `cycle/protocol` **before** calculating
+`out`. The host suite now executes the *actual shell function*
+with `set -Eeuo pipefail`, mocked external collector, verified
+argument routing, and before/after evidence paths. The rerun
+also runs Kbuild `clean` on the *separate transient PR driver
+worktree* before rebuilding/signing, so it cannot append a
+second MOK signature to the previously signed `.ko`.
+It does **not** clean or alter installed DKMS or the user's
+production profile. Warm activation must be retried with the
+corrected harness checkout and a fresh evidence session directory.
+
+**This is a test-runner regression, not evidence of a GET6
+driver failure.** A completed warm touch/session run has yet to
+be observed; the independent mode4 coldboot evidence remains
+separate.
 
 ## First physical step: exact-head WARM 3/3
 
