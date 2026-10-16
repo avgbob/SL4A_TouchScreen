@@ -28,6 +28,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from live_input_gate import GestureGate
 
 ROOT = Path(__file__).resolve().parents[2]
+# Evidence software and driver source need not share a worktree. In
+# particular, upstream PR87 deliberately excludes this engineering harness.
+# An explicit source root binds live module identity to the exact PR checkout.
+SOURCE_ROOT = ROOT
 COLLECTOR = ROOT / "tools/hardware_evidence/run_blinded_session.sh"
 STATS = Path("/sys/bus/spi/devices/spi-MSHW0231:00/protocol_stats")
 MODE = Path("/sys/module/sl4a_spi_hid/parameters/std_raw_transition")
@@ -447,12 +451,12 @@ def verify_run_integrity(expected_mode, source):
     if not source.is_file():
         raise RuntimeError("locally built signed module missing: " + str(source))
     dirty = subprocess.run(
-        ["git", "-C", str(ROOT), "status", "--porcelain",
+        ["git", "-C", str(SOURCE_ROOT), "status", "--porcelain",
          "--untracked-files=no"], capture_output=True, text=True)
     if dirty.returncode or dirty.stdout.strip():
         raise RuntimeError("source worktree is dirty or unreadable: " +
                            (dirty.stdout.strip() or dirty.stderr.strip()))
-    revision = probe(["git", "-C", str(ROOT), "rev-parse", "HEAD"])
+    revision = probe(["git", "-C", str(SOURCE_ROOT), "rev-parse", "HEAD"])
     if len(revision) != 40:
         raise RuntimeError("could not identify full source commit SHA")
     expected_version = probe(["modinfo", "-F", "srcversion", str(source)])
@@ -516,6 +520,9 @@ def main():
     parser.add_argument("--case", help="Unique run label (e.g. mode4-warm-01)")
     parser.add_argument("--output", type=Path, help="NEW session folder (never overwritten)")
     parser.add_argument("--period", choices=("p1", "p2", "p3"), default="p1")
+    parser.add_argument("--source-root", type=Path,
+                        help="Exact separate driver source checkout for live .ko provenance; "
+                             "collector and gesture code remain from this harness checkout")
     parser.add_argument("--expected-mode", choices=("0", "1", "2", "3", "4"),
                         help="Required live transition mode for an auditable physical run")
     parser.add_argument("--input-source", choices=("beta", "direct", "stylus"),
@@ -524,6 +531,9 @@ def main():
     parser.add_argument("--audio-check", action="store_true",
                         help="Require audible playback confirmed by operator; no hardware changes")
     args = parser.parse_args()
+    global SOURCE_ROOT
+    if args.source_root is not None:
+        SOURCE_ROOT = args.source_root.expanduser().resolve()
     if not (args.demo or args.audio_check) and (
             not args.output or not args.case or args.expected_mode is None):
         parser.error("--case, --output and --expected-mode are required for physical tests")
@@ -555,7 +565,7 @@ def main():
             raise RuntimeError("evtest is required for meaningful MT event traces")
         # Check the live module and clean source before opening ANY evidence
         # capture. No input trace can qualify a stale or mismatched build.
-        built = ROOT / "driver/sl4a-spi-hid.ko"
+        built = SOURCE_ROOT / "driver/sl4a-spi-hid.ko"
         verified_identity = verify_run_integrity(args.expected_mode, built)
         mode = verified_identity["live_mode_verified"]
         args.output.parent.mkdir(parents=True, exist_ok=True)
@@ -569,7 +579,9 @@ def main():
             "input_source": input_source,
             "live_std_raw_transition": mode,
             "kernel": probe(["uname", "-r"]),
-            "git_head": probe(["git", "-C", str(ROOT), "rev-parse", "HEAD"]),
+            "git_head": probe(["git", "-C", str(SOURCE_ROOT), "rev-parse", "HEAD"]),
+            "driver_source_root": str(SOURCE_ROOT),
+            "evidence_harness_root": str(ROOT),
             "loaded_srcversion": txt(Path("/sys/module/sl4a_spi_hid/srcversion")),
             "module_file": probe(["modinfo", "-F", "filename", "sl4a-spi-hid"]),
             "module_signer": probe(["modinfo", "-F", "signer", "sl4a-spi-hid"]),
