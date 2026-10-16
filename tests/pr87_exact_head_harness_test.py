@@ -39,7 +39,7 @@ assert 'PASS_3_OF_3' in harness
 # The full-matrix runner must use the same pin/sign/restore safety
 # boundary as warm qualification, but only one activation and no s2idle.
 assert 'full-matrix) run_full_matrix' in harness
-matrix = harness.split('run_full_matrix() {\n', 1)[1].split('\n}\n# Two real suspend cycles', 1)[0]
+matrix = harness.split('run_full_matrix() {\n', 1)[1].split('\n}\n\n# Two real suspend cycles', 1)[0]
 assert matrix.index('    preflight\n') < matrix.index('    checkout_exact\n')
 assert matrix.index('Type MATRIX to build/sign') < matrix.index('    prepare\n')
 assert matrix.index('    trap on_exit EXIT\n') < matrix.index('    load_pr\n')
