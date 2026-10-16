@@ -1,9 +1,13 @@
 # MSHW0231 standard-transport host-0x56/no-GET6 activation A/B
 
-**Status:** experimental, **not hardware-qualified** on this branch. The
-existing Gate5 mode 1 remains the installer default and the only qualified
-profile on the original test unit. Do not change the installer, DKMS registration,
-or the boot modprobe file for this experiment.
+**Status (2026-10-16):** opt-in mode4 has **real hardware qualification**
+for the planned gesture matrix (across separately recorded sessions) and
+**three successive warm module activations** on the original SL4 AMD.
+It has **not** yet qualified s2idle/resume or true cold power-on, so it
+remains experimental and **must not be promoted to installer default**.
+The installed Gate5 mode1 remains the qualified production/boot profile.
+Do not change DKMS registration, Secure Boot enrollment or persistent
+modprobe settings for this experiment.
 
 ## Why this is a different A/B
 
@@ -193,6 +197,41 @@ The `qualify-warm3` wrapper builds/signs once, then runs **three
 separate warm activations**, each with a short audible event-verified
 `quick` capture and immediate Gate5 rollback. Do not mark the three
 warm cycles as passed until their physical logs and checksums exist.
+
+### 2026-10-16 16:49–16:55 UTC: **three successive warm activations PASS**
+
+The physical `qualify-warm3` session used exact source `3fb72d4`,
+temporary signed module SHA256
+`71a03f648c17699610f1f02ae5d59baf813fb75c0dffa78ca428b8edb005d680`
+and kernel `7.0.0-31-generic`. That module was built and signed
+**once**, and the same digest was printed before all three independent
+warm activations. On each activation the host observed mode4,
+`reset_rsp=1`, `device_desc=1`, `rpt_desc=1` and
+`frames_dropped=0`. Each voice-directed `quick` sequence
+(one-finger move/release, original-ID pinch/expand/release) passed
+its live evdev gates. Each collector reported source/module integrity,
+post-activation stable reset/drop counters, and checksums **PASS**.
+After each capture the wrapper restored **the installed unchanged
+Gate5 mode1**, including after cycle three.
+
+- Cycle 1: `mode4-quick-20261016T164955Z`
+- Cycle 2: `mode4-quick-20261016T165148Z`
+- Cycle 3: `mode4-quick-20261016T165325Z`
+
+All are beneath `~/sl4a-hardware-runs/`. This closes
+**mode4 warm reload 3/3** for that tested source and binary, not
+suspend/resume, cold boot, upstream PR #87, or DieSchatten's raw
+transport. No kernel reinstall or MOK registration occurred.
+
+**Next physical qualification**, not yet executed: the experimental
+`qualify-s2idle2` helper verifies that `[s2idle]` is selected,
+asks for confirmation before each platform suspend, detects actual
+suspend elapsed time using `CLOCK_BOOTTIME − CLOCK_MONOTONIC`,
+requires kernel suspend-entry and exit markers, then runs one spoken
+event-gated `quick` capture after each resume *without unloading
+the temporary module between sleeps*. Restores Gate5 mode1 at the end
+or on any ordinary script failure and retains independent evidence.
+Rebooting is still handled by the unchanged production boot profile.
 
 ## Opt-in mode 4
 
