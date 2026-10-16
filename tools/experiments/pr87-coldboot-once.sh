@@ -327,7 +327,7 @@ rollback() {
             controller_driver="$(basename "$(readlink -f "$controller_path/driver")")"
         fi
         if [[ -L /sys/bus/acpi/devices/MSHW0231:00/physical_node/driver ]]; then
-            touch_driver="$(basename "$(readlink -f /sys/bus/acpi/devices/MSHW0231:00/physical_node/driver")")"
+            touch_driver="$(basename "$(readlink -f "/sys/bus/acpi/devices/MSHW0231:00/physical_node/driver")")"
         fi
         [[ "$(mode)" == 1 &&
            "$(readfile "$HID/srcversion")" == "$(field production_srcversion)" &&
