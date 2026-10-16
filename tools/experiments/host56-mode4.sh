@@ -405,6 +405,7 @@ case "${1:-}" in
     coldboot-stage) coldboot_stage ;;
     coldboot-finish) coldboot_finish ;;
     coldboot-status) /usr/local/libexec/sl4a-mode4-coldboot-once verify ;;
+    coldboot-diagnose) bash "$ROOT/tools/experiments/host56-mode4-coldboot-once.sh" diagnose ;;
     coldboot-cancel) as_root /usr/local/libexec/sl4a-mode4-coldboot-once cancel ;;
     prepare) prepare ;;
     activate) activate ;;
@@ -412,5 +413,5 @@ case "${1:-}" in
     capture) capture "${2:-quick}" ;;
     audio-check) python3 "$ROOT/tools/hardware_evidence/guided_session.py" --audio-check ;;
     status) show_status ;;
-    *) echo "Usage: $0 {qualify [quick|contacts|full]|qualify-warm3|qualify-s2idle2|coldboot-stage|coldboot-finish|coldboot-status|coldboot-cancel|prepare|activate|audio-check|capture [quick|pinch|contacts|full|stylus]|status|restore}" >&2; exit 2 ;;
+    *) echo "Usage: $0 {qualify [quick|contacts|full]|qualify-warm3|qualify-s2idle2|coldboot-stage|coldboot-finish|coldboot-status|coldboot-diagnose|coldboot-cancel|prepare|activate|audio-check|capture [quick|pinch|contacts|full|stylus]|status|restore}" >&2; exit 2 ;;
 esac
