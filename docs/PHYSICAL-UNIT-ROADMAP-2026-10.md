@@ -4,6 +4,33 @@
 the independent DieSchatten device, and Syax89's upstream PR #87.
 This is an operating plan, not a claim of broad compatibility.
 
+## 2026-10-16 ~18:15 UTC: IMPORTANT — Gate5 parameter 1 is NOT functional recovery
+
+Following the aborted one-shot boot on newly installed kernel
+`7.0.0-34-generic`, the user explicitly reports **the touchscreen
+does not work**. Previous statements that the fallback "restored a
+working Gate5" were **incorrect**: `std_raw_transition=1` only
+establishes which module parameter is loaded, not controller binding,
+HID input device creation, or actual contact events.
+
+Source audit identified a concrete boot-abort recovery defect:
+`fallback()` previously executed only
+`modprobe sl4a-spi-hid`, **not** the normal
+`modprobe sl4a-spi-amd` → HID activation sequence. Thus an HID
+module could be loaded and report mode1 while no AMD SPI controller
+was driving MSHW0231. Whether this is what happened on the unit
+must be determined from **read-only** `lsmod`, ACPI/platform SPI driver
+bindings, DKMS module revision, protocol counters and kernel logs.
+A pending-kernel driver-build incompatibility is an alternative.
+
+A source correction now loads AMD first, HID second and checks
+both binding names before reporting a recovered driver, with a host
+regression test. **This correction is not retroactive to the
+already-running physical boot.** Stop mode4 cold-boot staging until
+the user confirms real touchscreen functionality again.
+No cold-boot PASS, functional Gate5 recovery PASS, or broad kernel34
+compatibility may be claimed from the existing log.
+
 ## 2026-10-16 18:10 UTC: first one-shot mode4 cold-boot attempt INCONCLUSIVE
 
 The physical tester staged the signed mode4 module at 18:08:35Z,
