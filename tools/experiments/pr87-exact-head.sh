@@ -15,6 +15,10 @@ STATS=/sys/bus/spi/devices/spi-MSHW0231:00/protocol_stats
 CONTROLLER=/sys/bus/platform/devices/AMDI0060:00
 TOUCH=/sys/bus/acpi/devices/MSHW0231:00/physical_node
 UNIT_OVERRIDE=/etc/systemd/system/sl4a-touch-activate.service.d/90-mode4-once.conf
+PR87_OVERRIDE=/etc/systemd/system/sl4a-touch-activate.service.d/90-pr87-once.conf
+COLD_HELPER="$HARNESS_ROOT/tools/experiments/pr87-coldboot-once.sh"
+COLD_STATE=/var/lib/sl4a-pr87-coldboot
+COLD_INSTALLED=/usr/local/libexec/sl4a-pr87-coldboot-once
 MODULE="$PR_ROOT/driver/sl4a-spi-hid.ko"
 KDIR="/lib/modules/$(uname -r)/build"
 active=0
@@ -33,8 +37,9 @@ preflight() {
     [[ "$(binding "$CONTROLLER")" == sl4a_spi_amd_v2_multi ]] || die "AMD SPI controller unbound"
     [[ "$(binding "$TOUCH")" == sl4a_spi_hid ]] || die "touchscreen HID unbound"
     [[ -r "$STATS" ]] || die "no readable protocol_stats"
-    [[ ! -e "$UNIT_OVERRIDE" && ! -e /var/lib/sl4a-mode4-coldboot/armed ]] ||
-        die "a different one-shot boot experiment is staged"
+    [[ ! -e "$UNIT_OVERRIDE" && ! -e /var/lib/sl4a-mode4-coldboot/armed &&
+          ! -e "$PR87_OVERRIDE" && ! -e "$COLD_STATE/armed" ]] ||
+        die "a one-shot cold-boot experiment is already staged"
     [[ -f "$KDIR/Makefile" ]] || die "running kernel headers missing"
     [[ -e /etc/modprobe.d/sl4a-spi-hid.conf ]] || die "production Gate5 config absent"
     grep -q 'std_raw_transition=1' /etc/modprobe.d/sl4a-spi-hid.conf ||
@@ -439,11 +444,97 @@ run_s2idle_two() {
     echo "S2IDLE EVIDENCE: $session"
 }
 
+
+# A genuine cold first-HID load requires the existing late boot service to
+# substitute this pinned signed module ONCE, on a NEW physical power-on.
+# No initramfs/DKMS/modprobe profile updates. The helper consumes itself
+# BEFORE insertion and arms an independent timed Gate5 recovery.
+run_coldboot_stage() {
+    preflight
+    checkout_exact
+    [[ -f "$COLD_HELPER" ]] || die "PR87 boot helper missing"
+    [[ -z "$(git -C "$HARNESS_ROOT" status --porcelain --untracked-files=no)" ]] ||
+        die "local harness checkout has tracked modifications; refuse to stage"
+    echo "ONE-SHOT PR87 COLD FIRST-HID: requires complete POWER OFF and physical power ON."
+    echo "Normal installed Gate5 service and DKMS/modprobe profile are unchanged."
+    echo "Boot helper consumes its one-shot override before driver initialization."
+    echo "A distinct systemd 20-minute timer will restore Gate5 if unfinished."
+    echo "A reboot does NOT qualify physical cold-boot acceptance."
+    local confirm
+    printf 'Type ARM_PR87 to build/sign and stage one future cold-boot: '
+    IFS= read -r confirm
+    [[ "$confirm" == ARM_PR87 ]] || die "cancelled before any boot-unit change"
+    prepare
+    root bash "$COLD_HELPER" stage "$MODULE" "$PR_HEAD"
+    echo "STAGED exact PR87 once. Save your work, then COMPLETELY shut down:"
+    echo "  sudo systemctl poweroff"
+    echo "After the laptop is OFF, press POWER to boot, log in, then run:"
+    echo "  bash tools/experiments/pr87-exact-head.sh coldboot-finish"
+}
+
+run_coldboot_finish() {
+    [[ -x "$COLD_INSTALLED" ]] || die "no staged PR87 boot helper installed"
+    if ! "$COLD_INSTALLED" verify; then
+        echo "Cold-first-HID verification INCONCLUSIVE; asking helper for safe rollback." >&2
+        root "$COLD_INSTALLED" rollback || true
+        return 1
+    fi
+    printf 'Was the laptop fully powered OFF and then turned ON? Type COLD_PR87: '
+    local confirm
+    IFS= read -r confirm
+    if [[ "$confirm" != COLD_PR87 ]]; then
+        echo "Not claiming a real cold boot; restoring Gate5." >&2
+        root "$COLD_INSTALLED" finish FAIL || true
+        return 1
+    fi
+    # Do not run preflight here: it expects installed Gate5, while the
+    # verified experimental module must still be loaded from first boot.
+    # Never fetch/reset PR source while an experimental module is active.
+    if [[ ! -f "$MODULE" ||
+          "$(git -C "$PR_ROOT" rev-parse HEAD 2>/dev/null || true)" != "$PR_HEAD" ||
+          "$(field "$HID/srcversion")" != "$(field "$COLD_STATE/srcversion")" ||
+          "$(sha "$MODULE")" != "$(field "$COLD_STATE/module_sha")" ]]; then
+        echo "PR87 source/build mismatch after boot; aborting and restoring Gate5." >&2
+        root "$COLD_INSTALLED" finish FAIL || true
+        return 1
+    fi
+    mkdir -p -m 0700 "$HOME/sl4a-hardware-runs"
+    session="$HOME/sl4a-hardware-runs/pr87-cold-first-hid-$(date -u +%Y%m%dT%H%M%SZ)"
+    mkdir -m 0700 "$session"
+    echo "source_commit=$PR_HEAD" > "$session/provenance.txt"
+    echo "signed_module_sha256=$(sha "$MODULE")" >> "$session/provenance.txt"
+    echo "boot_id=$(cat /proc/sys/kernel/random/boot_id)" >> "$session/provenance.txt"
+    printf 'INCOMPLETE\n' > "$session/result.txt"
+    # Capture is the SAME spoken live 1/2-finger evdev gate as warm/s2idle.
+    # A failed capture must never result in helper finish PASS. On SIGKILL,
+    # the independent 20 minute timer still restores Gate5.
+    if capture "coldboot" quick; then
+        if root "$COLD_INSTALLED" finish PASS; then
+            printf 'PASS_COLD_FIRST_HID\n' > "$session/result.txt"
+            echo "PR87 COLD FIRST-HID PASS: new boot, real gestures, restored Gate5."
+            echo "COLD EVIDENCE: $COLD_STATE and $session"
+        else
+            printf 'INCONCLUSIVE_OR_FAILED\n' > "$session/result.txt"
+            return 1
+        fi
+    else
+        root "$COLD_INSTALLED" finish FAIL || true
+        printf 'INCONCLUSIVE_OR_FAILED\n' > "$session/result.txt"
+        echo "PR87 COLD INCONCLUSIVE: original Gate5 recovery attempted." >&2
+        return 1
+    fi
+}
+
 case "${1:-}" in
     preflight) preflight ;;
     warm3) run_warm_three ;;
     s2idle2) run_s2idle_two ;;
     full-matrix) run_full_matrix ;;
     standard-negative) run_standard_negative ;;
-    *) echo "Usage: bash $0 {preflight|warm3|s2idle2|full-matrix|standard-negative}" >&2; exit 2 ;;
+    coldboot-stage) run_coldboot_stage ;;
+    coldboot-finish) run_coldboot_finish ;;
+    coldboot-status) "$COLD_INSTALLED" verify ;;
+    coldboot-diagnose) "$COLD_HELPER" diagnose ;;
+    coldboot-cancel) root "$COLD_INSTALLED" cancel ;;
+    *) echo "Usage: bash $0 {preflight|warm3|s2idle2|full-matrix|standard-negative|coldboot-stage|coldboot-finish|coldboot-status|coldboot-diagnose|coldboot-cancel}" >&2; exit 2 ;;
 esac
