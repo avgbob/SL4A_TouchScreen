@@ -464,8 +464,19 @@ def main():
                     except queue.Empty as e:
                         raise RuntimeError("live input monitor did not start") from e
                     if ready.get("kind") != "ready":
-                        raise RuntimeError("live monitor refused the event node: " +
-                                           str(ready))
+                        # Reader EOF is only a symptom. The subprocess writes
+                        # the actionable cause (e.g. permission, sysfs identity,
+                        # or Python startup failure) to its stderr log.
+                        try:
+                            monitor.wait(timeout=2)
+                        except subprocess.TimeoutExpired:
+                            pass
+                        monitor_err.flush()
+                        diagnostic = monitor_errors.read_text(
+                            errors="replace").strip()[-3000:]
+                        raise RuntimeError(
+                            f"live monitor startup failed (rc={monitor.poll()}): " +
+                            (diagnostic or str(ready)))
                     if ready.get("device") != event_device:
                         raise RuntimeError("monitored device differs from evtest device")
                     mark(marks, "capture-ready",
@@ -477,6 +488,12 @@ def main():
                     phase_results = live_capture(audio, marks, phases, frames, proc)
                 except (Exception, KeyboardInterrupt) as e:
                     guide_error = str(e)
+                    if monitor is not None:
+                        monitor_err.flush()
+                        detail = monitor_errors.read_text(
+                            errors="replace").strip()[-3000:]
+                        if detail and detail not in guide_error:
+                            guide_error += f"; monitor stderr: {detail}"
                     mark(marks, "session-incomplete", guide_error)
                 finally:
                     # Close the evtest/journal collector normally even on
