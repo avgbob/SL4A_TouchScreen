@@ -334,6 +334,7 @@ test: protocol_test capimg_decoder_host_test c590_atan2_host_test wire_frames_te
 	$(PYTHON) mode4_host56_source_test.py
 	$(PYTHON) guided_session_test.py
 	$(PYTHON) guided_continuity_test.py
+	$(PYTHON) audit_voice_gap_test.py
 	$(PYTHON) live_input_gate_test.py
 	$(PYTHON) guided_session_integrity_test.py
 	bash -n ../tools/experiments/host56-mode4.sh
