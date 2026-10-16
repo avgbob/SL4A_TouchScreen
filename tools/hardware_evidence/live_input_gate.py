@@ -240,11 +240,20 @@ class GestureGate:
 
         elif a == "lift":
             expected = self.ctx.get("pair")
-            if expected is not None and len(valid) == 0:
-                self.good = True
-                self.ctx.pop("pair", None)
-                self.ctx.pop("distance", None)
-            elif (expected is None and len(valid) == 0 and
+            if expected is not None:
+                # A prior phase's pair is only an expectation, NOT proof
+                # of present contact. Before accepting an empty frame,
+                # observe both original IDs DOWN in THIS release phase.
+                if len(valid) == 2 and ids == expected:
+                    self.stage = 1
+                elif len(valid) == 0 and self.stage == 1:
+                    self.good = True
+                    self.ctx.pop("pair", None)
+                    self.ctx.pop("distance", None)
+                elif len(valid) and ids != expected:
+                    self.stage = 0
+                    self.notice("Different fingers detected. Hold the original pair.")
+            elif (len(valid) == 0 and
                   (self.ctx.get("single_completed") or
                    self.ctx.get("pen_contact_completed"))):
                 self.good = True
