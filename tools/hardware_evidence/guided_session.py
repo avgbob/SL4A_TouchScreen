@@ -176,8 +176,10 @@ def main():
     parser.add_argument("--output", type=Path, help="NEW session folder (never overwritten)")
     parser.add_argument("--period", choices=("p1", "p2", "p3"), default="p1")
     parser.add_argument("--demo", action="store_true", help="Preview cues only, no hardware or sudo")
+    parser.add_argument("--audio-check", action="store_true",
+                        help="Require audible playback confirmed by operator; no hardware changes")
     args = parser.parse_args()
-    if not args.demo and (not args.output or not args.case):
+    if not (args.demo or args.audio_check) and (not args.output or not args.case):
         parser.error("--case and --output are required outside --demo")
     if args.case and not all(x.isalnum() or x in "._-" for x in args.case):
         parser.error("--case accepts only ASCII letters/digits/._-")
@@ -187,6 +189,9 @@ def main():
     with tempfile.TemporaryDirectory(prefix="sl4a-audio-") as temp:
         audio = Audio(Path(temp), dry=args.demo)
         audio.preflight()  # Sound MUST be confirmed before sudo or touching driver.
+        if args.audio_check:
+            print("AUDIO CHECK PASSED; no driver or evidence changes made.")
+            return 0
         if args.demo:
             with (Path(temp) / "demo-markers.tsv").open("w") as markers:
                 countdown(audio, markers, 5)
