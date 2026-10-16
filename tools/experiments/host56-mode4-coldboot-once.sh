@@ -226,6 +226,7 @@ finish() {
     ( cd "$BASE"
       sha256sum signed-mode4.ko module_sha srcversion source_sha stage_boot_id \
           trial_boot_id kernel stats-boot.txt stats-after-touch.txt \
+          boot-before-hid.log boot-after-amd.log \
           kernel-coldboot.log result events.log > SHA256SUMS.txt
       sha256sum -c SHA256SUMS.txt
     )
