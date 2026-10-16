@@ -233,6 +233,7 @@ qualify_s2idle_two() {
         echo "mem_sleep_at_start=$sleep_mode"
         echo "test_type=s2idle2_postresume_audio_quick"
     } > "$session/provenance.txt"
+    printf 'verdict=INCOMPLETE\nreason=not_all_cycles_passed\n' > "$session/qualification-status.txt"
     echo "=== S2IDLE QUALIFICATION; EVIDENCE $session ==="
     (
         trap 'restore' EXIT
@@ -303,7 +304,7 @@ qualify_s2idle_two() {
             python3 "$ROOT/tools/hardware_evidence/speak_operator.py" \
                 "Laptop awake after suspend cycle $cycle. The touchscreen will now receive a short spoken finger and pinch test."
             echo "=== POST-S2IDLE TOUCH VALIDATION $cycle/2 ==="
-            capture quick
+            capture quick | tee "$session/capture-$cycle.log"
             cat "$STATS" > "$session/stats-after-touch-$cycle.txt"
             echo "=== S2IDLE CYCLE $cycle/2 PASSED ==="
         done
@@ -313,7 +314,8 @@ qualify_s2idle_two() {
             exit 1
         }
         echo "mode_after=1" >> "$session/provenance.txt"
-        ( cd "$session"; sha256sum ./*.txt ./*.json ./*.log > SHA256SUMS.txt )
+        printf 'verdict=PASS\ncompleted_cycles=2\n' > "$session/qualification-status.txt"
+        ( cd "$session"; sha256sum ./*.txt ./*.json ./*.log ./*.sha256 > SHA256SUMS.txt )
         ( cd "$session"; sha256sum -c SHA256SUMS.txt )
         trap - EXIT
         echo "S2IDLE 2/2: actual sleep detected, PM markers recorded, post-wake gesture checks passed, Gate5 restored."
