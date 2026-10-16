@@ -18,9 +18,10 @@ class Collector:
 
 
 class FakeVoice:
-    def __init__(self, events, broken=False):
+    def __init__(self, events, broken=False, sequential_release=False):
         self.events = events
         self.broken = broken
+        self.sequential_release = sequential_release
         self.speech = []
         self.go_count = 0
         self.seq = 0
@@ -58,6 +59,8 @@ class FakeVoice:
                 self.put([(11, 300, 200), (12, 600, 200)])
                 self.put([(11, 100, 200), (12, 950, 200)])
         elif message == "Lift both fingers now.":
+            if self.sequential_release:
+                self.put([(11, 100, 200)])  # real 2->1 transient
             self.put([])
 
     def play(self, cue):
@@ -83,6 +86,21 @@ assert voice.speech.count("5") == 2
 assert "Now move those SAME two fingers apart." in voice.speech
 assert "Lift both fingers now." in voice.speech
 assert markers.getvalue().count("\tphase-pass\t") == 4
+
+# Physical-session sequence 2 -> 1 -> 0: do not speak a stale
+# "Lift it now" instruction after the operator already lifted both,
+# but retain the intermediate original-ID status in timestamped cues.
+events = queue.Queue()
+voice = FakeVoice(events, sequential_release=True)
+markers = io.StringIO()
+res = live_capture(voice, markers, phases, events, Collector())
+assert len(res) == 4 and all(r[1] == "PASS" for r in res)
+assert "One original finger remains. Lift it now." not in voice.speech, (
+    "a queued transient 2->1 observation must not become a late command")
+assert "quick-lift:One original finger remains. Lift it now." in markers.getvalue(), (
+    "retain the exact intermediate evdev status for later forensic review")
+assert "\\tphase-pass\\tquick-lift;" in markers.getvalue(), (
+    "only original-pair zero contacts can complete release")
 
 events = queue.Queue()
 voice = FakeVoice(events, broken=True)
