@@ -19,6 +19,15 @@ else
 fi
 
 cfg="$kernel_root/.config"
+flavor="$(cat "$kernel_root/drivers/staging/sl4a/SOURCE-FLAVOR")"
+[[ "$flavor" == pr87 || "$flavor" == legacy-gate5 ]] || {
+    echo "ERROR: unknown staged source flavor" >&2; exit 1;
+}
+if [[ "$flavor" == pr87 ]]; then
+    localversion="-sl4a-pr87"
+else
+    localversion="-sl4a-gate5"
+fi
 "$kernel_root/scripts/config" --file "$cfg" \
     -e MODULES -e ACPI -e SPI -e HID -e INPUT -e STAGING \
     -d SPI_AMD \
@@ -26,7 +35,7 @@ cfg="$kernel_root/.config"
     -e DRM_EFIDRM -e DRM_FBDEV_EMULATION -e FRAMEBUFFER_CONSOLE \
     -m AMD_PMC \
     -m SL4A_SPI_AMD -m SL4A_SPI_HID \
-    --set-str LOCALVERSION "-sl4a-gate5"
+    --set-str LOCALVERSION "$localversion"
 make -C "$kernel_root" olddefconfig
 
 # Failing closed is vital: the stock AMD SPI driver must not compete for

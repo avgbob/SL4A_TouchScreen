@@ -23,6 +23,12 @@ git -C "$kernel" diff --check
 test -f "$kernel/drivers/hid/sl4a/spi-hid-core.c"
 test -f "$kernel/drivers/hid/sl4a/spi-amd.h"
 test -f "$kernel/drivers/spi/sl4a/spi-amd.c"
+test "$(cat "$kernel/drivers/hid/sl4a/SOURCE-COMMIT")" = "18f0fe79623e6de4fdf1ae493f82a7048397386a"
+test "$(cat "$kernel/drivers/hid/sl4a/SOURCE-FLAVOR")" = pr87
+cmp "$(dirname "$script")/../../kernel-pins/pr87/driver/spi-hid-core.c" \
+    "$kernel/drivers/hid/sl4a/spi-hid-core.c"
+cmp "$(dirname "$script")/../../kernel-pins/pr87/driver/spi-amd.c" \
+    "$kernel/drivers/spi/sl4a/spi-amd.c"
 grep -q '^config SL4A_HID_SPI$' "$kernel/drivers/hid/sl4a/Kconfig"
 grep -q '^config SL4A_AMD_SPI$' "$kernel/drivers/spi/sl4a/Kconfig"
 if bash "$script" --apply "$kernel" >/dev/null 2>&1; then

@@ -17,8 +17,10 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v5
-      - name: Audit source and staging script (no kernel install)
-        run: bash tools/in-tree/audit.sh
+      - name: Audit pinned PR87 sources and BOTH staging layouts (no kernel install)
+        run: |
+          bash tools/in-tree/audit.sh
+          bash tools/kernel_integration/selftest.sh
 
   kernel-packages:
     needs: source-audit
@@ -47,7 +49,7 @@ jobs:
           tar -xJf "$RUNNER_TEMP/linux-6.18.57.tar.xz" -C "$RUNNER_TEMP/sl4a-kernel-src"
           test -f "$RUNNER_TEMP/sl4a-kernel-src/linux-6.18.57/Makefile"
 
-      - name: Stage the untouched Gate5 drivers and configure modules
+      - name: Stage exact pinned PR87 driver and configure modules
         shell: bash
         run: |
           set -euo pipefail
@@ -56,6 +58,9 @@ jobs:
           bash tools/in-tree/configure-kernel.sh "$kernel"
           grep -qx 'CONFIG_SL4A_SPI_AMD=m' "$kernel/.config"
           grep -qx 'CONFIG_SL4A_SPI_HID=m' "$kernel/.config"
+          grep -qx 'CONFIG_LOCALVERSION="-sl4a-pr87"' "$kernel/.config"
+          test "$(cat "$kernel/drivers/staging/sl4a/SOURCE-COMMIT")" = "18f0fe79623e6de4fdf1ae493f82a7048397386a"
+          test "$(cat "$kernel/drivers/staging/sl4a/SOURCE-FLAVOR")" = pr87
           if grep -Eq '^CONFIG_SPI_AMD=[ym]' "$kernel/.config"; then exit 1; fi
 
       - name: Build native kernel and Debian test packages
@@ -65,7 +70,7 @@ jobs:
           kernel="$RUNNER_TEMP/sl4a-kernel-src/linux-6.18.57"
           # Build in parallel before Debian packaging to avoid dpkg -j1 compile bottleneck.
           make -C "$kernel" -j3 bzImage modules
-          make -C "$kernel" -j3 bindeb-pkg KDEB_PKGVERSION=6.18.57-sl4a1
+          make -C "$kernel" -j3 bindeb-pkg KDEB_PKGVERSION=6.18.57-sl4a-pr87-1
           test -s "$kernel/drivers/staging/sl4a/sl4a-spi-amd.ko"
           test -s "$kernel/drivers/staging/sl4a/sl4a-spi-hid.ko"
           test -s "$kernel/arch/x86/boot/bzImage"
@@ -73,21 +78,24 @@ jobs:
           cp -- "$RUNNER_TEMP"/sl4a-kernel-src/*.deb /tmp/sl4a-kernel-output/
           cp -- "$kernel/.config" /tmp/sl4a-kernel-output/kernel.config
           cp -- "$kernel/drivers/staging/sl4a/SOURCE-COMMIT" /tmp/sl4a-kernel-output/source-commit.txt
+          cp -- "$kernel/drivers/staging/sl4a/SOURCE-FLAVOR" /tmp/sl4a-kernel-output/source-flavor.txt
+          cp -- "$kernel/drivers/staging/sl4a/INTEGRATION-COMMIT" /tmp/sl4a-kernel-output/integration-commit.txt
+          cp -- kernel-pins/pr87/DRIVER-BLOBS.txt /tmp/sl4a-kernel-output/pinned-driver-blobs.txt
           printf '%s\n' \
-            "EXPERIMENTAL. x86_64_defconfig CI baseline, NOT a validated Surface boot config." \
+            "EXPERIMENTAL. Exact PR87 source in Linux 6.18.57; NOT hardware-qualified as an in-tree kernel." \
             "Unsigned kernel: DO NOT install/boot with Secure Boot enabled." \
             "Do not install without confirmed backup kernel, external recovery and bootloader access." \
             "Existing DKMS modules with same names can take precedence. Check modinfo -n." \
             > /tmp/sl4a-kernel-output/READ-BEFORE-TESTING.txt
           cd /tmp/sl4a-kernel-output
-          sha256sum ./*.deb > SHA256SUMS.txt
+          sha256sum ./*.deb *.txt kernel.config > SHA256SUMS.txt
           ls -lh
 
       - name: Upload experimental test packages
         if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: sl4a-linux-6.18.57-experimental
+          name: sl4a-linux-6.18.57-pr87-experimental
           path: /tmp/sl4a-kernel-output/
           if-no-files-found: error
           retention-days: 7

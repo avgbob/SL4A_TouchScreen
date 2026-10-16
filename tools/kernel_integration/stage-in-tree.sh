@@ -13,12 +13,14 @@ mode=$1
 [[ $mode == --check || $mode == --apply ]] || usage
 kernel=$(realpath -e -- "$2") || usage
 repo=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd -P)
-src="$repo/driver"
+source "$repo/tools/in-tree/source-selection.sh"
+src="$(sl4a_select_source "$repo" "${SL4A_IN_TREE_SOURCE:-pr87}")"
+source_flavor="${SL4A_IN_TREE_SOURCE:-pr87}"
 
 for path in Makefile Kconfig drivers/spi/Kconfig drivers/spi/Makefile drivers/hid/Kconfig drivers/hid/Makefile; do
     [[ -f "$kernel/$path" ]] || { echo "Missing kernel source file: $path" >&2; exit 1; }
 done
-[[ -f "$src/Kbuild" ]] || { echo "Missing SL4A Kbuild" >&2; exit 1; }
+[[ -f "$repo/driver/Kbuild" ]] || { echo "Missing SL4A Kbuild" >&2; exit 1; }
 for name in spi-amd.c spi-amd.h spi-hid-core.c spi-hid-core.h spi-hid-capimg.c \
     spi-hid-capimg.h mshw0231-raw.c mshw0231-raw.h trace.c; do
     [[ -f "$src/$name" ]] || { echo "Missing SL4A source: $name" >&2; exit 1; }
@@ -107,6 +109,14 @@ cat >> "$kernel/drivers/hid/Makefile" <<'MAKEFILE'
 obj-$(CONFIG_SL4A_HID_SPI) += sl4a/
 MAKEFILE
 
-printf 'Staged source files and Kconfig/Makefile entries.\n'
+for location in "$kernel/drivers/spi/sl4a" "$kernel/drivers/hid/sl4a"; do
+    if [[ "$source_flavor" == pr87 ]]; then
+        cat "$repo/kernel-pins/pr87/SOURCE-COMMIT" > "$location/SOURCE-COMMIT"
+    else
+        git -C "$repo" rev-parse HEAD > "$location/SOURCE-COMMIT"
+    fi
+    printf '%s\n' "$source_flavor" > "$location/SOURCE-FLAVOR"
+done
+printf 'Staged source flavor %s and Kconfig/Makefile entries.\n' "$source_flavor"
 printf 'No ACPI modalias, boot configuration, DKMS installation, or service was changed.\n'
 printf 'Next: review git diff, configure both CONFIG_SL4A_* options =m, then build test kernel.\n'
