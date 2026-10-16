@@ -9,8 +9,8 @@ import tempfile
 import time
 
 root = Path(__file__).resolve().parents[1]
-original = (root / "tools/experiments/host56-pr87-coldboot-once.sh").read_text()
-wrapper = (root / "tools/experiments/host56-pr87.sh").read_text()
+original = (root / "tools/experiments/pr87-coldboot-once.sh").read_text()
+wrapper = (root / "tools/experiments/pr87-exact-head.sh").read_text()
 assert 'coldboot-stage) run_coldboot_stage' in wrapper
 assert 'coldboot-finish) run_coldboot_finish' in wrapper
 assert 'coldboot-cancel)' in wrapper
@@ -66,10 +66,10 @@ assert 'update-initramfs' not in original
 assert 'dkms install' not in original
 assert 'grub-install' not in original
 
-p = root / "tools/experiments/host56-pr87-coldboot-once.sh"
+p = root / "tools/experiments/pr87-coldboot-once.sh"
 assert subprocess.run(["bash", "-n", str(p)]).returncode == 0
 assert subprocess.run([
-    "bash", "-n", str(root / "tools/experiments/host56-pr87.sh")
+    "bash", "-n", str(root / "tools/experiments/pr87-exact-head.sh")
 ]).returncode == 0
 
 with tempfile.TemporaryDirectory(prefix="pr87-coldboot-state-") as work:
