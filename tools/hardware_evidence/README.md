@@ -1,5 +1,41 @@
 # Hardware Evidence Collection
 
+## Mode 4 lifecycle qualification (read before suspending)
+
+After the 2026-10-16 `qualify-warm3` physical pass (3/3 on identical
+signed code), the remaining planned mode4 lifecycle checks are **two actual
+s2idle/resume cycles** and controlled cold boot. These are *not* the
+previous warm-reload tests.
+
+On the original Surface, the experimental branch provides:
+
+```bash
+bash tools/experiments/host56-mode4.sh qualify-s2idle2
+```
+
+This checks that `/sys/power/mem_sleep` selects `[s2idle]`
+without modifying that policy. It builds/signs with the existing enrolled
+MOK; temporarily activates mode4, then speaks a **power-state warning**
+and requires an explicit typed `YES` before **each** actual
+`systemctl suspend`. Wake with the keyboard/power button, unlock the
+screen if necessary, and leave the original shell running. It verifies
+`CLOCK_BOOTTIME` advanced relative to monotonic time, records kernel
+`PM: suspend entry (s2idle)` and `PM: suspend exit`, checks mode4 still
+loaded, and runs an audible, event-verified four-gesture `quick` test
+**after each wake**. It preserves source hashes, counters, kernel logs,
+clock snapshots and links to both full raw evdev evidence bundles under a
+`~/sl4a-hardware-runs/mode4-s2idle2-*` session folder.
+
+It does **not** overwrite DKMS, MOK or the production Gate5 boot
+configuration. On any ordinary script error it attempts to restore
+Gate5 mode1; if the laptop never resumes or must be hard rebooted,
+the unchanged installed Gate5 boot configuration still applies.
+A `PASS` must not be claimed without **both** verified actual suspend
+intervals, both successful postresume gesture sessions, recorded logs,
+and final Gate5 restoration. The helper itself is **not yet
+physical-hardware qualified**. Do not use the machine for other work
+while it is testing, and keep work saved before inducing real suspend.
+
 `collect.sh` is a read-only evidence harness for the Surface Laptop 4 AMD
 touchscreen (`AMDI0060` and `MSHW0231`). It discovers ACPI, SPI, input, and
 module sysfs nodes at collection time rather than relying on assigned device
