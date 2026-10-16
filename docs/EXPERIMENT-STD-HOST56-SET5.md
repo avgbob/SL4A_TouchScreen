@@ -110,6 +110,30 @@ two gesture passes remain historical evidence for the previous runner.
 See [physical-unit roadmap](PHYSICAL-UNIT-ROADMAP-2026-10.md) for
 remaining hardware steps. Do not promote mode 4 to default.
 
+### 2026-10-16 16:17: mode4 reaches full second pinch chain, final release inconclusive
+
+At exact checkout `5cba3b5` with temporary, MOK-signed mode4
+binary SHA256 `84086c66654f20163b3db5c34ceb7af9ed82670b2cb36d6567c6e91dde49890c`,
+the new voice-controlled `qualify full` successfully event-gated
+`quick-one`, `quick-pinch`, `quick-expand`, `quick-lift`, then
+`pinch-far`, `pinch-close`, `pinch-hold`, `pinch-expand`.
+The 9th phase `pinch-lift` was marked **INCONCLUSIVE** after an
+intermediate nonempty contact frame no longer contained both original
+tracking IDs. Automatic rollback restored Gate5 mode1.
+
+This is **not yet** proof of a driver tracking-ID defect: the old
+harness mistakenly required two original IDs **until directly empty**,
+rather than accepting the natural sequential release
+`{A,B} -> {A} -> {}` or `{A,B} -> {B} -> {}`.
+The gate now accepts only monotonically shrinking original-ID subsets,
+rejecting any new/reappearing ID and requiring eventual all-up. These
+changes have host regression tests. A read-only
+`tools/hardware_evidence/audit_release.py` checks the saved
+`mode4-full-20261016T161746Z` frames to distinguish a valid singleton
+from a genuinely substituted tracking ID **before another physical run**.
+Do not qualify remaining contacts, cold boot, reloads or suspend until
+their respective tests have actually passed.
+
 DieSchatten's independent 13.5-inch MSHW0231 unit uses a different **raw-mode**
 sequence: report 0x56 with all-six-`FF` payload, ~37–40 ms delay, SET5,
 and **no GET6**. That combination produced CapImg on his unit; GET6 paths
