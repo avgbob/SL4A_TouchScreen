@@ -336,6 +336,7 @@ test: protocol_test capimg_decoder_host_test c590_atan2_host_test wire_frames_te
 	$(PYTHON) guided_continuity_test.py
 	$(PYTHON) audit_voice_gap_test.py
 	$(PYTHON) audit_release_test.py
+	$(PYTHON) release_timing_report_test.py
 	$(PYTHON) live_input_gate_test.py
 	$(PYTHON) guided_session_integrity_test.py
 	$(PYTHON) s2idle_qualification_test.py
