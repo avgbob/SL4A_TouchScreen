@@ -122,6 +122,35 @@ for word, n in [("one",1), ("two",2), ("three",3), ("four",4), ("five",5)]:
     assert not send(test, coords, 1)
     assert send(test, [], 2)
 
+# The *remaining seven* hardware cases must verify stable counts and
+# sequential original-ID release; do not accept a fleeting phantom count.
+five = GestureGate("contacts-five", {})
+ids5 = [(i, i * 80, 150) for i in range(1, 6)]
+assert not send(five, ids5, 1)
+assert not send(five, [(i + 30, i * 80, 150) for i in range(1, 6)], 2), (
+    "a replaced set of IDs must restart the count confirmation")
+assert not send(five, ids5, 3)
+assert five.stage == 0
+assert not send(five, ids5, 4)
+assert five.stage == 1
+assert not send(five, ids5[:4], 5), "partial original release cannot PASS"
+assert not send(five, ids5[:2], 6)
+assert send(five, [], 7), "normal 5 -> 4 -> 2 -> 0 release must PASS"
+
+unexpected_count = GestureGate("contacts-three", {})
+assert not send(unexpected_count, ids5[:3], 1)
+assert not send(unexpected_count, ids5[:3], 2)
+assert not send(unexpected_count, [(1,80,150),(2,160,150),(99,240,150)], 3)
+assert unexpected_count.failed_reason
+assert not send(unexpected_count, [], 4), "unexpected ID cannot resurrect"
+
+reappear_count = GestureGate("contacts-two", {})
+assert not send(reappear_count, ids5[:2], 1)
+assert not send(reappear_count, ids5[:2], 2)
+assert not send(reappear_count, ids5[:1], 3)
+assert not send(reappear_count, ids5[:2], 4)
+assert reappear_count.failed_reason
+
 ctx2 = {}
 one_lift = GestureGate("contacts-one-lift", ctx2)
 assert not send(one_lift, [(21, 100, 100), (22, 300, 100)], 1)
