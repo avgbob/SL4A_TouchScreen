@@ -4,6 +4,40 @@
 the independent DieSchatten device, and Syax89's upstream PR #87.
 This is an operating plan, not a claim of broad compatibility.
 
+## 2026-10-16 17:06 UTC: FIRST s2idle attempt INCONCLUSIVE (script timing race)
+
+The tester ran `qualify-s2idle2` from exact checkout **`81a633c`**
+with freshly signed temporary mode4 module SHA256
+`b4e108dfd449169a294ea1e73c682185bb1accd5c105ceefec587f6d07a64e88`.
+The first spoken **pre-sleep** cue played successfully and the operator
+confirmed sleep. The transcript then reported:
+
+```
+=== ENTERING REAL S2IDLE CYCLE 1/2 ===
+SUSPEND CLOCK CHECK: 0.000s of boottime-not-monotonic elapsed
+SUSPEND CLOCK CHECK: FAIL; actual sleep time unproven
+```
+
+**No post-wake voice, live touch checks, or second suspend were ever
+executed.** The script restored installed Gate5 mode1 successfully.
+`0.000s` does not prove the firmware or driver failed to resume; the
+harness incorrectly assumed `systemctl suspend` returning meant the
+system had already completed suspension. A suspend request can be
+queued/return before true sleep; the immediate clock sample can thus
+preempt the actual sleep. Kernel PM logs from the device are needed to
+determine whether/when the OS actually slept.
+
+**Harness fixed but NOT YET physically retested:** poll
+`CLOCK_BOOTTIME - CLOCK_MONOTONIC` until a proven >=2-second suspend
+gap appears, bounded to 75 seconds of awake time. On timeout,
+preserve kernel PM log and fail INCONCLUSIVE with voice when possible.
+On verified wake, collect kernel PM entry/exit, then give a fresh
+spoken prompt with **mandatory YES confirmation that it was heard**,
+retrying an unavailable audio service rather than silently advancing.
+Only after this explicit post-wake audio checkpoint can the spoken
+event-gated `quick` test begin. Keep production Gate5 boot profile
+unchanged and do not claim 1/2 or 2/2 s2idle acceptance yet.
+
 ## Latest result — 2026-10-16 16:49–16:55 UTC: mode4 warm reloads **3/3 PASS**
 
 **Hardware:** original Surface Laptop 4 AMD 13.5-inch, kernel
