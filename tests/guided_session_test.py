@@ -49,6 +49,12 @@ assert '"quick-one"' in smoke
 assert '["sudo", sys.executable, "-u", str(MONITOR)' in smoke
 for token in ('"insmod"', '"modprobe"', '"dkms"', '"reboot"'):
     assert token not in smoke, "smoke test must not modify the kernel module"
+wrapper = (root / "tools/experiments/host56-mode4.sh").read_text()
+assert "qualify() {" in wrapper
+assert 'trap \'restore\' EXIT' in wrapper
+assert 'if [[ ! -r "$SYS" || "$(cat "$SYS")" != 1 ]]' in wrapper
+assert 'capture "$protocol"' in wrapper
+assert 'qualify) qualify "${2:-full}"' in wrapper
 for dangerous in ('"modprobe"', '"insmod"', '"dkms"', '"reboot"'):
     assert dangerous not in src, f"evidence script may not change modules: {dangerous}"
 
