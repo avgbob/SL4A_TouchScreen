@@ -225,10 +225,13 @@ def guide(audio, marks, phases, process=None):
 
 
 def live_capture(audio, marks, phases, events, evidence_proc):
-    """Never mark a gesture PASS based on time alone.
+    """Verify evdev gestures with uninterrupted physical contact continuity.
 
-    The monitor reports real kernel input_event frames. A phase advances
-    only when GestureGate verifies its required count, movement and/or lift.
+    A connected pinch/expand/hold/lift is ONE live contact sequence.
+    Do not pause it with a five-second count-in. Keep processing every
+    evdev frame emitted since the preceding successful pair frame, even
+    while the next short instruction is spoken. A lost tracking ID aborts
+    that sequence as INCONCLUSIVE; retrying only its final step is invalid.
     """
     context = {}
     results = []
@@ -236,47 +239,39 @@ def live_capture(audio, marks, phases, events, evidence_proc):
         passed = False
         for attempt in range(1, 4):
             gate = GestureGate(label, context)
-            release_pair = gate.action == "lift" and context.get("pair")
-            if release_pair:
-                # A voice/countdown saying "lift" would invite the operator to
-                # lift BEFORE recording starts. Instead observe the ORIGINAL
-                # pair alive in THIS phase, then give the lift instruction.
-                audio.speak("Keep both fingers touching the screen. "
-                            "Do not lift them yet.")
-                preflight_start = time.monotonic()
-                preflight_end = preflight_start + 8
-                while time.monotonic() < preflight_end and gate.stage != 1:
-                    if evidence_proc.poll() is not None:
-                        raise RuntimeError("Evidence collector exited during release check")
-                    try:
-                        sample = events.get(timeout=.25)
-                    except queue.Empty:
-                        continue
-                    if sample.get("kind") == "error":
-                        raise RuntimeError("live input monitor failed: " +
-                                           str(sample.get("error")))
-                    if (sample.get("kind") == "frame" and
-                            sample.get("monotonic", 0) >= preflight_start):
-                        gate.feed(sample)
-                if gate.stage != 1:
-                    mark(marks, "phase-retry",
-                         f"{label};attempt={attempt};original pair not observed down")
-                    audio.speak("The original two fingers are not both down. "
-                                "This attempt did not pass.")
-                    continue
-                mark(marks, "phase-instruction", f"{label};attempt={attempt};release armed")
-                phase_started = time.monotonic()
-                mark(marks, "phase-begin", f"{label};attempt={attempt}")
-                audio.speak("Both original fingers confirmed. Lift them now.")
+            continuation = bool(context.get("pair")) and gate.action in (
+                "close", "hold", "expand", "lift")
+            if continuation:
+                # Use the previous actual successful two-finger sample as
+                # the continuity boundary, not the end of speech playback.
+                # Events collected during voice playback remain evidence.
+                phase_started = context["pair_last_pass_mono"] + 0.000000001
+                if gate.action == "lift":
+                    # The prior phase explicitly observed both original
+                    # fingers down. No second 'down' event is required before
+                    # accepting their subsequent release.
+                    gate.stage = 1
+                    instruction = "Lift both fingers now."
+                elif gate.action in ("close", "pinch"):
+                    instruction = "Now pinch closer. Keep both fingers down."
+                elif gate.action == "expand":
+                    instruction = "Now move those SAME two fingers apart."
+                else:
+                    instruction = "Keep those SAME two fingers still."
+                mark(marks, "phase-instruction",
+                     f"{label};attempt={attempt};continuous={instruction}")
+                audio.speak(instruction)
+                mark(marks, "phase-begin",
+                     f"{label};attempt={attempt};continuity-from={phase_started:.6f}")
             else:
                 audio.speak(f"Test {number} of {len(phases)}. {prompt}")
                 mark(marks, "phase-instruction", f"{label};attempt={attempt};{prompt}")
-                # Spoken countdown is a GO cue, never a substitute for data.
                 for n in (5, 4, 3, 2, 1):
                     audio.speak(str(n))
                 audio.speak("Go.")
                 phase_started = time.monotonic()
                 mark(marks, "phase-begin", f"{label};attempt={attempt}")
+
             deadline = time.monotonic() + 22
             while time.monotonic() < deadline:
                 if evidence_proc.poll() is not None:
@@ -290,27 +285,47 @@ def live_capture(audio, marks, phases, events, evidence_proc):
                                        str(frame.get("error")))
                 if frame.get("kind") != "frame":
                     continue
-                # Reject frames emitted while we were still saying the prompt.
+                # For a continuation, this includes *all* frames from the
+                # gap occupied by spoken instructions, so a lift or ID swap
+                # during that gap cannot be silently ignored.
                 if frame.get("monotonic", 0) < phase_started:
                     continue
                 success, speech = gate.feed(frame)
                 for announcement in speech:
                     mark(marks, "gesture-progress", f"{label}:{announcement}")
                     audio.speak(announcement)
+                if gate.failed_reason:
+                    reason = f"{label}: {gate.failed_reason}"
+                    mark(marks, "phase-inconclusive",
+                         f"{label};attempt={attempt};{reason}")
+                    audio.speak("The original finger tracking was lost. "
+                                "This continuous gesture cannot pass. "
+                                "The recording is being saved for review.")
+                    raise RuntimeError(reason + "; evidence retained as INCONCLUSIVE")
                 if success:
                     mark(marks, "phase-pass",
                          f"{label};attempt={attempt};last_frame={frame.get('seq')}")
+                    if context.get("pair"):
+                        context["pair_last_pass_mono"] = frame["monotonic"]
                     audio.play("go")
-                    audio.speak("Detected. Test passed.")
-                    if gate.action in ("far", "pinch", "close", "expand", "hold"):
-                        audio.speak("Keep both fingers touching until I tell "
-                                    "you to lift.")
+                    # The next action is intentionally short and immediate
+                    # while two fingers are still held against the glass.
+                    if not context.get("pair"):
+                        audio.speak("Detected. Test passed.")
                     results.append((label, "PASS", attempt))
                     passed = True
                     break
             if passed:
                 break
             mark(marks, "phase-retry", f"{label};attempt={attempt}")
+            if continuation:
+                # Retrying a single continuation against the prior tracking
+                # IDs is physically meaningless. Restart a new run/chain.
+                audio.speak("The same finger pair could not be verified. "
+                            "The recording will stop for review.")
+                raise RuntimeError(
+                    f"Gesture {label} timed out while preserving the original "
+                    "tracking IDs; evidence retained as INCONCLUSIVE")
             if attempt < 3:
                 audio.speak("I did not detect that gesture correctly. "
                             "Lift your fingers and try again. "
@@ -319,7 +334,6 @@ def live_capture(audio, marks, phases, events, evidence_proc):
                 audio.speak("Test could not be verified. "
                             "The recording will stop without marking a pass.")
         if not passed:
-            results.append((label, "INCONCLUSIVE", 3))
             mark(marks, "phase-inconclusive", label)
             raise RuntimeError(f"Gesture {label} did not meet the event gate; "
                                "evidence retained as INCONCLUSIVE")
@@ -327,7 +341,6 @@ def live_capture(audio, marks, phases, events, evidence_proc):
     audio.play("end")
     mark(marks, "gesture-script-end", "all live gesture gates passed")
     return results
-
 
 def read_live_events(proc, q, destination):
     """Drain privileged monitor stdout, keeping raw JSONL proof."""
