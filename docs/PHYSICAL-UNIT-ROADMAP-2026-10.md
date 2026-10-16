@@ -20,6 +20,30 @@ References: [Gate5 qualification](GATE5-QUALIFICATION.md),
 [Syax89 PR #87](https://github.com/Syax89/SL4A_TouchScreen/pull/87),
 [DieSchatten issue #85](https://github.com/Syax89/SL4A_TouchScreen/issues/85).
 
+### 2026-10-16 15:52 UTC: live-monitor smoke PASSED on Gate5
+
+The physical Surface tested the voice-guided monitor at local checkout
+`6de0b1a` with installed `std_raw_transition=1`. Spoken TTS preflight was
+confirmed, the read-only monitor opened `/dev/input/event15` and reported
+READY, and its `quick-one` phase correctly detected one-finger movement
+and the subsequent release before announcing PASS. The working driver was not
+changed. This establishes physical **audio + monitor + evdev startup and
+single-touch gating**, not the full test collector, two-finger ID continuity,
+or mode4 qualification. Original operator terminal transcript is retained
+outside the repo.
+
+The preceding mode4 guided run at 15:39 UTC did *not* reach a gesture:
+the monitor failed with `sudo: a password is required`; its collector status
+`completed` must not be treated as a gesture pass. The current runner now
+refreshes privilege before the live monitor is opened and handles credentials
+after hands are off.
+
+**Next physical unit use:** load the temporary mode4 module once, perform
+`capture quick` (proves voice + live monitor + collector under mode4).
+If that passes, do `capture full` in the **same module load** and then
+restore the installed Gate5 module. Do not repeat the Gate5 single-touch
+smoke test. Gate5/PR87 exact-head qualification remains a separate lane.
+
 ## 2. Mandatory sound-and-evidence policy for physical tests
 
 **2026-10-16 usability correction:** audible *tones alone* are inadequate when
