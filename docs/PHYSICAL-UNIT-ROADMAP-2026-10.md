@@ -4,6 +4,39 @@
 the independent DieSchatten device, and Syax89's upstream PR #87.
 This is an operating plan, not a claim of broad compatibility.
 
+## Latest result — 2026-10-16 16:38 UTC: all remaining contacts PASSED
+
+**Physical Surface, exact checkout `14a8991`**, signed mode4 binary SHA256
+`f6de86ede8ee9d05adbce85ad842aa0aa2f202d7ad85d1c37976d840a86eef0e`.
+Original immutable evidence folder:
+`~/sl4a-hardware-runs/mode4-contacts-20261016T163800Z`.
+
+The focused `qualify contacts` session completed **7/7 audio-cued,
+event-gated phases** with explicit pass acknowledgments:
+`contacts-one`, `contacts-two`, `contacts-three`,
+`contacts-four`, `contacts-five`, `contacts-one-lift`, and
+`contacts-recontact`. The run's own final integrity verdict reports
+live input gates, exact source/binary identity, no disallowed resets or
+frame drops, and checksum validation **PASS**. The original installed
+Gate5 mode1 was automatically restored; the persistent modprobe profile
+was unchanged. All these observations refer to **one warm module
+activation**, not a cold-boot or suspend test.
+
+Combined with 2026-10-16 16:17 event-gated `quick` and `pinch`
+phases 1–8 plus the independently audited original-pair
+`[3,4] → [4] → []` release at phase 9, we have **coverage of the
+entire planned 16-gesture behavioral matrix across separate runs**.
+Do **not** claim a single uninterrupted 16/16 session or merge-ready
+lifecycle qualification, and do not transfer mode4 evidence directly to
+Syax89 PR #87's distinct GET6-write-only source.
+
+**Next hardware batch:** three clean *warm reloads* with the same
+mode4 kernel driver SHA and a short voiced `quick` verification
+after each, then two s2idle/resume cycles with identical identity,
+counters and rollback discipline. Genuine mode4 cold boot requires an
+explicit safe persistent opt-in and rollback; a normal reboot would
+instead load Gate5 mode1.
+
 ## 1. What is already done — do not rerun historical work
 
 | Evidence | Result | Qualification |
