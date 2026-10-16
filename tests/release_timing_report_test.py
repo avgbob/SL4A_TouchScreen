@@ -12,18 +12,21 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] /
 from release_timing_report import analyze, candidates, report
 
 
-def fixture(root, name, frames, phase="quick", result=True):
+def fixture(root, name, frames, phase="", result=True):
+    # The REAL quick/pinch recorder's labels are unprefixed.
+    def label(action):
+        return phase + "-" + action if phase else action
     session = root / name / "cycle-1-quick"
     op = session / "operator"
     op.mkdir(parents=True)
     points = [
-        ("100.50", "phase-pass", phase + "-expand;attempt=1"),
-        ("100.60", "phase-instruction", phase + "-lift;attempt=1"),
-        ("100.65", "phase-begin", phase + "-lift;attempt=1"),
+        ("100.50", "phase-pass", label("expand") + ";attempt=1"),
+        ("100.60", "phase-instruction", label("lift") + ";attempt=1"),
+        ("100.65", "phase-begin", label("lift") + ";attempt=1"),
         ("100.82", "gesture-progress",
-         phase + "-lift:One original finger remains. Lift it now."),
+         label("lift") + ":One original finger remains. Lift it now."),
         ("101.90", "phase-pass" if result else "phase-inconclusive",
-         phase + "-lift;attempt=1;last_frame=12"),
+         label("lift") + ";attempt=1;last_frame=12"),
     ]
     (op / "cues.tsv").write_text(
         "utc\tmonotonic_seconds\tevent\tdetail\n" +
@@ -49,7 +52,7 @@ with tempfile.TemporaryDirectory() as td:
         (100.84, 5000.84, []),
     ])
     row, = analyze(good)
-    assert row["phase"] == "quick-lift" and row["status"] == "SEQUENTIAL_RELEASE", row
+    assert row["phase"] == "lift" and row["status"] == "SEQUENTIAL_RELEASE", row
     assert abs(row["kernel_gap_ms"] - 20.0) < .001, row
     assert abs(row["observer_gap_ms"] - 20.0) < .001
     assert row["intermediate_announced"]
@@ -100,7 +103,41 @@ with tempfile.TemporaryDirectory() as td:
     row, = analyze(no_release)
     assert row["status"] == "INCOMPLETE"
 
-    assert len(candidates(root)) == 6
+    # Compatibility: accept optional prefixed historical labels.
+    legacy = fixture(root, "pr87-exact-warm3-legacy", [
+        (100.49, 11000.49, [71, 72]),
+        (100.82, 11000.82, [71]),
+        (100.86, 11000.86, []),
+    ], phase="quick")
+    row, = analyze(legacy)
+    assert row["phase"] == "quick-lift"
+    assert row["status"] == "SEQUENTIAL_RELEASE"
+
+    # Mismatched phase names are EXPLICITLY reported, never silently skipped.
+    mismatched = fixture(root, "pr87-exact-warm3-unknown-label", [
+        (100.49, 12000.49, [81, 82]),
+        (100.82, 12000.82, [81]),
+        (100.86, 12000.86, []),
+    ], phase="notsupported")
+    row, = analyze(mismatched)
+    assert row["status"] == "NO_MATCHING_RELEASE_PHASE"
+    assert "notsupported-expand" in row["observed_passes"]
+
+    # Discover by cues even when live evdev is missing.
+    lost_trace = fixture(root, "pr87-exact-warm3-lost-trace", [
+        (100.49, 13000.49, [91, 92]),
+        (100.82, 13000.82, [91]),
+        (100.86, 13000.86, []),
+    ])
+    (lost_trace / "operator/live-evdev.jsonl").unlink()
+    assert lost_trace in candidates(root)
+    assert len(candidates(root)) == 9
+    empty_capture_dir = root / "some-empty-capture"
+    empty_capture_dir.mkdir()
+    no_sessions = io.StringIO()
+    with contextlib.redirect_stdout(no_sessions):
+        assert report([empty_capture_dir], threshold=100) == 1
+    assert "NO_CAPTURE_FOUND" in no_sessions.getvalue()
     out = io.StringIO()
     with contextlib.redirect_stdout(out):
         code = report([root], threshold=100)
@@ -110,6 +147,9 @@ with tempfile.TemporaryDirectory() as td:
     assert "230.000 ms (kernel)  [REVIEW_GAP]" in text
     assert "TRACKING_ANOMALY" in text
     assert "INCOMPLETE" in text
+    assert "UNREADABLE" in text
+    assert "NO_MATCHING_RELEASE_PHASE" in text
+    assert "Recorded phase-pass labels: notsupported-expand" in text
     assert "DIRECT_RELEASE" in text
     assert "Measured sequential gaps" in text
     assert '"x"' not in text and '"y"' not in text
