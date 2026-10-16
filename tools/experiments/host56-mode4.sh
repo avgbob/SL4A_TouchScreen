@@ -136,12 +136,36 @@ capture() {
         --expected-mode 4 --output "$output"
 }
 
+# One-command hardware session: return to the installed Gate5 profile on
+# success, failure, or interruption. Never alter the persistent boot options.
+qualify() {
+    local protocol="${1:-full}"
+    case "$protocol" in quick|full) ;; *)
+        echo "ERROR: qualify accepts quick or full only" >&2
+        return 2 ;; esac
+    require_device
+    if [[ ! -r "$SYS" || "$(cat "$SYS")" != 1 ]]; then
+        echo "ERROR: qualify must start from the working Gate5 mode 1." >&2
+        echo "Restore the installed driver before qualifying a new module." >&2
+        return 1
+    fi
+    prepare
+    (
+        trap 'restore' EXIT
+        trap 'exit 130' INT
+        trap 'exit 143' TERM
+        activate
+        capture "$protocol"
+    )
+}
+
 case "${1:-}" in
+    qualify) qualify "${2:-full}" ;;
     prepare) prepare ;;
     activate) activate ;;
     restore) restore ;;
     capture) capture "${2:-quick}" ;;
     audio-check) python3 "$ROOT/tools/hardware_evidence/guided_session.py" --audio-check ;;
     status) show_status ;;
-    *) echo "Usage: $0 {prepare|activate|audio-check|capture [quick|pinch|contacts|full|stylus]|status|restore}" >&2; exit 2 ;;
+    *) echo "Usage: $0 {qualify [quick|full]|prepare|activate|audio-check|capture [quick|pinch|contacts|full|stylus]|status|restore}" >&2; exit 2 ;;
 esac
