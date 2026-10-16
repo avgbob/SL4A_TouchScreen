@@ -54,6 +54,11 @@ assert "qualify() {" in wrapper
 assert 'trap \'restore\' EXIT' in wrapper
 assert 'if [[ ! -r "$SYS" || "$(cat "$SYS")" != 1 ]]' in wrapper
 assert 'capture "$protocol"' in wrapper
+assert 'quick|full|contacts' in wrapper, (
+    "qualification should cover untested contact-count cases without"
+    " making the physical tester repeat established pinch sequences")
+assert module.PROTOCOLS["contacts"] == module.PROTOCOLS["full"][-7:], (
+    "focused contact qualification must match the last seven full-test phases")
 assert 'qualify) qualify "${2:-full}"' in wrapper
 for dangerous in ('"modprobe"', '"insmod"', '"dkms"', '"reboot"'):
     assert dangerous not in src, f"evidence script may not change modules: {dangerous}"
