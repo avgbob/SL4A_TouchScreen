@@ -7,17 +7,23 @@ read-only evtest/journal collector. No install, reload, or power operations.
 import argparse
 import datetime as dt
 import hashlib
+import json
 import math
 import os
 from pathlib import Path
+import queue
+import re
 import shutil
 import signal
 import struct
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 import wave
+
+from live_input_gate import GestureGate
 
 ROOT = Path(__file__).resolve().parents[2]
 COLLECTOR = ROOT / "tools/hardware_evidence/run_blinded_session.sh"
@@ -30,26 +36,26 @@ PROTOCOLS = {
         ("repeat", "Move one finger again, then lift", 8),
     ],
     "quick": [
-        ("one", "Move ONE finger around the screen", 6),
-        ("pinch", "Place TWO fingers far apart; PINCH together", 8),
-        ("expand", "Keep both down; EXPAND apart", 8),
-        ("lift", "Lift BOTH fingers completely", 5),
+        ("one", "Move one finger slowly across the screen, then lift it.", 6),
+        ("pinch", "Place two fingers far apart. Move them together without lifting.", 8),
+        ("expand", "Keep the same two fingers touching. Move them far apart.", 8),
+        ("lift", "Lift both fingers off the screen completely.", 5),
     ],
     "pinch": [
-        ("far", "Place TWO fingers far apart and HOLD", 6),
-        ("close", "PINCH slowly together WITHOUT lifting", 8),
-        ("hold", "HOLD the close position WITHOUT lifting", 6),
-        ("expand", "EXPAND the same two fingers, no lift", 8),
-        ("lift", "LIFT both fingers", 5),
+        ("far", "Place two fingers far apart on the screen and hold.", 6),
+        ("close", "Move the same two fingers closer together without lifting.", 8),
+        ("hold", "Keep both fingers on the glass and hold them still.", 6),
+        ("expand", "Move the same two fingers apart without lifting.", 8),
+        ("lift", "Lift both fingers completely off the glass.", 5),
     ],
     "contacts": [
-        ("one", "ONE finger down, then lift", 6),
-        ("two", "TWO fingers down, then lift", 6),
-        ("three", "THREE fingers down, then lift", 6),
-        ("four", "FOUR fingers down, then lift", 6),
-        ("five", "FIVE fingers down, then lift", 6),
-        ("one-lift", "TWO fingers close; lift ONLY one, then the other", 9),
-        ("recontact", "Rapid one-finger lift and re-contact", 6),
+        ("one", "Put one finger on the screen and hold it until I tell you to lift.", 6),
+        ("two", "Put two fingers on the screen and hold them until I tell you to lift.", 6),
+        ("three", "Put three fingers on the screen and hold them until I tell you to lift.", 6),
+        ("four", "Put four fingers on the screen and hold them until I tell you to lift.", 6),
+        ("five", "Put five fingers on the screen and hold them until I tell you to lift.", 6),
+        ("one-lift", "Place two fingers down. Listen for instructions before lifting either one.", 9),
+        ("recontact", "Touch with one finger. I will tell you when to lift and touch again.", 6),
     ],
     "stylus": [
         ("hover", "Hover pen just ABOVE glass", 7),
@@ -104,12 +110,17 @@ def wav_tone(path, notes):
             out.writeframes(frames)
 
 class Audio:
+    """Real spoken instructions; the old tone-only runner was insufficient."""
+
     def __init__(self, folder, dry=False):
         self.dry = dry
+        self.folder = folder
         self.player = next((p for p in ("paplay", "pw-play", "aplay")
                             if shutil.which(p)), None)
+        self.tts = next((p for p in ("espeak-ng", "espeak") if shutil.which(p)),
+                        None)
         self.sounds = {}
-        self.folder = folder
+        self.spoken = {}
         for tag, notes in {
             "pre": [(520, .17), (650, .17)],
             "tick": [(680, .12)],
@@ -121,28 +132,55 @@ class Audio:
             wav_tone(path, notes)
             self.sounds[tag] = path
 
-    def play(self, name):
+    def play_file(self, path):
         if self.dry:
-            print("[DEMO AUDIO]", name, flush=True)
+            print("[DEMO AUDIO]", path, flush=True)
             return
         if not self.player:
-            raise RuntimeError("No audio player found: install paplay/pw-play/aplay, "
-                               "and connect working speakers or headphones.")
-        done = subprocess.run([self.player, str(self.sounds[name])],
-                              capture_output=True, text=True, timeout=5)
-        if done.returncode:
-            raise RuntimeError(f"Audio playback failed: {done.stderr.strip()}")
+            raise RuntimeError("No working audio player found (paplay/pw-play/aplay)")
+        p = subprocess.run([self.player, str(path)], capture_output=True,
+                           text=True, timeout=35)
+        if p.returncode:
+            raise RuntimeError("Audio playback failed: " + p.stderr.strip())
+
+    def play(self, name):
+        self.play_file(self.sounds[name])
+
+    def speak(self, words):
+        """Generate WAV speech offline, then play it through verified audio."""
+        print("VOICE:", words, flush=True)
+        if self.dry:
+            return
+        if not self.tts:
+            raise RuntimeError("Spoken instructions require espeak-ng. "
+                               "Install: sudo apt install espeak-ng")
+        if words not in self.spoken:
+            path = self.folder / ("voice-" + str(len(self.spoken)) + ".wav")
+            p = subprocess.run([self.tts, "-v", "en-us", "-s", "145",
+                                "-w", str(path), words], capture_output=True,
+                               text=True, timeout=20)
+            if p.returncode or not path.is_file() or path.stat().st_size < 44:
+                raise RuntimeError("Voice synthesis failed: " + p.stderr.strip())
+            self.spoken[words] = path
+        self.play_file(self.spoken[words])
 
     def preflight(self):
-        print("AUDIO CHECK: you must actually HEAR two tones.", flush=True)
+        print("VOICE PREFLIGHT: you must HEAR and understand the spoken message.",
+              flush=True)
+        if not self.dry and not self.tts:
+            raise RuntimeError("Install speech synthesis first: "
+                               "sudo apt install espeak-ng")
         self.play("pre")
+        self.speak("Touchscreen test. I will speak every instruction, "
+                   "and I will wait until the computer detects each action.")
         if self.dry:
             return
         if not sys.stdin.isatty():
-            raise RuntimeError("Physical tests need an interactive TTY for audio confirmation")
-        answer = input("Did you HEAR both tones? Type YES to proceed: ").strip()
+            raise RuntimeError("Physical tests need a terminal for voice confirmation")
+        answer = input("Did you HEAR and UNDERSTAND the spoken words? "
+                       "Type YES to proceed: ").strip()
         if answer.upper() != "YES":
-            raise RuntimeError("No audible cue confirmation: recording not started")
+            raise RuntimeError("Speech was not confirmed. No test started.")
 
 def safe_sleep(seconds, process=None):
     end = time.monotonic() + seconds
@@ -182,6 +220,129 @@ def guide(audio, marks, phases, process=None):
     print("\n>>> HANDS OFF — gesture script finished <<<", flush=True)
     audio.play("end")
     mark(marks, "gesture-script-end")
+
+
+def live_capture(audio, marks, phases, events, evidence_proc):
+    """Never mark a gesture PASS based on time alone.
+
+    The monitor reports real kernel input_event frames. A phase advances
+    only when GestureGate verifies its required count, movement and/or lift.
+    """
+    context = {}
+    results = []
+    for number, (label, prompt, _old_seconds) in enumerate(phases, 1):
+        passed = False
+        for attempt in range(1, 4):
+            gate = GestureGate(label, context)
+            audio.speak(f"Test {number} of {len(phases)}. {prompt}")
+            mark(marks, "phase-instruction", f"{label};attempt={attempt};{prompt}")
+            # Spoken countdown is not an arbitrary test deadline.
+            for n in (3, 2, 1):
+                audio.speak(str(n))
+            audio.speak("Go.")
+            mark(marks, "phase-begin", f"{label};attempt={attempt}")
+            deadline = time.monotonic() + 22
+            while time.monotonic() < deadline:
+                if evidence_proc.poll() is not None:
+                    raise RuntimeError("Evidence collector exited during live test")
+                try:
+                    frame = events.get(timeout=.25)
+                except queue.Empty:
+                    continue
+                if frame.get("kind") == "error":
+                    raise RuntimeError("live input monitor failed: " +
+                                       str(frame.get("error")))
+                if frame.get("kind") != "frame":
+                    continue
+                # Reject frames emitted while we were still saying the prompt.
+                if frame.get("monotonic", 0) < deadline - 22:
+                    continue
+                success, speech = gate.feed(frame)
+                for announcement in speech:
+                    mark(marks, "gesture-progress", f"{label}:{announcement}")
+                    audio.speak(announcement)
+                if success:
+                    mark(marks, "phase-pass",
+                         f"{label};attempt={attempt};last_frame={frame.get('seq')}")
+                    audio.play("go")
+                    audio.speak("Detected. Test passed.")
+                    results.append((label, "PASS", attempt))
+                    passed = True
+                    break
+            if passed:
+                break
+            mark(marks, "phase-retry", f"{label};attempt={attempt}")
+            if attempt < 3:
+                audio.speak("I did not detect that gesture correctly. "
+                            "Lift your fingers and try again. "
+                            "I will repeat the instruction.")
+            else:
+                audio.speak("Test could not be verified. "
+                            "The recording will stop without marking a pass.")
+        if not passed:
+            results.append((label, "INCONCLUSIVE", 3))
+            mark(marks, "phase-inconclusive", label)
+            raise RuntimeError(f"Gesture {label} did not meet the event gate; "
+                               "evidence retained as INCONCLUSIVE")
+    audio.speak("All gestures were detected. The recording is complete.")
+    audio.play("end")
+    mark(marks, "gesture-script-end", "all live gesture gates passed")
+    return results
+
+
+def read_live_events(proc, q, destination):
+    """Drain privileged monitor stdout, keeping raw JSONL proof."""
+    try:
+        with destination.open("w") as capture:
+            for line in proc.stdout:
+                capture.write(line)
+                capture.flush()
+                try:
+                    packet = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                try:
+                    q.put(packet, timeout=1)
+                except queue.Full:
+                    q.put({"kind": "error", "error": "live monitor event queue overflow"})
+                    return
+    finally:
+        try:
+            q.put_nowait({"kind": "error", "error": "live evdev monitor ended"})
+        except queue.Full:
+            pass
+
+
+def selected_event_node(path):
+    """Use the collector's own discovered eventN, not a hardcoded node."""
+    start = time.monotonic()
+    while time.monotonic() - start < 25:
+        p = subprocess.run(["sudo", "-n", "sed", "-n",
+                            "s/^device=\\(\\/dev\\/input\\/event[0-9]*\\)$/\\1/p",
+                            str(path)], text=True, capture_output=True,
+                           timeout=5)
+        match = re.search(r"/dev/input/event[0-9]+", p.stdout)
+        if match:
+            return match.group(0)
+        time.sleep(.3)
+    raise RuntimeError("Collector did not identify an input event node")
+
+
+def stop_capture(proc, output):
+    """Request orderly collector close so manifests and checksums get written."""
+    marker = output / "trace/sl4a-guided-complete.flag"
+    subprocess.run(["sudo", "-n", "touch", str(marker)], check=True)
+    return proc.wait(timeout=25)
+
+
+def copy_artifacts(output, copies):
+    operator = output / "operator"
+    for source, dest in copies:
+        subprocess.run(["sudo", "-n", "cp", str(source),
+                        str(operator / dest)], check=True)
+    subprocess.run(["sudo", "-n", "chown", "-R",
+                    f"{os.getuid()}:{os.getgid()}", str(output)],
+                   check=True)
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
