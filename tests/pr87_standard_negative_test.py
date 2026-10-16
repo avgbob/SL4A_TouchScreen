@@ -112,6 +112,12 @@ with tempfile.TemporaryDirectory(prefix="pr87-negative-") as td:
     assert recheck_saved(bad, "EXACTPR")["verdict"] == "INCONCLUSIVE"
     bad = dict(snapshot, errors=[LEGACY_READY_ERROR, "new tracking ID"])
     assert recheck_saved(bad, "EXACTPR")["verdict"] == "INCONCLUSIVE"
+    bad = dict(snapshot, errors=[])
+    assert recheck_saved(bad, "EXACTPR")["verdict"] == "INCONCLUSIVE", (
+        "do not retrospectively certify unexplained INCONCLUSIVE verdicts")
+    bad = dict(snapshot, verdict="PASS_NEGATIVE_CONTROL")
+    assert recheck_saved(bad, "EXACTPR")["verdict"] == "INCONCLUSIVE", (
+        "historical failure error must not pair with a claimed PASS")
     assert recheck_saved(snapshot, "WRONG")["verdict"] == "INCONCLUSIVE"
     missing = dict(snapshot)
     missing.pop("standard_hid_descriptor_responses")
