@@ -4,6 +4,42 @@
 the independent DieSchatten device, and Syax89's upstream PR #87.
 This is an operating plan, not a claim of broad compatibility.
 
+## 2026-10-16 20:13 UTC: PR87 exact-head genuine S2IDLE 2/2 **PASS**
+
+The user's third PR87 s2idle attempt completed two genuine
+sleep intervals of **158.454s** and **324.521s**, with kernel
+PM entry/exit markers, retained signed PR module identity
+(source `18f0fe79623e6de4fdf1ae493f82a7048397386a`,
+signed SHA256 `61ec6f796d60b6e50d1c1888dc693e6cd135d08a023f1bccb0fc5ade15054d8e`),
+confirmed audible instructions, two event-gated one- and two-finger
+postwake gesture PASS captures, and verified Gate5 restoration.
+The runner finalized with `PR87 S2IDLE 2/2 PASS` and validated
+all reported top-level evidence checksums.
+
+Local run: `~/sl4a-hardware-runs/pr87-exact-s2idle2-20261016T201323Z`.
+The two `cycle-s2idle-{1,2}-quick` evidence directories have NOT
+been uploaded or independently inspected.
+
+**Operator observation:** every two-finger test utters
+`One original finger remains. Lift it now.`, then PASS.
+Source inspection confirms the gate sees original pair
+`{A,B}` → one surviving original ID → **zero original contacts**
+before PASS. This is a normal possible release sequence,
+**not** a gate that passes with one contact remaining.
+However speech playback may lag after both fingers are
+already off. Future harness versions now suppress ONLY that
+stale spoken intermediate instruction while retaining the
+original `gesture-progress` cue and strict zero-contact
+gate; a behavioral test simulates two-to-one-to-zero releases.
+The terminal log alone cannot quantify any eventual lingering
+contact latency. Diagnose from local operator evdev timestamps
+only if actual phantom touch is reported.
+
+**Remaining PR87 separate acceptance:** exact-head cold
+first-load, full gesture matrix, and default-standard negative
+control. Do not count independent mode4 GET6-free cold testing
+toward this PR.
+
 ## 2026-10-16 19:37 UTC: upstream PR #87 WARM 3/3 **PASS** (EXACT HEAD)
 
 Separate physical test (NOT GET6-free mode4):
