@@ -51,6 +51,68 @@ The analysis remains read-only. **Actual release gaps are still
 not determined** until the corrected tool is run against the
 existing local captures.
 
+## 2026-10-16 20:56 UTC: physical saved evdev release interval screening COMPLETE
+
+The corrected offline analyzer was rerun on the Surface's real,
+previously recorded quick gesture files (three PR87 warm, two PR87
+post-s2idle, one independent GET6-free mode4 cold boot) and
+successfully analyzed **all six** sessions. Report:
+`~/sl4a-release-timing-report.txt`.
+
+| Run | Kernel evdev delta, first contact release → last contact release |
+| --- | ---: |
+| PR87 warm 1 | 10.092 ms |
+| **PR87 warm 2** | **425.775 ms — single REVIEW OUTLIER** |
+| PR87 warm 3 | 9.813 ms |
+| PR87 after s2idle 1 | 29.440 ms |
+| PR87 after s2idle 2 | 19.531 ms |
+| GET6-free mode4 cold | 28.981 ms |
+
+**Every recording** observed an original-ID pair → one original ID
+→ no contacts (`SEQUENTIAL_RELEASE`). The basic batch analyzer
+did not report a new/reappeared ID. Six-sample
+**median=24.256 ms, max=425.775 ms**; the nearest-rank
+95th percentile is also 425.775 ms due to tiny sample count,
+not a reliable population tail estimate. The 100ms review threshold
+is arbitrary **screening guidance**, not driver timing specification.
+
+**Do not dismiss the single 425.775ms PR87 warm-2 outlier.**
+Crucially, the *then-current voice test* synchronously spoke
+`One original finger remains. Lift it now.` after the first
+original-ID release. This spoken direction may have encouraged
+the human operator to lift the second finger later in that
+session. The recorded interval alone **cannot separate physical
+operator action, firmware release behavior, or driver delay**.
+
+Added `tools/hardware_evidence/release_outlier_detail.py` to
+cross-reference the exact saved warm-2 evdev frame timestamps
+with the Python `gesture-progress` cue timestamps for that
+same capture. It reports cue timing relative to the
+one-contact and zero-contact events without exposing
+touch coordinates or relying on wall-clock time. It uses
+kernel event timestamps only for *event-to-event* intervals;
+Python monotonic observer and cue timestamps are compared
+only within their own clock domain. The voice progress
+cue is generated **before** speech playback, so even this
+comparison cannot prove when fingers physically left
+the glass or whether the user waited for a voice instruction.
+It may, however, show whether the test program processed
+or narrated a now-stale finger state. No hardware retest
+or module mutation is required.
+
+On the Surface, after updating the *harness* worktree:
+
+```bash
+python3 tools/hardware_evidence/release_outlier_detail.py \
+  ~/sl4a-hardware-runs/pr87-exact-warm3-20261016T193705Z/cycle-2-quick
+```
+
+**Next engineering decision:** inspect that brief timeline
+before suggesting driver contact-retention changes or
+claiming pathological release latency. If still ambiguous,
+use a controlled touch stimulus plus independent physical
+timing, rather than a spoken intermediate instruction.
+
 ## Automated, offline release-latency screening (existing physical captures)
 
 Following the operator's repeated report of “One original finger remains”
