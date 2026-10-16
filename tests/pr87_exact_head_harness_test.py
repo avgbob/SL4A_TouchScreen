@@ -113,6 +113,42 @@ assert suspend.index('    restore\n') < suspend.index("printf 'PASS_2_OF_2")
 assert 'sha256sum -c SHA256SUMS.txt' in suspend
 
 
+
+# True PR87 cold trial is a distinct, late-boot, ONE-SHOT process.
+cold = (root / "tools/experiments/pr87-coldboot-once.sh").read_text()
+assert 'coldboot-stage) run_coldboot_stage' in harness
+assert 'coldboot-finish) run_coldboot_finish' in harness
+assert 'coldboot-cancel)' in harness
+assert 'PR_HEAD=18f0fe79623e6de4fdf1ae493f82a7048397386a' in cold
+assert 'std_raw_transition=1' in cold and 'raw_input_beta=Y' in cold
+assert 'gate3_observe_only=1' not in cold
+assert 'std_raw_transition=4' not in cold
+assert 'mode)" == 1' in cold
+assert 'readfile "$HID/srcversion"' in cold
+assert 'production_srcversion' in cold
+assert 'systemd-run --unit=sl4a-pr87-coldboot-rollback --on-active=20m' in cold
+assert 'rm -f "$BASE/armed"' in cold
+assert 'if [[ -d /sys/module/sl4a_spi_hid ]]; then' in cold
+assert 'INCONCLUSIVE_EARLIER_HID_PROBE' in cold
+assert 'INCONCLUSIVE_KERNEL_MISMATCH' in cold
+assert 'source_sha" == "$PR_HEAD"' in cold
+assert 'Type ARM_PR87' in harness and 'Type COLD_PR87' in harness
+stage_run = harness.split('run_coldboot_stage() {\n',1)[1].split('\n}\n\nrun_coldboot_finish()',1)[0]
+finish_run = harness.split('run_coldboot_finish() {\n',1)[1].split('\n}\n\ncase ',1)[0]
+assert stage_run.index('    preflight\n') < stage_run.index('    checkout_exact\n')
+assert stage_run.index('Type ARM_PR87') < stage_run.index('    prepare\n')
+assert 'root bash "$COLD_HELPER" stage "$MODULE" "$PR_HEAD"' in stage_run
+assert '--protocol "$protocol"' in harness
+assert 'capture "coldboot" quick' in finish_run
+assert finish_run.index('"$COLD_INSTALLED" verify') < finish_run.index('capture "coldboot" quick')
+assert 'root "$COLD_INSTALLED" finish PASS' in finish_run
+assert 'root "$COLD_INSTALLED" finish FAIL' in finish_run
+assert 'root "$COLD_INSTALLED" rollback' in finish_run
+for forbidden in ('dkms install','update-initramfs','grub-install','mokutil --import'):
+    assert forbidden not in cold
+assert subprocess.run(['bash','-n',
+                       str(root / 'tools/experiments/pr87-coldboot-once.sh')]).returncode == 0
+
 # Execute the REAL capture() shell body, not just a source grep.
 # The first Surface run loaded exact PR87 correctly but stopped here:
 #   line 146: protocol: unbound variable
