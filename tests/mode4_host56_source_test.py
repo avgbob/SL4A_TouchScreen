@@ -66,4 +66,13 @@ check(core.count(gate) == 2,
 check("raw_input_beta" in core[core.index(gate):core.index(gate)+180],
       "mode4 DATA consumption must require raw_input_beta")
 
+# Syax89 PR #87 review: standard bridge CapImg must not arm the raw
+# stream_watchdog and produce fake "within 0ms" liveness messages.
+data_pos = core.index("body[7] == 0x0C && shid->touch_input")
+watchdog_pos = core.find("schedule_delayed_work(&shid->stream_watchdog", data_pos)
+check(watchdog_pos >= 0, "DATA-path runtime watchdog arm disappeared")
+policy = core[data_pos:watchdog_pos]
+check("shid->raw_mode_active && stream_watchdog_ms > 0 &&" in policy,
+      "standard bridge can arm raw runtime watchdog again")
+
 print("MSHW0231 mode4 host 0x56 FFx6 activation source test: PASS")
