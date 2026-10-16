@@ -255,7 +255,7 @@ def main():
                                         stderr=subprocess.STDOUT)
                 try:
                     # The collector first snapshots sysfs before starting
-                    # evtest. Wait for the trace manifest instead of guessing.
+                    # evtest. Wait for the actual event capture file instead of guessing.
                     start = time.monotonic()
                     event_capture = args.output / "trace/input" / {
                         "stylus": "stylus.evtest.txt",
@@ -279,8 +279,24 @@ def main():
                     exit_code = proc.wait(timeout=total + 20)
                 except (Exception, KeyboardInterrupt):
                     proc.terminate()
-                    try: proc.wait(timeout=5)
-                    except subprocess.TimeoutExpired: proc.kill()
+                    try:
+                        proc.wait(timeout=5)
+                    except subprocess.TimeoutExpired:
+                        proc.kill()
+                        proc.wait(timeout=5)
+                    # Fail closed but do not strand root-owned partial
+                    # captures and cue timestamps behind a 0700 directory.
+                    if args.output.is_dir():
+                        operator = args.output / "operator"
+                        for source, target in (
+                            (markers_file, operator / "cues.tsv"),
+                            (Path(temp) / "collector.log", operator / "collector.log"),
+                        ):
+                            subprocess.run(["sudo", "-n", "cp",
+                                            str(source), str(target)], check=False)
+                        subprocess.run(["sudo", "-n", "chown", "-R",
+                                        f"{os.getuid()}:{os.getgid()}",
+                                        str(args.output)], check=False)
                     raise
         props["utc_end"] = stamp()
         props["stats_after"] = txt(STATS)
