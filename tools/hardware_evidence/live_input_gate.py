@@ -175,6 +175,7 @@ class GestureGate:
                         self.notice("Movement detected. Lift your finger.")
             elif len(valid) == 0 and self.stage == 1:
                 self.good = True
+                self.ctx["single_completed"] = True
 
         elif a in self.N and self.label.startswith("contacts-"):
             target = self.N[a]
@@ -241,8 +242,12 @@ class GestureGate:
                 self.good = True
                 self.ctx.pop("pair", None)
                 self.ctx.pop("distance", None)
-            elif expected is None and len(valid) == 0 and self.stage:
+            elif (expected is None and len(valid) == 0 and
+                  (self.ctx.get("single_completed") or
+                   self.ctx.get("pen_contact_completed"))):
                 self.good = True
+                self.ctx.pop("single_completed", None)
+                self.ctx.pop("pen_contact_completed", None)
             elif len(valid):
                 self.stage = 1
 
@@ -286,6 +291,7 @@ class GestureGate:
                     self.started = now
                 elif now - self.started > .5:
                     self.good = True
+                    self.ctx["pen_contact_completed"] = True
             else:
                 self.started = None
 
