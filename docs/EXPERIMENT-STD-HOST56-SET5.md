@@ -1,15 +1,59 @@
 # MSHW0231 standard-transport host-0x56/no-GET6 activation A/B
 
-**Status (2026-10-16):** opt-in mode4 now has **physical-unit
-qualification** for the planned gesture matrix (across separate runs),
-**three successive warm module activations**, and **two genuine
-s2idle/resume cycles** with event-gated post-wake gestures. These
-results are for the exact tested builds and original SL4 AMD 13.5-inch.
-True cold power-on in mode4 and broad cross-device compatibility remain
-unqualified, so **do not promote it to installer default**.
-The installed Gate5 mode1 remains the safe production/boot profile.
-Do not change DKMS registration, Secure Boot enrollment or persistent
-modprobe settings without a reviewed reversible cold-boot test.
+**Status (2026-10-16):** opt-in mode4 has now physically passed
+all four *planned categories*: the gesture matrix across independent
+runs, **three successive warm activations**, **two real s2idle/resumes**,
+and **one true cold power-off → power-on followed by event-gated
+touch gestures**, automatic Gate5 restoration and sealed checksums.
+The successful one-shot cold test used exact checkout **`c196f206`**
+on kernel **`7.0.0-34-generic`**, whereas prior warm and suspend
+qualification used other exact mode4 builds on kernel31. **Do not
+treat these independent runs as one unchanged-binary qualification**.
+Only the original SL4 AMD 13.5-inch / MSHW0231 is proven; cross-device
+compatibility and durability remain unqualified. **Do not promote
+mode4 to installer default.** The installed Gate5 mode1 remains the
+working production/boot profile; DKMS, MOK, and persistent
+modprobe settings were not changed by the cold-boot test.
+
+### 2026-10-16: FIRST REAL MODE4 COLD POWER-ON **PASS**
+
+User completed a full physical shutdown and power-button start using
+the one-shot late-boot service. The recorded staged boot
+`1cd3ebae-96c0-4d4d-9073-85f8485d8d12` differs from trial/current
+`275a12d5-5e6c-42cc-98cd-28b8435eb5a7`; helper was
+`ACTIVE_AWAITING_POSTBOOT_TOUCH` and live mode was **4**. The
+source checkout was **`c196f2064163a1fc5c7be70b2ba3d51f04e9ec61`**,
+Ubuntu kernel **`7.0.0-34-generic`**, existing-MOK-signed module
+SHA256 **`5361315c6bfb28a895888e5394622ba078a1f736e7b84d16aa22e5f13b1b66c4`**.
+
+The spoken guide was heard and explicitly confirmed, and the
+event-gated `quick` sequence passed one-finger travel/release,
+two-finger closing/opening and both releases. The runner verified
+no unexpected resets/dropped frames and validated the evdev evidence
+checksums. User evidence:
+`~/sl4a-hardware-runs/mode4-quick-20261016T185822Z`.
+Automatic **Gate5 mode1** restoration was recorded at 18:59:57Z
+and the one-shot result printed **`PASS one cold first-HID load,
+actual gestures, restored Gate5`**. Root-owned provenance and
+**14 successfully checked SHA256 entries** were sealed at
+`/var/lib/sl4a-mode4-coldboot`. This is a *reported physical
+test transcript*; complete evidence contents remain on the Surface.
+
+The preceding attempted cold boot failed to run mode4 because a
+pending Ubuntu update switched the kernel from 7.0.0-31 to
+7.0.0-34. That **earlier trial remains INCONCLUSIVE**, not a
+touch-driver failure. Its abort revealed the incomplete fallback
+that omitted the AMD SPI controller. This was corrected in the
+source, and Gate5 touchscreen functionality was separately
+confirmed after manually loading `sl4a-spi-amd` on kernel34.
+
+**Upstream scope:** Syax89 draft PR #87 uses a *different* activation
+sequence (write-only GET6, ~5ms, SET5) and needs the exact current
+PR-head physical cold/warm/resume/default-standard controls.
+No mode4 physical evidence is passed off as PR #87 acceptance.
+See [physical-unit roadmap](PHYSICAL-UNIT-ROADMAP-2026-10.md).
+
+
 
 ## Why this is a different A/B
 
