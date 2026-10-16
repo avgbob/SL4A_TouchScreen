@@ -201,6 +201,16 @@ finish() {
         note "NOT PASS; verification, gestures, or Gate5 restore did not pass"
         return 1
     fi
+    # The operator's evdev capture has its own manifest/checksums.
+    # Also seal the root-owned cross-boot module/clock/provenance evidence
+    # with an independently checkable file list.
+    ( cd "$BASE"
+      sha256sum signed-mode4.ko module_sha srcversion source_sha stage_boot_id \
+          trial_boot_id kernel stats-boot.txt stats-after-touch.txt \
+          kernel-coldboot.log result events.log > SHA256SUMS.txt
+      sha256sum -c SHA256SUMS.txt
+    )
+    echo "SEALED COLD-BOOT EVIDENCE: $BASE"
 }
 verify() {
     [[ -d "$BASE" ]] || { echo "No staged coldboot evidence"; return 1; }
