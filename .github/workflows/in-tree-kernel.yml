@@ -63,6 +63,8 @@ jobs:
         run: |
           set -euo pipefail
           kernel="$RUNNER_TEMP/sl4a-kernel-src/linux-6.18.57"
+          # Build in parallel before Debian packaging to avoid dpkg -j1 compile bottleneck.
+          make -C "$kernel" -j3 bzImage modules
           make -C "$kernel" -j3 bindeb-pkg KDEB_PKGVERSION=6.18.57-sl4a1
           test -s "$kernel/drivers/staging/sl4a/sl4a-spi-amd.ko"
           test -s "$kernel/drivers/staging/sl4a/sl4a-spi-hid.ko"
