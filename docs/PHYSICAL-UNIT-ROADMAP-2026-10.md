@@ -38,11 +38,16 @@ the monitor failed with `sudo: a password is required`; its collector status
 refreshes privilege before the live monitor is opened and handles credentials
 after hands are off.
 
-**Next physical unit use:** load the temporary mode4 module once, perform
-`capture quick` (proves voice + live monitor + collector under mode4).
-If that passes, do `capture full` in the **same module load** and then
-restore the installed Gate5 module. Do not repeat the Gate5 single-touch
-smoke test. Gate5/PR87 exact-head qualification remains a separate lane.
+**Next physical unit use:** the read-only Gate5 one-finger monitor has
+passed, so run **one** `bash tools/experiments/host56-mode4.sh qualify full`
+from the refreshed experimental checkout. This builds/signs mode4, temporarily
+loads it, begins the `full` spoken/event-gated recording with the `quick`
+sequence first, and restores Gate5 using a subshell EXIT trap even if a
+phase fails. Do **not** run redundant `capture quick` and `capture full`
+separately on the first qualification. Each phase must be observed before
+the next starts; a failure stops and preserves evidence. This is still
+unqualified on the new runner until the physical recording passes.
+Gate5/PR87 exact-head qualification remains a separate lane.
 
 ## 2. Mandatory sound-and-evidence policy for physical tests
 
