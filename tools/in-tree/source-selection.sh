@@ -5,6 +5,7 @@
 # The old Gate5/tracker-lab source remains in driver/ without modification.
 sl4a_select_source() {
     local repo="$1" flavor="${2:-pr87}" root="" pinned="" sha="" name="" count=0
+    local -A seen=()
     case "$flavor" in
         pr87)
             root="$repo/kernel-pins/pr87/driver"
@@ -15,12 +16,20 @@ sl4a_select_source() {
             [[ -f "$repo/kernel-pins/pr87/DRIVER-BLOBS.txt" ]] || {
                 echo "ERROR: PR87 blob manifest missing" >&2; return 1;
             }
+            [[ "$(git hash-object -- "$repo/kernel-pins/pr87/DRIVER-BLOBS.txt")" ==
+                "5b51fbd0596eeb4dddee76a3e899cd2ce7fc045e" ]] || {
+                echo "ERROR: frozen PR87 blob manifest itself has changed" >&2; return 1;
+            }
             while read -r sha name; do
                 [[ "$sha" == \#* || -z "$sha" ]] && continue
                 [[ "$name" =~ ^[A-Za-z0-9_-]+\.[ch]$ &&
                    "$sha" =~ ^[0-9a-f]{40}$ && -s "$root/$name" ]] || {
                     echo "ERROR: malformed/missing pinned PR87 file: $name" >&2; return 1;
                 }
+                [[ ! -v "seen[$name]" ]] || {
+                    echo "ERROR: duplicate PR87 source manifest entry: $name" >&2; return 1;
+                }
+                seen["$name"]=1
                 pinned="$(git hash-object -- "$root/$name")" || return 1
                 [[ "$pinned" == "$sha" ]] || {
                     echo "ERROR: immutable PR87 source drift: $name expected=$sha actual=$pinned" >&2

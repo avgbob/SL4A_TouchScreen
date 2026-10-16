@@ -19,6 +19,7 @@ jobs:
       - uses: actions/checkout@v5
       - name: Audit pinned PR87 sources and BOTH staging layouts (no kernel install)
         run: |
+          bash tools/in-tree/source-selector-test.sh
           bash tools/in-tree/audit.sh
           bash tools/kernel_integration/selftest.sh
 

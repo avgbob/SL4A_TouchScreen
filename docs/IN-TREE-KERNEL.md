@@ -1,83 +1,114 @@
-# Experimental custom Linux kernel: Surface Laptop AMD touchscreen
+# Surface Laptop 4 AMD — experimental in-tree kernel integration
 
-**Status:** integration scaffolding only until the GitHub Actions build completes and its packages are inspected. **Not a qualified hardware release.**
+**Status (2026-10-16):** a reproducible **source-pinned prototype** for Linux
+`6.18.57`, **not** a boot-tested or approved kernel for the physical Surface.
+The exact out-of-tree [PR #87](https://github.com/Syax89/SL4A_TouchScreen/pull/87)
+HID driver passed five defined hardware qualification categories on one SL4 AMD
+at **Ubuntu 7.0.0-34-generic**. This does **not** automatically validate the
+new in-tree integration, its AMD controller, its Linux kernel version or boot
+image. It is crucial not to conflate these environments.
 
-## Goal and boundaries
+## What changed since the Gate5-only kernel scaffold
 
-Produce native Linux packages for a pinned Linux 6.18.57 kernel containing the existing experimental SL4A controller and Gate5 HID drivers **as kernel-tree modules**, not DKMS modules. Do this on the isolated experiment/in-tree-kernel branch without rewriting the Gate5 driver or changing main.
+- The **default** source for **both** in-kernel layouts is the full, unmodified
+  PR #87 C/H driver set from upstream commit
+  `18f0fe79623e6de4fdf1ae493f82a7048397386a`. A frozen snapshot of all **14 C/H Git blobs** lives in
+  `kernel-pins/pr87/driver/`; the manifest lists exact blob object IDs.
+- The source selector verifies the pinned commit, the unchanged manifest,
+  individual Git blob identities, file inventory and uniqueness before writing
+  to a Linux source tree. CI also tests corrupt source, manifest and identity
+  negative controls. **No download of a moving upstream branch occurs.**
+- `tools/in-tree/prepare-kernel.sh` (used by the kernel package CI) and
+  `tools/kernel_integration/stage-in-tree.sh` now stage the same exact
+  PR #87 source by default, including the **PR87 tracker**.
+- The branch's original `driver/` files — including the separate Gate5 and
+  advanced tracker-lab work — have **not** been overwritten or discarded.
+  For a deliberately separate **unqualified** comparison, set
+  `SL4A_IN_TREE_SOURCE=legacy-gate5` for either staging script.
+  **Do not mix** PR87 core with older experimental tracker files and call
+  that exact-head PR87; that would be a new, unqualified hybrid.
+- The native kernel build uses `CONFIG_SL4A_SPI_AMD=m` and
+  `CONFIG_SL4A_SPI_HID=m`, disables the stock `CONFIG_SPI_AMD`
+  to avoid conflicting AMDI0060 ownership, uses
+  `CONFIG_LOCALVERSION="-sl4a-pr87"`, and creates two separate native
+  `.ko` modules. No ACPI `MODULE_DEVICE_TABLE(acpi)` aliases were added;
+  test loading remains manual/opt-in.
+- Package artifacts include the exact upstream source commit, local
+  integration commit, source-flavor label, kernel config and pinned source
+  blob manifest. Existing installed Gate5/DKMS and Secure Boot keys
+  remain untouched by this build branch.
 
-This is a staging integration prototype, not the final location or accepted architecture for mainline kernel patches.
+## Scope of the two in-tree layouts
 
-* The existing Gate5 source C/H files are copied unchanged into drivers/staging/sl4a/.
-* An opt-in staging Kconfig and Makefile select sl4a-spi-amd and sl4a-spi-hid as separate modules.
-* Native CONFIG_SPI_AMD is disabled in this experimental kernel config to avoid competing controller drivers.
-* ACPI auto-loading is **intentionally disabled**: neither experimental module exports a MODULE_DEVICE_TABLE(acpi) alias.
-* The native kernel package build does not alter a computer until someone explicitly installs the output .deb files.
-* The workflow's default x86_64_defconfig is a **build configuration**, not verified hardware support for a Surface laptop.
+| Build path | Destination in a separate kernel source tree | Driver source |
+| --- | --- | --- |
+| `tools/in-tree/prepare-kernel.sh` | `drivers/staging/sl4a/` | PR87 default |
+| `tools/kernel_integration/stage-in-tree.sh --apply` | `drivers/spi/sl4a/`, `drivers/hid/sl4a/` | PR87 default |
 
-## What is implemented
+These are *alternative staging experiments*, not two sets of drivers
+to enable simultaneously. The `drivers/staging/` implementation is
+the one exercised by the Debian kernel-package workflow. The
+`drivers/spi/` plus `drivers/hid/` version is independently
+smoke-tested against disposable Git fixtures, but is **not** bundled
+into the staging kernel package.
 
-- tools/in-tree/prepare-kernel.sh stages driver sources and registers Kconfig/Makefile; it rejects a second application.
-- tools/in-tree/configure-kernel.sh selects both modules, disables the stock controller, and fails closed if module config is not retained.
-- tools/in-tree/audit.sh validates the staging transform and confirms the modules do not acquire ACPI auto-load aliases.
-- .github/workflows/in-tree-kernel.yml builds Linux 6.18.57 with a pinned archive SHA-256 and exports experimental Debian packages, config, source-commit provenance and SHA256SUMS.
+## Build and inspect without changing the Surface
 
-## Get build outputs
+[GitHub Actions](https://github.com/avgbob/SL4A_TouchScreen/actions/workflows/in-tree-kernel.yml)
+on `experiment/in-tree-kernel` runs source audits, fail-closed tamper
+controls, both layout simulations and a full pinned-source kernel
+`6.18.57` build/package job. **CI compilation does not prove boot
+or touch input**; inspect the actual completed run before making claims.
 
-Open GitHub Actions on experiment/in-tree-kernel, select **Experimental native SL4A kernel**, and confirm both source-audit and kernel-packages succeeded. Download the sl4a-linux-6.18.57-experimental artifact. The artifacts have short retention; do not treat a queued or failed workflow as proof of a build.
+Inspect the downloadable `sl4a-linux-6.18.57-pr87-experimental`
+artifact's `source-commit.txt`, `source-flavor.txt`,
+`integration-commit.txt`, `pinned-driver-blobs.txt`,
+`kernel.config`, warnings, Debian packages and
+`SHA256SUMS.txt`. Verify they name
+`18f0fe79623e6de4fdf1ae493f82a7048397386a` and `pr87`.
 
-Before installing, inspect the build's kernel.config and README warning file, plus SHA256SUMS.txt. You can inspect package contents without changing your system:
+Commands for local **non-installing** source integration:
 
-    dpkg-deb --contents ./linux-image-*.deb | grep -E 'sl4a-spi-(amd|hid)\.ko'
-    sha256sum -c SHA256SUMS.txt
+```bash
+git switch experiment/in-tree-kernel
+bash tools/in-tree/source-selector-test.sh
+bash tools/in-tree/audit.sh
+bash tools/kernel_integration/selftest.sh
 
-## Reproduce locally from source
+# Only in a deliberately separate extracted, full Linux kernel source tree:
+bash tools/in-tree/prepare-kernel.sh /path/to/linux-6.18.57
+bash tools/in-tree/configure-kernel.sh /path/to/linux-6.18.57 \
+    "/boot/config-$(uname -r)"
+```
 
-These commands stage sources in a throwaway extracted kernel source tree:
+`configure-kernel.sh` accepts a copy of the *working* config as
+a starting point; GitHub Actions instead uses `x86_64_defconfig`
+and is **not** a Surface-specific boot configuration. The kernel
+sources must be obtained separately with pinned archive checksum.
 
-    curl -fL -o linux-6.18.57.tar.xz https://cdn.kernel.org/pub/linux/kernel/v6.x/linux-6.18.57.tar.xz
-    echo '5bd9acdc82ec5efc3790ae840e5aaa40dfde7efff261cf6dde902dc570acf98c  linux-6.18.57.tar.xz' | sha256sum -c -
-    tar -xf linux-6.18.57.tar.xz
-    bash tools/in-tree/audit.sh
-    bash tools/in-tree/prepare-kernel.sh ./linux-6.18.57
-    bash tools/in-tree/configure-kernel.sh ./linux-6.18.57 /boot/config-$(uname -r)
-    make -C linux-6.18.57 -j2 bindeb-pkg KDEB_PKGVERSION=6.18.57-sl4a1
+## Hardware and mainline limitations
 
-The optional second argument uses the currently working kernel's configuration as a better starting point than the CI generic defconfig, but it still needs an actual boot test. Do not copy the CI defconfig into a laptop and assume Wi-Fi, NVMe, GPU, keyboard, and power management are all enabled.
+**Do not install/boot unsigned CI packages with Secure Boot enabled.**
+A new kernel *image* requires its own signing/trust plan, distinct
+from the existing MOK-signing process for DKMS modules.
 
-## Hardware test gate: NOT automatic
+Before ever rebooting the SL4 with this kernel: verify a complete
+hardware-specific config (storage, display, firmware, networking,
+keyboard, PM); native module precedence vs DKMS; module loading
+order and ACPI binding conflicts; trusted bootloader entry; backup
+known-good kernel; independent mouse/keyboard or recovery path.
+First physical gate is a **manual native-controller-then-HID load**,
+not automatic ACPI binding. Then rerun real cold first-HID,
+warm, guided multitouch and s2idle acceptance **on that exact
+kernel**, recording the new module hashes and source pin.
 
-**Do not install an unsigned experimental kernel on a Secure Boot-enabled machine.** First plan a reversible test using an appropriately signed kernel or a deliberately disabled Secure Boot test, a known-good existing boot entry, and external input/recovery access.
+A Linux in-tree build is not a mainline upstreaming patch by
+itself. For eventual kernel-mainline work, the AMD SPI controller,
+HID-over-SPI architectural boundaries, CapImg tracker location,
+interface duplication, ACPI matching and Kconfig policy need
+separate subsystem maintainer review and supported hardware data.
 
-Before attempting a real boot, review these blockers:
-
-1. Confirm the exact Surface's MSHW0231 and AMDI0060 IDs and preserve the currently working Gate5 DKMS modules/profile and kernel.
-2. Confirm a complete bootable machine-specific kernel config rather than relying on x86_64_defconfig.
-3. Ensure the existing sl4a-touch-activate.service is not simultaneously binding a DKMS module during the test. Check module file precedence using modinfo -n sl4a-spi-amd and modinfo -n sl4a-spi-hid; kernel-packaged modules must be selected.
-4. Confirm the distribution's GRUB/systemd-boot fallback option and available external keyboard/mouse or remote recovery.
-5. The expected initial hardware test is **manual** module loading, not automatic ACPI activation. Load the custom controller first and the HID module second with the known-good Gate5 parameters.
-6. Capture loaded module paths, firmware/ACPI identity, IRQ and protocol counters, a real touch event, cold boot, warm reload and s2idle evidence. Stop on unexpected resets or boot failures.
-
-Known-good Gate5 module profile from docs/GATE5-QUALIFICATION.md:
-
-    raw_mode=N raw_input_beta=Y wire_double_opcode=1
-    gate3_observe_only=1 skip_std_getfeat=1 std_raw_transition=1
-    get_noread=0 getfeat_delay_ms=0 std_liveness_ms=0
-    std_liveness_recover=0 wait_reset_kick_ms=0
-
-Keep this configuration experimental and explicitly loaded. No automatic controller bind, kernel boot success, or touch function is claimed by the CI compilation alone.
-
-## Acceptance gates
-
-- [ ] Source audit passes.
-- [ ] Linux 6.18.57 kernel packages are produced without compiler or link failures.
-- [ ] Both sl4a-spi-amd.ko and sl4a-spi-hid.ko exist in the built package.
-- [ ] Package provenance and SHA-256 manifest are checked.
-- [ ] Kernel configuration matches the test Surface and recovery is rehearsed.
-- [ ] Actual laptop boots the native test kernel with no unexpected driver conflict.
-- [ ] Manual modprobe starts Gate5, touch events work, and suspend/resume is retested.
-- [ ] Only then consider an opt-in ACPI auto-load follow-up.
-
-## Risk notes
-
-The AMD SPI controller is shared with firmware-access functionality. The current branch deliberately retains explicit module loading rather than introducing automatic controller binding. Current upstream opcode restrictions and GET_FEATURE handling should be integrated and independently validated on a separate change before enabling auto-load. This work does not claim to supersede Syax89's upstream repository or any merged upstream kernel code.
+**Unqualified despite PR #87's out-of-tree hardware PASS:** this
+custom kernel's boot, driver autoload, native module load on the
+machine, native cold/PM behavior, broader Surface models, stylus,
+spontaneous post-DONE reset/rearm and long-running stability.
