@@ -3,12 +3,29 @@
 ## Mode 4 lifecycle qualification (read before suspending)
 
 On 2026-10-16, the physical unit passed `qualify-warm3`
-(3/3 activations of one signed module), then `qualify-s2idle2`
+(3/3 activations of one signed module), `qualify-s2idle2`
 (2/2 genuine s2idle/resume intervals with spoken and event-verified
-postwake touchscreen tests). **The only remaining planned mode4
-lifecycle test is controlled true cold power-on.** This must be a
-separate, safely self-reverting boot experiment, not a repeat of these
-successful checks.
+postwake touchscreen tests), then **one actual powered-off mode4
+cold boot** on kernel `7.0.0-34-generic`. Its separate
+event-gated `quick` test and Gate5 rollback both **PASSED**;
+the one-shot source commit was `c196f206`, signed module SHA256
+`5361315c6bfb28a895888e5394622ba078a1f736e7b84d16aa22e5f13b1b66c4`.
+The first attempted cold-boot was INCONCLUSIVE due to a pending kernel
+update; the second completed successfully. **These independent
+milestones used more than one exact mode4 build and two kernels.**
+Do not represent the aggregate as a single signed-binary qualification
+or as exact-head Syax89 PR #87 acceptance. Production remains Gate5
+mode1; no permanent experimental boot configuration was installed.
+
+Cold-start evidence:
+`~/sl4a-hardware-runs/mode4-quick-20261016T185822Z` and
+`/var/lib/sl4a-mode4-coldboot` (root-owned, with a verified
+14-file `SHA256SUMS.txt`). Stage and trial boot IDs differ;
+`coldboot-finish` confirmed mode4 first HID initialization, a
+real operator-confirmed power cycle, audible event-gated one/two
+finger gestures, zero reported reset/frame-drop failures, and
+automatic restoration of Gate5 mode1 at 18:59:57Z. Evidence remains
+on the user's physical device, not uploaded here.
 
 On the original Surface, the experimental branch provides:
 
