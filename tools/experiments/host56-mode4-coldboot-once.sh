@@ -34,6 +34,28 @@ cancel_timer() { systemctl stop sl4a-mode4-coldboot-rollback.timer >/dev/null 2>
 stage() {
     require_root
     local module="$1" source_sha="$2" tmp
+    # Ubuntu typically points /boot/vmlinuz at the newest installed
+    # kernel. If that differs from the running kernel, an update may be
+    # pending and a first cold boot will refuse our signed binary.
+    # Fail closed rather than stage a one-use override that cannot run.
+    local boot_image boot_target boot_kernel
+    boot_image=""
+    for boot_target in /boot/vmlinuz /vmlinuz; do
+        if [[ -L "$boot_target" ]]; then
+            boot_image="$boot_target"
+            break
+        fi
+    done
+    if [[ -n "$boot_image" ]]; then
+        boot_target="$(readlink -f "$boot_image")"
+        boot_kernel="${boot_target##*/vmlinuz-}"
+        if [[ "$boot_target" == */vmlinuz-* &&
+              "$boot_kernel" != "$(uname -r)" ]]; then
+            echo "REFUSE staging: running kernel=$(uname -r), boot default symlink target=$boot_kernel" >&2
+            echo "A kernel update may take effect on next power-on. Boot into the intended kernel first." >&2
+            exit 1
+        fi
+    fi
     [[ "$module" == /* && -s "$module" ]] || { echo "Signed module missing" >&2; exit 1; }
     [[ -d /sys/bus/acpi/devices/MSHW0231:00 ]] || { echo "MSHW0231 absent" >&2; exit 1; }
     [[ "$(mode)" == 1 ]] || { echo "Working Gate5 mode1 required" >&2; exit 1; }
@@ -110,9 +132,28 @@ boot() {
     write_state trial_boot_id "$(current_boot)"
     write_state result "INCOMPLETE"
     note "BOOT one-shot consumed on new boot $(current_boot)"
-    if [[ "$(field kernel)" != "$(uname -r)" ]] ||
-       (( $(date +%s) - $(field stage_epoch) > 86400 )); then
-        note "ERROR changed kernel / stale experiment"; fallback; return 1
+    # Separate kernel mismatch from expiration; preserve an actionable
+    # verdict instead of silently leaving result=INCOMPLETE.
+    local staged_kernel live_kernel stage_epoch_now now_epoch stage_age
+    staged_kernel="$(field kernel)"
+    live_kernel="$(uname -r)"
+    stage_epoch_now="$(field stage_epoch)"
+    now_epoch="$(date +%s)"
+    if [[ "$staged_kernel" != "$live_kernel" ]]; then
+        write_state result "INCONCLUSIVE_KERNEL_MISMATCH"
+        note "ERROR KERNEL_MISMATCH staged=$staged_kernel booted=$live_kernel; module not inserted"
+        fallback; return 1
+    fi
+    if [[ ! "$stage_epoch_now" =~ ^[0-9]+$ ]]; then
+        write_state result "INCONCLUSIVE_BAD_STAGE_EPOCH"
+        note "ERROR invalid or missing staging timestamp; module not inserted"
+        fallback; return 1
+    fi
+    stage_age=$((now_epoch - stage_epoch_now))
+    if (( stage_age < 0 || stage_age > 86400 )); then
+        write_state result "INCONCLUSIVE_STAGING_EXPIRED"
+        note "ERROR STAGE_AGE_SECONDS=$stage_age not in 0..86400; module not inserted"
+        fallback; return 1
     fi
     if [[ -d /sys/module/sl4a_spi_hid ]]; then
         note "INCONCLUSIVE: HID module already loaded before late boot hook"
@@ -232,6 +273,44 @@ finish() {
     )
     echo "SEALED COLD-BOOT EVIDENCE: $BASE"
 }
+diagnose() {
+    # Purely observational; accepts previous failed/inconclusive runs.
+    # Never unloads, loads, arms or changes any unit.
+    [[ -d "$BASE" ]] || { echo "No staged coldboot evidence"; return 1; }
+    local stored now age saved live
+    saved="$(field kernel)"
+    live="$(uname -r)"
+    stored="$(field stage_epoch)"
+    now="$(date +%s)"
+    echo "=== COLD-BOOT READ-ONLY DIAGNOSIS ==="
+    echo "Last result: $(field result)"
+    echo "Staged kernel: ${saved:-MISSING}"
+    echo "Current kernel: $live"
+    echo "Staged module vermagic: $(modinfo -F vermagic "$BASE/signed-mode4.ko" 2>/dev/null || echo unavailable)"
+    echo "Staged module SHA256 expected: $(field module_sha)"
+    echo "Staged source commit: $(field source_sha)"
+    echo "Staging boot ID: $(field stage_boot_id)"
+    echo "Trial boot ID: $(field trial_boot_id)"
+    echo "Current boot ID: $(current_boot)"
+    echo "Loaded mode: $(mode)"
+    echo "One-shot override present: $([[ -e "$OVERRIDE" ]] && echo YES || echo NO)"
+    echo "Rollback timer: $(systemctl is-active sl4a-mode4-coldboot-rollback.timer 2>/dev/null || true)"
+    if [[ "$stored" =~ ^[0-9]+$ ]]; then
+        age=$((now - stored))
+        echo "Staging age (seconds): $age"
+        if (( age < 0 || age > 86400 )); then
+            echo "VERDICT: staging time invalid/expired; safe fallback required."
+        elif [[ "$saved" != "$live" ]]; then
+            echo "VERDICT: kernel changed from $saved to $live; safe fallback was correct."
+        else
+            echo "VERDICT: kernel and age compatible; inspect events.log for remaining cause."
+        fi
+    else
+        echo "VERDICT: staging timestamp missing/invalid; trial unqualified."
+    fi
+    echo "Recorded boot decisions:"
+    [[ -f "$BASE/events.log" ]] && tail -n 16 "$BASE/events.log" || true
+}
 verify() {
     [[ -d "$BASE" ]] || { echo "No staged coldboot evidence"; return 1; }
     echo "Status: $(field result)"
@@ -263,6 +342,7 @@ case "$1" in
     rollback) rollback ;;
     finish) finish "$2" ;;
     verify|status) verify ;;
+    diagnose) diagnose ;;
     cancel) cancel ;;
-    *) echo "Usage: $0 {stage SIGNED_MODULE SHA|boot|verify|finish PASS|finish FAIL|rollback|cancel}" >&2; exit 2 ;;
+    *) echo "Usage: $0 {stage SIGNED_MODULE SHA|boot|verify|diagnose|finish PASS|finish FAIL|rollback|cancel}" >&2; exit 2 ;;
 esac
