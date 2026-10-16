@@ -140,8 +140,8 @@ capture() {
 # success, failure, or interruption. Never alter the persistent boot options.
 qualify() {
     local protocol="${1:-full}"
-    case "$protocol" in quick|full) ;; *)
-        echo "ERROR: qualify accepts quick or full only" >&2
+    case "$protocol" in quick|full|contacts) ;; *)
+        echo "ERROR: qualify accepts quick, contacts, or full only" >&2
         return 2 ;; esac
     require_device
     if [[ ! -r "$SYS" || "$(cat "$SYS")" != 1 ]]; then
@@ -167,5 +167,5 @@ case "${1:-}" in
     capture) capture "${2:-quick}" ;;
     audio-check) python3 "$ROOT/tools/hardware_evidence/guided_session.py" --audio-check ;;
     status) show_status ;;
-    *) echo "Usage: $0 {qualify [quick|full]|prepare|activate|audio-check|capture [quick|pinch|contacts|full|stylus]|status|restore}" >&2; exit 2 ;;
+    *) echo "Usage: $0 {qualify [quick|contacts|full]|prepare|activate|audio-check|capture [quick|pinch|contacts|full|stylus]|status|restore}" >&2; exit 2 ;;
 esac
