@@ -407,67 +407,106 @@ def main():
         built = ROOT / "driver/sl4a-spi-hid.ko"
         if built.is_file():
             props["worktree_module_sha256"] = file_sha(built)
-        # Duration includes countdown, cue playback, collector startup and a
-        # post-gesture margin; SIGINT is not used to truncate evidence.
-        total = sum(seconds for _, _, seconds in phases) + len(phases) * 2 + 5 + 20
+        # Dynamic early-stop marker lets the read-only evidence collector
+        # close and checksum promptly after all verified gestures. The large
+        # duration is only a hard upper bound, not a forced waiting period.
+        total = min(3600, max(240, len(phases) * 85 + 180))
+        marker = args.output / "trace/sl4a-guided-complete.flag"
         cmd = ["sudo", "-n", str(COLLECTOR),
                "--period", args.period, "--case", args.case,
-               "--duration", str(total), "--output", str(args.output)]
+               "--duration", str(total),
+               "--stop-file", str(marker),
+               "--output", str(args.output)]
         cmd.append({"stylus": "--capture-stylus",
                     "direct": "--capture-direct-touch",
                     "beta": "--capture-beta-multitouch"}[input_source])
         markers_file = Path(temp) / "cues.tsv"
+        live_jsonl = Path(temp) / "live-evdev.jsonl"
+        monitor_errors = Path(temp) / "live-monitor-stderr.txt"
+        phase_results = []
+        guide_error = None
+        exit_code = -1
         with markers_file.open("w") as marks:
             marks.write("utc\tmonotonic_seconds\tevent\tdetail\n")
             marks.flush()
-            with (Path(temp) / "collector.log").open("w") as collector_log:
+            with (Path(temp) / "collector.log").open("w") as collector_log, \
+                 monitor_errors.open("w") as monitor_err:
                 proc = subprocess.Popen(cmd, stdout=collector_log,
                                         stderr=subprocess.STDOUT)
+                monitor = None
                 try:
-                    # The collector first snapshots sysfs before starting
-                    # evtest. Wait for the actual event capture file instead of guessing.
-                    start = time.monotonic()
+                    # Wait until the original evtest helper has discovered
+                    # the actual dynamic eventN device, not just a file name.
                     event_capture = args.output / "trace/input" / {
                         "stylus": "stylus.evtest.txt",
                         "direct": "direct-touch.evtest.txt",
                         "beta": "beta-multitouch.evtest.txt",
                     }[input_source]
-                    while subprocess.run(["sudo", "-n", "test", "-s",
-                                           str(event_capture)], check=False).returncode != 0:
-                        if proc.poll() is not None:
-                            raise RuntimeError("collector exited before event capture started")
-                        if time.monotonic() - start > 20:
-                            raise RuntimeError("event capture did not begin within 20 seconds")
-                        time.sleep(.3)
-                    # The collector owns its output directory as root (0700).
-                    # Checking it without sudo falsely reports "not found".
-                    safe_sleep(2, proc)
-                    mark(marks, "capture-ready", f"mode={mode}")
-                    countdown(audio, marks, 5, proc)
-                    guide(audio, marks, phases, proc)
-                    print("Recording remaining idle window; keep hands off...", flush=True)
-                    exit_code = proc.wait(timeout=total + 20)
-                except (Exception, KeyboardInterrupt):
-                    proc.terminate()
+                    event_device = selected_event_node(event_capture)
+                    monitor = subprocess.Popen(
+                        ["sudo", "-n", sys.executable, "-u",
+                         str(ROOT / "tools/hardware_evidence/live_input_gate.py"),
+                         "--stream", "--source", input_source,
+                         "--device", event_device],
+                        stdout=subprocess.PIPE, stderr=monitor_err,
+                        text=True, bufsize=1, start_new_session=True)
+                    frames = queue.Queue(maxsize=4096)
+                    reader = threading.Thread(
+                        target=read_live_events,
+                        args=(monitor, frames, live_jsonl), daemon=True)
+                    reader.start()
+                    # Fail closed unless the monitor itself confirms the
+                    # validated MSHW0231 event node was opened.
                     try:
-                        proc.wait(timeout=5)
-                    except subprocess.TimeoutExpired:
-                        proc.kill()
-                        proc.wait(timeout=5)
-                    # Fail closed but do not strand root-owned partial
-                    # captures and cue timestamps behind a 0700 directory.
-                    if args.output.is_dir():
-                        operator = args.output / "operator"
-                        for source, target in (
-                            (markers_file, operator / "cues.tsv"),
-                            (Path(temp) / "collector.log", operator / "collector.log"),
-                        ):
-                            subprocess.run(["sudo", "-n", "cp",
-                                            str(source), str(target)], check=False)
-                        subprocess.run(["sudo", "-n", "chown", "-R",
-                                        f"{os.getuid()}:{os.getgid()}",
-                                        str(args.output)], check=False)
-                    raise
+                        ready = frames.get(timeout=9)
+                    except queue.Empty as e:
+                        raise RuntimeError("live input monitor did not start") from e
+                    if ready.get("kind") != "ready":
+                        raise RuntimeError("live monitor refused the event node: " +
+                                           str(ready))
+                    if ready.get("device") != event_device:
+                        raise RuntimeError("monitored device differs from evtest device")
+                    mark(marks, "capture-ready",
+                         f"mode={mode};device={event_device};source={input_source}")
+                    audio.speak("Recording is ready. Keep the test screen clear. "
+                                "Follow my spoken instructions. "
+                                "I will not advance until the requested "
+                                "touch gesture is detected.")
+                    phase_results = live_capture(audio, marks, phases, frames, proc)
+                except (Exception, KeyboardInterrupt) as e:
+                    guide_error = str(e)
+                    mark(marks, "session-incomplete", guide_error)
+                finally:
+                    # Close the evtest/journal collector normally even on
+                    # failure, preserving all completed partial evidence.
+                    if monitor is not None:
+                        monitor.terminate()
+                        try:
+                            monitor.wait(timeout=5)
+                        except subprocess.TimeoutExpired:
+                            monitor.kill()
+                            monitor.wait(timeout=5)
+                    if proc.poll() is None:
+                        try:
+                            exit_code = stop_capture(proc, args.output)
+                        except (OSError, subprocess.CalledProcessError,
+                                subprocess.TimeoutExpired) as e:
+                            if guide_error is None:
+                                guide_error = f"collector stop failed: {e}"
+                            proc.terminate()
+                            try:
+                                proc.wait(timeout=5)
+                            except subprocess.TimeoutExpired:
+                                proc.kill()
+                                proc.wait(timeout=5)
+                            exit_code = proc.returncode or -1
+                    else:
+                        exit_code = proc.returncode
+        props["phase_results"] = ";".join(
+            f"{name}:{verdict}:{attempt}" for name, verdict, attempt
+            in phase_results)
+        props["guide_error"] = guide_error or ""
+        props["audio_instructions_confirmed"] = "YES"
         props["utc_end"] = stamp()
         props["stats_after"] = txt(STATS)
         props["collector_exit_code"] = str(exit_code)
@@ -480,9 +519,19 @@ def main():
         subprocess.run(["sudo", "cp", str(metadata), str(operator/"run-metadata.txt")], check=True)
         subprocess.run(["sudo", "cp", str(Path(temp)/"collector.log"),
                         str(operator/"collector.log")], check=True)
+        for artifact, title in ((live_jsonl, "live-evdev.jsonl"),
+                                (monitor_errors, "live-monitor-stderr.txt")):
+            if artifact.exists():
+                subprocess.run(["sudo", "-n", "cp", str(artifact),
+                                str(operator/title)], check=True)
         subprocess.run(["sudo", "chown", "-R", f"{os.getuid()}:{os.getgid()}",
                         str(args.output)], check=True)
         status = txt(args.output/"session-status.txt")
+        if guide_error:
+            raise RuntimeError("LIVE GATE INCOMPLETE: " + guide_error +
+                               "; evidence saved, do not mark PASS")
+        if len(phase_results) != len(phases):
+            raise RuntimeError("LIVE GATE INCOMPLETE: some gestures were never verified")
         if exit_code != 0 or "status=completed" not in status:
             raise RuntimeError("CAPTURE INCOMPLETE; evidence saved, do not mark PASS")
         captured = args.output / "trace/input" / {
@@ -494,7 +543,8 @@ def main():
             raise RuntimeError("No captured evtest input events; do not mark PASS")
         print(f"\nCAPTURE SAVED: {args.output}\n"
               f"Run metadata and cue timestamps: {operator}\n"
-              "This is evidence capture, not an automatic hardware PASS.",
+              "Every requested gesture passed its live-input gate. "
+              "Kernel resets, frame drops and lifecycle still need audit.",
               flush=True)
         return 0
 
