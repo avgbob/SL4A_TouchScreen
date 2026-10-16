@@ -198,6 +198,51 @@ run_warm_three() {
     echo "PR87 WARM 3/3 PASS; evidence: $session"
 }
 
+# One independent exact-PR87 full gesture matrix. All gestures run
+# against ONE signed module; production Gate5 is restored on normal exit,
+# failure, or interrupt. No permanent configuration or reboot.
+run_full_matrix() {
+    preflight
+    checkout_exact
+    echo "The full matrix uses spoken, evdev-gated gestures on a temporary PR87 HID."
+    echo "The installed Gate5 driver will be restored after the capture."
+    echo "This is NOT a cold first-HID load or default-standard negative control."
+    local confirm
+    printf 'Type MATRIX to build/sign and run the PR87 full physical gesture matrix: '
+    IFS= read -r confirm
+    [[ "$confirm" == MATRIX ]] || die "no driver changed; matrix cancelled"
+    prepare
+    session="$HOME/sl4a-hardware-runs/pr87-exact-matrix-$(date -u +%Y%m%dT%H%M%SZ)"
+    mkdir -p -m 0700 "$session"
+    {
+        echo "source_commit=$PR_HEAD"
+        echo "kernel=$(uname -r)"
+        echo "module_sha256=$(sha "$MODULE")"
+        echo "module_srcversion=$experiment_src"
+        echo "production_srcversion=$production_src"
+        echo "test=one reversible PR87 full event-gated gesture matrix"
+    } > "$session/provenance.txt"
+    printf 'INCOMPLETE\n' > "$session/result.txt"
+    trap on_exit EXIT
+    trap 'exit 130' INT
+    trap 'exit 143' TERM
+    local signed_hash
+    signed_hash="$(sha "$MODULE")"
+    load_pr
+    capture "matrix" full
+    [[ "$(sha "$MODULE")" == "$signed_hash" ]] ||
+        die "signed PR module file changed during the full matrix"
+    [[ "$(field "$HID/srcversion")" == "$experiment_src" ]] ||
+        die "experimental module identity changed during the full matrix"
+    restore
+    printf 'PASS_FULL_MATRIX\n' > "$session/result.txt"
+    ( cd "$session"; find . -maxdepth 1 -type f ! -name SHA256SUMS.txt \
+        -print0 | sort -z | xargs -0 -r sha256sum > SHA256SUMS.txt )
+    ( cd "$session"; sha256sum -c SHA256SUMS.txt )
+    echo "PR87 FULL MATRIX PASS; source pinned, signed module stable, Gate5 restored."
+    echo "MATRIX EVIDENCE: $session"
+}
+
 # Two real suspend cycles with ONE signed PR module continuously loaded.
 # This is not a warm module reload: it audits the PM s2idle entry/exit,
 # CLOCK_BOOTTIME-minus-MONOTONIC sleep gap, and post-wake actual MT events.
@@ -326,5 +371,6 @@ case "${1:-}" in
     preflight) preflight ;;
     warm3) run_warm_three ;;
     s2idle2) run_s2idle_two ;;
-    *) echo "Usage: bash $0 {preflight|warm3|s2idle2}" >&2; exit 2 ;;
+    full-matrix) run_full_matrix ;;
+    *) echo "Usage: bash $0 {preflight|warm3|s2idle2|full-matrix}" >&2; exit 2 ;;
 esac

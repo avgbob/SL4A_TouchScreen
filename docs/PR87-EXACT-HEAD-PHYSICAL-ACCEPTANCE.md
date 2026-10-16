@@ -51,6 +51,22 @@ The analysis remains read-only. **Actual release gaps are still
 not determined** until the corrected tool is run against the
 existing local captures.
 
+## Full-matrix physical acceptance runner (prepared; not physically run)
+
+The one-shot `tools/experiments/pr87-exact-head.sh full-matrix`
+loads the exact pinned PR #87 HID once and invokes
+`guided_session.py --protocol full` with all quick/pinch/contact
+gestures and continuous original tracking-ID gates. It requires
+`MATRIX` operator confirmation before build/sign/load, checks
+source/module identity, and restores the working production Gate5
+driver on normal exit and in its EXIT/interrupt trap. CI checks
+shell syntax and pinning, confirmation order, activation count,
+rollback order, evidence hashes, and forbidden persistent changes.
+
+**Hardware matrix is NOT yet reported PASS.** The command also does
+NOT qualify cold first-HID boot or default-standard opt-out behavior.
+Do not count CI as physical touchscreen evidence.
+
 ## 2026-10-16: nonblocking reactive voice/event-loop hardening
 
 Experimental *harness-only* change (not part of Syax89 PR #87

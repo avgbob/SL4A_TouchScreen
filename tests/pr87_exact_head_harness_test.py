@@ -36,6 +36,25 @@ assert '--protocol "$protocol"' in harness
 assert 'sha256sum' in harness
 assert 'PASS_3_OF_3' in harness
 
+# The full-matrix runner must use the same pin/sign/restore safety
+# boundary as warm qualification, but only one activation and no s2idle.
+assert 'full-matrix) run_full_matrix' in harness
+matrix = harness.split('run_full_matrix() {\n', 1)[1].split('\n}\n# Two real suspend cycles', 1)[0]
+assert matrix.index('    preflight\n') < matrix.index('    checkout_exact\n')
+assert matrix.index('Type MATRIX to build/sign') < matrix.index('    prepare\n')
+assert matrix.index('    trap on_exit EXIT\n') < matrix.index('    load_pr\n')
+assert matrix.count('    load_pr\n') == 1
+assert 'capture "matrix" full' in matrix
+assert '    restore\n' in matrix
+assert matrix.index('capture "matrix" full') < matrix.index('    restore\n')
+assert matrix.index('    restore\n') < matrix.index("PASS_FULL_MATRIX")
+assert 'signed_hash="$(sha "$MODULE")"' in matrix
+assert '[[ "$(sha "$MODULE")" == "$signed_hash" ]]' in matrix
+assert 'field "$HID/srcversion")" == "$experiment_src"' in matrix
+assert 'sha256sum -c SHA256SUMS.txt' in matrix
+for forbidden in ("systemctl suspend", "reboot", "dkms install"):
+    assert forbidden not in matrix
+
 # The real PM test is intentionally NOT silently simulated on CI: it
 # depends on hardware suspension and an operator hearing audio after wake.
 # But all safety/acceptance ordering is enforced in the source contract.
