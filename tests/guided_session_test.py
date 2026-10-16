@@ -13,12 +13,17 @@ spec = importlib.util.spec_from_file_location("guided_session", path)
 module = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(module)
 
-assert all(k in module.PROTOCOLS for k in ("quick", "pinch", "contacts", "stylus"))
+assert all(k in module.PROTOCOLS for k in ("quick", "pinch", "contacts", "stylus", "full", "single"))
 for name, steps in module.PROTOCOLS.items():
     assert steps, f"{name} has no cues"
     assert len({s[0] for s in steps}) == len(steps), "cue IDs must be unique"
     assert all(isinstance(s[2], int) and s[2] >= 5 for s in steps)
-assert "Did you HEAR both tones? Type YES to proceed:" in src
+assert "Did you HEAR and UNDERSTAND the spoken words?" in src
+assert "espeak-ng" in src and "def speak(self, words):" in src
+assert "phase_results = live_capture(audio, marks, phases, frames, proc)" in src
+assert "GestureGate(label, context)" in src
+assert '"--stop-file", str(marker)' in src
+assert "if guide_error:" in src
 assert 'args.output.exists()' in src, "must not overwrite hardware evidence"
 assert '"--capture-beta-multitouch"' in src
 assert '"--capture-stylus"' in src
