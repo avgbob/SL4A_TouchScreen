@@ -39,6 +39,15 @@ assert 'INCONCLUSIVE_PREEXISTING_HID' in original
 assert 'INCONCLUSIVE_HID_AUTOLOADED' in original
 assert 'if [[ -d /sys/module/sl4a_spi_hid ]]; then' in original
 assert 'CANCELLED_OR_RESTORED' in original
+# Regression for the physical 2026-10-16 abort: merely loading the
+# Gate5 HID module reports mode1 WITHOUT binding the AMD controller.
+# Cold-boot recovery must load AMD FIRST and inspect both bindings.
+fallback_body = original.split('fallback() {',1)[1].split('\n}',1)[0]
+assert fallback_body.index('modprobe sl4a-spi-amd') < fallback_body.index('modprobe sl4a-spi-hid')
+assert 'AMD_binding=' in fallback_body and 'HID_binding=' in fallback_body
+assert 'touch input NOT yet verified' in fallback_body
+assert 'controller_driver" != sl4a_spi_amd_v2_multi' in fallback_body
+assert 'touch_driver" != sl4a_spi_hid' in fallback_body
 assert 'std_raw_transition=4' in original
 assert 'modprobe -r sl4a-spi-hid' in original
 assert 'modprobe sl4a-spi-hid' in original
