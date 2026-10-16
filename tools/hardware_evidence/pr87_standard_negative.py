@@ -122,8 +122,13 @@ def recheck_saved(snapshot, expected_srcversion):
     original_verdict = snapshot.get("verdict")
     if original_verdict not in ("INCONCLUSIVE", "PASS_NEGATIVE_CONTROL"):
         errors.append("saved capture verdict invalid")
-    if original_errors == [LEGACY_READY_ERROR] and original_verdict != "INCONCLUSIVE":
-        errors.append("historical verifier mismatch must have reported INCONCLUSIVE")
+    # Accept only coherent original verdict/error pairs. A historical
+    # INCONCLUSIVE with *no* logged error is not safely adjudicable.
+    if ((original_errors == [LEGACY_READY_ERROR] and
+         original_verdict != "INCONCLUSIVE") or
+        (original_errors == [] and
+         original_verdict != "PASS_NEGATIVE_CONTROL")):
+        errors.append("saved original verdict and error list disagree")
     if snapshot.get("expected_pr87_srcversion") != expected_srcversion or (
         snapshot.get("loaded_srcversion") != expected_srcversion
     ):
