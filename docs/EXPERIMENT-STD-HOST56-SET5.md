@@ -127,12 +127,22 @@ rather than accepting the natural sequential release
 `{A,B} -> {A} -> {}` or `{A,B} -> {B} -> {}`.
 The gate now accepts only monotonically shrinking original-ID subsets,
 rejecting any new/reappearing ID and requiring eventual all-up. These
-changes have host regression tests. A read-only
-`tools/hardware_evidence/audit_release.py` checks the saved
-`mode4-full-20261016T161746Z` frames to distinguish a valid singleton
-from a genuinely substituted tracking ID **before another physical run**.
-Do not qualify remaining contacts, cold boot, reloads or suspend until
-their respective tests have actually passed.
+changes have host regression tests. **Saved physical event audit completed:** the saved session's
+expected IDs were `[3, 4]`. The physical evdev events transitioned
+`[3,4] -> [4]` at **+2.953s** after the expansion PASS, then
+`[4] -> []` at **+2.963s**, with **no new tracking ID**.
+The release instruction began at +0.550s and release capture at +2.812s.
+This proves the old test verifier **falsely rejected a normal sequential
+lift**, rather than demonstrating a driver tracking regression.
+The fixed release gate passes this exact state sequence in host tests.
+
+The original recorded phases **1–8 passed live**, and phase 9's
+original-pair release was subsequently confirmed by offline audit.
+The remaining seven `contacts` phases have not yet been exercised.
+The safely restoring `qualify contacts` subcommand is provided to
+run those *without repeating the first nine observations*. These are
+separate evidence sessions, not one uninterrupted 16-phase PASS.
+Cold boot, repeated reload, s2idle and pen remain unqualified.
 
 DieSchatten's independent 13.5-inch MSHW0231 unit uses a different **raw-mode**
 sequence: report 0x56 with all-six-`FF` payload, ~37–40 ms delay, SET5,
