@@ -57,6 +57,15 @@ PROTOCOLS = {
         ("lift", "Lift pen, leave screen untouched", 5),
     ],
 }
+# One-audio-preflight, one evtest bundle, one timestamped sequence for the
+# first full physical qualification on a new source SHA. Subsequent lifecycle
+# iterations can use the short "quick" protocol without rerunning everything.
+PROTOCOLS["full"] = [
+    (f"{protocol}-{label}", prompt, seconds)
+    for protocol in ("quick", "pinch", "contacts")
+    for label, prompt, seconds in PROTOCOLS[protocol]
+]
+
 # Output is private by default: evtest can capture other unintended input.
 def stamp():
     return dt.datetime.now(dt.timezone.utc).isoformat(timespec="milliseconds")
