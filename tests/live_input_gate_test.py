@@ -63,6 +63,36 @@ assert not send(lift, [], 12.5), "early lift must not pass merely because pair w
 assert not send(lift, [(11, 100, 100), (12, 900, 100)], 13)
 assert send(lift, [], 14), "must see SAME pair down then released"
 
+# Physical 2026-10-16 pinch-lift regression: a real lift usually reports
+# both original fingers -> ONE original finger -> none. This MUST PASS.
+sequential = GestureGate("pinch-lift", {"pair": frozenset((41, 42))})
+assert not send(sequential, [], 0), "no initial pair must not pass"
+assert not send(sequential, [(41, 100, 100), (42, 900, 100)], 1)
+assert not send(sequential, [(41, 100, 100)], 2), (
+    "one original finger during lift is valid but not complete")
+assert send(sequential, [], 3), "both original fingers now lifted"
+
+# live_capture prearms the release from the preceding verified pair;
+# releasing one contact while a voice instruction plays must be accepted.
+prearmed = GestureGate("quick-lift", {"pair": frozenset((51, 52))})
+prearmed.stage = 1
+assert not send(prearmed, [(52, 900, 100)], 1)
+assert send(prearmed, [], 2)
+
+# Reject an unexpected *new* tracking ID, and reappearance of an old
+# released ID, even if the eventual contact count reaches zero.
+unexpected = GestureGate("pinch-lift", {"pair": frozenset((61, 62))})
+unexpected.stage = 1
+assert not send(unexpected, [(61, 100, 100), (99, 900, 100)], 1)
+assert unexpected.failed_reason
+assert not send(unexpected, [], 2), "invalid lift remains invalid"
+reappear = GestureGate("pinch-lift", {"pair": frozenset((71, 72))})
+reappear.stage = 1
+assert not send(reappear, [(71, 100, 100)], 1)
+assert not send(reappear, [(71, 100, 100), (72, 900, 100)], 2)
+assert reappear.failed_reason
+assert not send(reappear, [], 3)
+
 # Dedicated continuity hold, and no pass on changed tracking IDs.
 g = GestureGate("pinch-far", ctx)
 assert send(g, [(15, 100, 100), (16, 1100, 100)], 15)
