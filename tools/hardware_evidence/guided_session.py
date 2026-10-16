@@ -528,6 +528,16 @@ def main():
                                 str(operator/title)], check=True)
         subprocess.run(["sudo", "chown", "-R", f"{os.getuid()}:{os.getgid()}",
                         str(args.output)], check=True)
+        # The base collector hashes its files before the guide copies
+        # supplemental cue/monitor evidence. Hash those artifacts separately,
+        # without invalidating the collector's immutable manifest.
+        extra_files = ("cues.tsv", "run-metadata.txt", "collector.log",
+                       "live-evdev.jsonl", "live-monitor-stderr.txt")
+        with (operator / "guided-sha256.txt").open("w") as manifest:
+            for name in extra_files:
+                artifact = operator / name
+                if artifact.is_file():
+                    manifest.write(f"{file_sha(artifact)}  {name}\n")
         status = txt(args.output/"session-status.txt")
         if guide_error:
             raise RuntimeError("LIVE GATE INCOMPLETE: " + guide_error +
