@@ -49,6 +49,49 @@ the next starts; a failure stops and preserves evidence. This is still
 unqualified on the new runner until the physical recording passes.
 Gate5/PR87 exact-head qualification remains a separate lane.
 
+### 2026-10-16 ~16:02 UTC: corrected-mode4 guided run partially PASSED
+
+Physical checkout `fad839f` loaded a temporary, enrolled-MOK-signed
+`std_raw_transition=4` module, digest
+`f50dfa33d59221bc985a095d8f9359e12969a31ffcfaab9a07e19e9a3943cda4`.
+Spoken voice, live evdev monitor and read-only collector all started.
+The event-gated `quick-one` (movement + lift) **PASSED** and
+`quick-pinch` (two-finger closing motion) **PASSED** on this corrected
+mode4 implementation. On `quick-expand` the monitor reported *tracking
+IDs changed*, repeated the **same continuation** three times and correctly
+terminated as INCONCLUSIVE. The original Gate5 mode1 was restored
+automatically. These are **two qualified gesture-level observations**, not
+a complete acceptance or a demonstrated kernel tracking defect.
+
+**Test design defect confirmed in source:** the runner delayed a connected
+same-finger expansion by playing a full voiced 5–1 countdown, multiple long
+prompts, and an acknowledgement while expecting that pair to remain down.
+Moreover, a continuation retry retained the old pair without restarting
+the initial pinch. It cannot determine from the terminal transcript whether
+the physical user lifted/repositioned during the gap or the kernel lost its
+tracking IDs; the saved `live-evdev.jsonl` can establish *when* the
+transition occurred but not the operator's hand position.
+
+Fixes on the experimental branch:
+- Continuous pinch→expand→hold→lift prompts are short and **skip the full
+  countdown**. Normal independent tests still count down aloud.
+- The verifier consumes **every frame since the preceding accepted pair**
+  including events during spoken instructions; no interval is thrown away.
+- Changing contact IDs or losing contacts during a connected gesture is an
+  irreversible **INCONCLUSIVE**, not a retry of expansion against stale IDs.
+- Host tests simulate a successful uninterrupted contact chain and a
+  finger lift **during the voiced transition**, rejecting the latter.
+- Read-only `audit_voice_gap.py` summarizes the already-preserved original
+  evdev evidence and phase timestamps without requiring another physical
+  test or exposing gesture coordinates.
+
+**Next evidence action before any re-test**: run
+`python3 tools/hardware_evidence/audit_voice_gap.py
+~/sl4a-hardware-runs/mode4-full-20261016T155826Z` from the updated worktree.
+Share the small textual summary so we can distinguish a voice-gap reset
+from a live-expansion discontinuity. Do not promote the mode4 driver based
+on the two initial gesture passes alone.
+
 ## 2. Mandatory sound-and-evidence policy for physical tests
 
 **2026-10-16 usability correction:** audible *tones alone* are inadequate when
@@ -94,6 +137,10 @@ All **interactive** physical touch/stylus sessions now use:
   before/after counters, event trace, logs and manifest/checksums.
 - No fake PASS when audio failed, evtest did not record events, a
   collection job failed, a frame dropped, or mode/identity was wrong.
+- Independent new-contact gestures receive full audible countdowns;
+  consecutive same-two-finger movements get **immediate spoken transitions**
+  without a 5-second pause. A broken contact chain cannot be "retried"
+  by reattempting only the final movement.
 
 Reusable runner on the **experiment branch**:
 `tools/hardware_evidence/guided_session.py`.
