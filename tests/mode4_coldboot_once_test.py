@@ -14,6 +14,13 @@ wrapper = (root / "tools/experiments/host56-mode4.sh").read_text()
 assert 'coldboot-stage) coldboot_stage' in wrapper
 assert 'coldboot-finish) coldboot_finish' in wrapper
 assert 'coldboot-cancel)' in wrapper
+assert 'coldboot-diagnose)' in wrapper
+assert 'diagnose) diagnose' in original
+assert 'INCONCLUSIVE_KERNEL_MISMATCH' in original
+assert 'INCONCLUSIVE_STAGING_EXPIRED' in original
+assert 'INCONCLUSIVE_BAD_STAGE_EPOCH' in original
+assert 'boot default symlink target=' in original
+assert 'archive="$BASE-archive-$(date -u +%Y%m%dT%H%M%SZ)-$"' in original
 assert 'Type ARM' in wrapper and 'Type COLD' in wrapper
 assert 'if capture quick; then' in wrapper
 assert 'finish FAIL' in wrapper and 'finish PASS' in wrapper
@@ -210,5 +217,49 @@ with tempfile.TemporaryDirectory(prefix="mode4-coldboot-state-") as work:
     call("rollback")
     assert (temp/"parameters/std_raw_transition").read_text().strip() == "1"
     assert (base/"result").read_text().strip() == "INCONCLUSIVE_WATCHDOG_ROLLBACK"
+
+    # Regression for 2026-10-16 physical first attempt:
+    # 2 minutes after staging, the boot service got a kernel mismatch
+    # (previous script mislabeled it generic INCOMPLETE). No module insert.
+    import shutil
+    (base/"armed").write_text("")
+    (base/"stage_boot_id").write_text("previous-boot-6\n")
+    (base/"result").write_text("ARMED_NOT_TESTED\n")
+    (base/"kernel").write_text("kernel-staged-but-not-booted\n")
+    (base/"stage_epoch").write_text(str(int(time.time()) - 120) + "\n")
+    bootid.write_text("actual-boot-6\n")
+    if temp.exists():
+        shutil.rmtree(temp)
+    dropin.write_text("temporary override")
+    (t/"call.log").write_text("")
+    r=call("boot",want=1)
+    assert (base/"result").read_text().strip() == "INCONCLUSIVE_KERNEL_MISMATCH",r.stdout
+    assert "KERNEL_MISMATCH staged=kernel-staged-but-not-booted" in r.stdout
+    assert "module not inserted" in r.stdout
+    assert not dropin.exists()
+    assert "insmod " not in (t/"call.log").read_text()
+    assert "systemd-run" not in (t/"call.log").read_text()
+    assert (temp/"parameters/std_raw_transition").read_text().strip() == "1"
+    # Diagnosis of retained failed evidence is read-only and actionable.
+    r=call("diagnose")
+    assert "staged-but-not-booted" in r.stdout and "VERDICT: kernel changed" in r.stdout
+
+    # Genuine elapsed staging timeout has a DIFFERENT status and never
+    # reaches the experimental module or recovery watchdog.
+    (base/"armed").write_text("")
+    (base/"stage_boot_id").write_text("previous-boot-7\n")
+    (base/"result").write_text("ARMED_NOT_TESTED\n")
+    (base/"kernel").write_text(subprocess.check_output(["uname","-r"],text=True).strip()+"\n")
+    (base/"stage_epoch").write_text(str(int(time.time()) - 90000) + "\n")
+    bootid.write_text("actual-boot-7\n")
+    shutil.rmtree(temp)
+    dropin.write_text("temporary override")
+    (t/"call.log").write_text("")
+    r=call("boot",want=1)
+    assert (base/"result").read_text().strip() == "INCONCLUSIVE_STAGING_EXPIRED"
+    assert "STAGE_AGE_SECONDS=" in r.stdout
+    assert "insmod " not in (t/"call.log").read_text()
+    assert "systemd-run" not in (t/"call.log").read_text()
+    assert (temp/"parameters/std_raw_transition").read_text().strip() == "1"
 
 print("coldboot one-shot consumption, signed identity, Gate5 rollback, stale timer and negative controls: PASS")
