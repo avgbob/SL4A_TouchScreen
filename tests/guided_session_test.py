@@ -54,6 +54,13 @@ assert "qualify() {" in wrapper
 assert 'trap \'restore\' EXIT' in wrapper
 assert 'if [[ ! -r "$SYS" || "$(cat "$SYS")" != 1 ]]' in wrapper
 assert 'capture "$protocol"' in wrapper
+assert "qualify_warm_three() {" in wrapper
+assert 'qualify-warm3) qualify_warm_three ;;' in wrapper
+assert "for cycle in 1 2 3; do" in wrapper
+assert 'capture quick' in wrapper and 'sha256sum "$MODULE"' in wrapper
+assert 'trap \'restore\' EXIT' in wrapper
+assert 'trap - EXIT' in wrapper, (
+    "do not restore twice after successful last warm cycle")
 assert 'quick|full|contacts' in wrapper, (
     "qualification should cover untested contact-count cases without"
     " making the physical tester repeat established pinch sequences")
