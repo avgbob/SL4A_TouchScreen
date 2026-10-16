@@ -89,7 +89,7 @@ python3 tools/hardware_evidence/guided_session.py --audio-check
 
 ```sh
 python3 tools/hardware_evidence/guided_session.py \
-    --protocol full --case mode4-warm-01-full \
+    --protocol full --expected-mode 4 --case mode4-warm-01-full \
     --output "$HOME/sl4a-hardware-runs/mode4-warm-01-full"
 ```
 
@@ -98,6 +98,32 @@ For temporary mode4 the wrapper also supports:
 `bash tools/experiments/host56-mode4.sh capture quick`,
 `capture full`, `capture pinch`, `capture contacts`, and `capture stylus`.
 It refuses to take a mode4 capture if a different mode is loaded.
+
+### 2026-10-16 evidence hardening
+
+The guided runner now **requires an explicit `--expected-mode`** for a physical
+test. It verifies that the running module's `srcversion` matches the
+worktree's signed module, its vermagic matches the running kernel, the tracked
+Git tree is clean, and the exact source SHA / signed module SHA-256 is recorded.
+These are cross-checks, not a cryptographic dump of the loaded in-memory image.
+
+After gesture capture, a run **fails** when `reset_rsp` or
+`frames_dropped` increases, and MT tests also require increasing
+`raw_observed` and DATA counts. No counter/identity mismatch can be
+reported as a qualification PASS. A final root `SHA256SUMS.txt` covers
+**every file**, including the cue markers and live-event JSONL copied after
+the lower-level collector finalizes. A checksum verification failure
+invalidates the evidence package.
+
+The two-finger release gate now requires both **original tracking IDs
+to be observed down in the release phase** before accepting the empty
+release frame. Speech explicitly checks the held contacts first, then
+says "Lift them now" without an intervening countdown that might cause
+the release to occur before monitoring begins.
+
+These safeguards are host-tested and **still require their first physical
+end-to-end validation**. Existing October 16 tests with a silent timer
+remain historical evidence only; they are not retroactively upgraded.
 
 ## 3. Desk work FIRST (no physical unit)
 
