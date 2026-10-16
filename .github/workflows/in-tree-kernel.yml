@@ -31,7 +31,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y bc bison flex libssl-dev libelf-dev \
-            dwarves rsync cpio kmod fakeroot dpkg-dev xz-utils \
+            dwarves rsync cpio kmod fakeroot dpkg-dev debhelper libdw-dev xz-utils \
             libncurses-dev build-essential
 
       - name: Download pinned stable Linux 6.18.57
