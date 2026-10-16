@@ -341,6 +341,8 @@ test: protocol_test capimg_decoder_host_test c590_atan2_host_test wire_frames_te
 	$(PYTHON) s2idle_qualification_test.py
 	$(PYTHON) mode4_coldboot_once_test.py
 	bash -n ../tools/experiments/host56-mode4.sh
+	bash -n ../tools/experiments/pr87-exact-head.sh
+	$(PYTHON) pr87_exact_head_harness_test.py
 	$(PYTHON) gate5_data_drain_race_source_test.py
 	$(PYTHON) gate5_installer_profile_source_test.py
 	$(PYTHON) secure_boot_installer_source_test.py
