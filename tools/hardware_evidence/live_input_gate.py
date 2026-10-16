@@ -86,9 +86,11 @@ def stream(source, device):
     if source == "direct" and ("045E:0C19" not in name.upper() or "Stylus" in name):
         raise RuntimeError("direct monitor refused mismatched input device: " + name)
     decoder = Decoder(source)
-    print(json.dumps({"kind": "ready", "source": source,
-                      "device": device, "name": name}), flush=True)
     with open(device, "rb", buffering=0) as dev:
+        # Report READY only after the evdev file is open, not before a
+        # possible permission failure or hot-unplug.
+        print(json.dumps({"kind": "ready", "source": source,
+                          "device": device, "name": name}), flush=True)
         partial = b""
         while True:
             data = os.read(dev.fileno(), EVENT.size * 64)
