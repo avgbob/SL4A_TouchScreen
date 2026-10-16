@@ -372,7 +372,11 @@ coldboot_finish() {
     [[ -x "$hook" ]] || {
         echo "ERROR: coldboot not staged or helper missing" >&2; return 1
     }
-    "$hook" verify || return 1
+    if ! "$hook" verify; then
+        echo "Cold-boot identity is unqualified; requesting safe rollback." >&2
+        as_root "$hook" rollback || true
+        return 1
+    fi
     printf 'Was the laptop fully powered OFF and then powered ON? Type COLD: '
     local confirm
     IFS= read -r confirm
