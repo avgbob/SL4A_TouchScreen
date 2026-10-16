@@ -4,7 +4,55 @@
 the independent DieSchatten device, and Syax89's upstream PR #87.
 This is an operating plan, not a claim of broad compatibility.
 
-## 2026-10-16 cold-boot next step: reviewed one-shot stage (not physically run)
+## 2026-10-16 18:10 UTC: first one-shot mode4 cold-boot attempt INCONCLUSIVE
+
+The physical tester staged the signed mode4 module at 18:08:35Z,
+source checkout **`0c2fbf1ee9fa6fabeb0f7fe9d6f350329e92bd64`**,
+signed module SHA256
+`44d05f0a5e36eaaed3bcbc08897c7c77e2ded65e69c7aa1f4ce22947a9d6b83c`.
+After actual full poweroff and new power-on, the one-shot late-boot
+activation service ran at 18:10:35Z. Recorded stage and trial boot IDs
+differed (`9a6e7959-92d2-4400-bd0a-7340aa488f50` vs
+`1cd3ebae-96c0-4d4d-9073-85f8485d8d12`).
+
+The boot hook consumed/removed its temporary service override, then
+reported **`ERROR changed kernel / stale experiment`** and returned
+to installed Gate5. A subsequent `coldboot-finish` printed
+`Status: INCOMPLETE`, `Live mode: 1`; safe rollback left the
+already loaded Gate5 in place. No rollback timer existed because the
+hook exited **before** the experimental driver or timer could be armed.
+Kernel events and stage/boot exact kernel strings were not in the
+supplied diagnostic, so do not assert a definite kernel change yet.
+The stage-to-boot timestamps are only **120 seconds apart**, suggesting
+kernel mismatch (possibly a newly installed kernel selected on reboot)
+over a genuine 24-hour expiration, unless the system clock moved.
+
+**Source-side fix committed:** separate `INCONCLUSIVE_KERNEL_MISMATCH`,
+`INCONCLUSIVE_STAGING_EXPIRED` and invalid timestamp verdicts with
+exact expected/running kernels in the log; provide **read-only**
+`coldboot-diagnose` including staged kernel, current `uname -r`,
+staged module vermagic, age, boot IDs and hooks. Staging now refuses
+when Ubuntu's known `/boot/vmlinuz` (or `/vmlinuz`) boot-default
+symlink points at a different installed kernel from the running one,
+rather than wasting a one-shot boot. The existing state machine
+continues to fail closed and preserve Gate5. Updated host tests
+reproduce distinct mismatch vs expiry and check no experimental
+`insmod` or timer activation on either.
+
+**Next physical action is READ-ONLY**, not another power cycle:
+
+```bash
+cd ~/SL4A_TouchScreen-host56
+git fetch https://github.com/avgbob/SL4A_TouchScreen.git experiment/sl4-std-host56-set5
+git switch --detach FETCH_HEAD
+bash tools/experiments/host56-mode4.sh coldboot-diagnose
+```
+
+Inspect saved/running kernels and staging age before considering
+restaging. No additional cold-boot evidence can be claimed yet.
+The 16-gesture matrix, warm 3/3 and s2idle 2/2 are unaffected.
+
+## 2026-10-16 cold-boot next step: reviewed one-shot stage (first physical attempt inconclusive; keep unchanged recovery profile)
 
 **Safety rationale:** installed `sl4a-touch-activate.service` activates
 after `multi-user.target` by design (early automatic ACPI binding
