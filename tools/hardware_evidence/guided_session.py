@@ -346,20 +346,112 @@ def copy_artifacts(output, copies):
                     f"{os.getuid()}:{os.getgid()}", str(output)],
                    check=True)
 
+
+def read_stats(text):
+    """Parse the driver's monotone counters; missing data cannot mean zero."""
+    pairs = {}
+    for line in text.splitlines():
+        if "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        if value.isdecimal():
+            pairs[key] = int(value)
+    for key in ("reset_rsp", "frames_dropped", "data", "raw_observed"):
+        if key not in pairs:
+            raise RuntimeError(f"missing protocol counter: {key}")
+    return pairs
+
+
+def verify_run_integrity(expected_mode, source):
+    """Fail closed when current source/build cannot be tied to the live driver.
+
+    No kernel API supplies an unmodified, post-load .ko to hash. The
+    independent live srcversion and build-id (if exposed), module signing
+    identity, clean Git source and signed file hash make provenance explicit.
+    """
+    mode = txt(MODE)
+    if mode != expected_mode:
+        raise RuntimeError(
+            f"loaded transition mode {mode}, expected {expected_mode}")
+    if not source.is_file():
+        raise RuntimeError("locally built signed module missing: " + str(source))
+    if probe(["git", "-C", str(ROOT), "status", "--porcelain", "--untracked-files=no"]):
+        raise RuntimeError("source worktree has uncommitted tracked changes")
+    revision = probe(["git", "-C", str(ROOT), "rev-parse", "HEAD"])
+    if len(revision) != 40:
+        raise RuntimeError("could not identify full source commit SHA")
+    expected_version = probe(["modinfo", "-F", "srcversion", str(source)])
+    live_version = txt(Path("/sys/module/sl4a_spi_hid/srcversion"))
+    if (not expected_version or expected_version == "UNAVAILABLE" or
+            expected_version != live_version):
+        raise RuntimeError("LIVE srcversion does not match built module: " +
+                           str(live_version) + " vs " + str(expected_version))
+    expected_signer = probe(["modinfo", "-F", "signer", str(source)])
+    if not expected_signer or expected_signer == "UNAVAILABLE":
+        raise RuntimeError("built module is not signed")
+    expected_vermagic = probe(["modinfo", "-F", "vermagic", str(source)])
+    kernel = probe(["uname", "-r"])
+    if not expected_vermagic.startswith(kernel + " "):
+        raise RuntimeError("compiled module vermagic does not match running kernel")
+    return {
+        "source_commit": revision,
+        "live_mode_verified": mode,
+        "module_sha256": file_sha(source),
+        "module_srcversion_verified": expected_version,
+        "module_signer": expected_signer,
+        "module_vermagic": expected_vermagic,
+        "working_tree_clean_tracked": "YES",
+    }
+
+
+def verify_counters(before, after, source):
+    a, b = read_stats(before), read_stats(after)
+    for key in ("reset_rsp", "frames_dropped"):
+        delta = b[key] - a[key]
+        if delta != 0:
+            raise RuntimeError(f"{key} changed during gesture test ({delta:+d})")
+    if source == "beta":
+        if b["raw_observed"] <= a["raw_observed"]:
+            raise RuntimeError("no new CapImg frames received in MT gesture test")
+        if b["data"] <= a["data"]:
+            raise RuntimeError("no new DATA frames received in MT gesture test")
+    return {f"delta_{name}": b[name] - a[name]
+            for name in ("reset_rsp", "frames_dropped", "data", "raw_observed")}
+
+
+def finalize_manifest(output):
+    """Hash every finished artifact including the after-session metadata."""
+    manifest = output / "SHA256SUMS.txt"
+    with manifest.open("w") as fp:
+        for path in sorted(output.rglob("*")):
+            if path == manifest or not path.is_file() or path.is_symlink():
+                continue
+            fp.write(f"{file_sha(path)}  {path.relative_to(output)}\\n")
+    # Verify the completed manifest, not merely its successful write.
+    p = subprocess.run(["sha256sum", "--check", "--status", str(manifest)],
+                       cwd=output, capture_output=True, text=True)
+    if p.returncode:
+        raise RuntimeError("final evidence package checksum verification failed")
+
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--protocol", choices=sorted(PROTOCOLS), default="quick")
     parser.add_argument("--case", help="Unique run label (e.g. mode4-warm-01)")
     parser.add_argument("--output", type=Path, help="NEW session folder (never overwritten)")
     parser.add_argument("--period", choices=("p1", "p2", "p3"), default="p1")
+    parser.add_argument("--expected-mode", choices=("0", "1", "2", "3", "4"),
+                        help="Required live transition mode for an auditable physical run")
     parser.add_argument("--input-source", choices=("beta", "direct", "stylus"),
                         help="evtest source; defaults to beta MT (stylus for pen protocol)")
     parser.add_argument("--demo", action="store_true", help="Preview cues only, no hardware or sudo")
     parser.add_argument("--audio-check", action="store_true",
                         help="Require audible playback confirmed by operator; no hardware changes")
     args = parser.parse_args()
-    if not (args.demo or args.audio_check) and (not args.output or not args.case):
-        parser.error("--case and --output are required outside --demo")
+    if not (args.demo or args.audio_check) and (
+            not args.output or not args.case or args.expected_mode is None):
+        parser.error("--case, --output and --expected-mode are required for physical tests")
     if args.case and not all(x.isalnum() or x in "._-" for x in args.case):
         parser.error("--case accepts only ASCII letters/digits/._-")
     if args.output and args.output.exists():
@@ -386,14 +478,17 @@ def main():
             raise RuntimeError("MSHW0231 touch driver is not present")
         if not shutil.which("evtest"):
             raise RuntimeError("evtest is required for meaningful MT event traces")
-        mode = txt(MODE)
-        if mode not in ("0", "1", "2", "3", "4"):
-            raise RuntimeError(f"unexpected module mode: {mode}")
+        # Check the live module and clean source before opening ANY evidence
+        # capture. No input trace can qualify a stale or mismatched build.
+        built = ROOT / "driver/sl4a-spi-hid.ko"
+        verified_identity = verify_run_integrity(args.expected_mode, built)
+        mode = verified_identity["live_mode_verified"]
         args.output.parent.mkdir(parents=True, exist_ok=True)
         # The collector is deliberately a root-run read-only script; the
         # prompts/playback must stay in this (desktop-user) process.
         subprocess.run(["sudo", "-v"], check=True)
         props = {
+            **verified_identity,
             "utc_start": stamp(),
             "case": args.case, "protocol": args.protocol,
             "input_source": input_source,
@@ -406,9 +501,7 @@ def main():
             "boot_profile": txt(Path("/etc/modprobe.d/sl4a-spi-hid.conf")),
             "stats_before": txt(STATS),
         }
-        built = ROOT / "driver/sl4a-spi-hid.ko"
-        if built.is_file():
-            props["worktree_module_sha256"] = file_sha(built)
+
         # Dynamic early-stop marker lets the read-only evidence collector
         # close and checksum promptly after all verified gestures. The large
         # duration is only a hard upper bound, not a forced waiting period.
@@ -529,6 +622,20 @@ def main():
         props["utc_end"] = stamp()
         props["stats_after"] = txt(STATS)
         props["collector_exit_code"] = str(exit_code)
+        # An unchanged Git tree doesn't rule out a replaced .ko file, so
+        # recheck the exact same binary and live kernel module after capture.
+        try:
+            check = verify_run_integrity(args.expected_mode, built)
+            if (check["module_sha256"] != verified_identity["module_sha256"]
+                    or check["source_commit"] != verified_identity["source_commit"]):
+                raise RuntimeError("signed module or source changed during capture")
+            props.update(verify_counters(
+                props["stats_before"], props["stats_after"], input_source))
+            props["integrity_and_counters"] = "PASS"
+        except RuntimeError as e:
+            if guide_error is None:
+                guide_error = str(e)
+            props["integrity_and_counters"] = "FAIL: " + str(e)
         operator = args.output / "operator"
         # Only the new directory created for this run is chowned; original
         # driver, MOK and persistent configuration remain untouched.
@@ -555,6 +662,7 @@ def main():
                 artifact = operator / name
                 if artifact.is_file():
                     manifest.write(f"{file_sha(artifact)}  {name}\n")
+        finalize_manifest(args.output)
         status = txt(args.output/"session-status.txt")
         if guide_error:
             raise RuntimeError("LIVE GATE INCOMPLETE: " + guide_error +
@@ -572,8 +680,9 @@ def main():
             raise RuntimeError("No captured evtest input events; do not mark PASS")
         print(f"\nCAPTURE SAVED: {args.output}\n"
               f"Run metadata and cue timestamps: {operator}\n"
-              "Every requested gesture passed its live-input gate. "
-              "Kernel resets, frame drops and lifecycle still need audit.",
+              "All live gesture gates, source identity, resets, "
+              "frame drops and evidence checksums passed for this session. "
+              "Cold boot/reload/suspend still require separate qualification.",
               flush=True)
         return 0
 
