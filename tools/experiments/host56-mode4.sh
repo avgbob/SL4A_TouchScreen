@@ -120,8 +120,8 @@ restore() {
 capture() {
     require_device
     local protocol="${1:-quick}"
-    case "$protocol" in quick|pinch|contacts|stylus) ;; *)
-        echo "ERROR: protocol must be quick, pinch, contacts, or stylus" >&2
+    case "$protocol" in quick|pinch|contacts|full|stylus) ;; *)
+        echo "ERROR: protocol must be quick, pinch, contacts, full, or stylus" >&2
         exit 2 ;; esac
     [[ -r "$SYS" && "$(cat "$SYS")" == 4 ]] || {
         echo "ERROR: guided mode4 capture requires experimental mode 4 active" >&2
@@ -142,5 +142,5 @@ case "${1:-}" in
     capture) capture "${2:-quick}" ;;
     audio-check) python3 "$ROOT/tools/hardware_evidence/guided_session.py" --audio-check ;;
     status) show_status ;;
-    *) echo "Usage: $0 {prepare|activate|audio-check|capture [quick|pinch|contacts|stylus]|status|restore}" >&2; exit 2 ;;
+    *) echo "Usage: $0 {prepare|activate|audio-check|capture [quick|pinch|contacts|full|stylus]|status|restore}" >&2; exit 2 ;;
 esac
