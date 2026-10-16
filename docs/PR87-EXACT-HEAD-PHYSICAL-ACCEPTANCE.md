@@ -24,6 +24,33 @@ enrolled Ubuntu DKMS MOK. Known-working, installed boot fallback:
 Gate5 `sl4a-touch/1.7.0` mode1, production driver source identity
 `3326E559A916BE5CB52375D` from preceding hardware diagnosis.
 
+### First analyzer field run: zero measurements — label mismatch FIXED
+
+The user ran the first analyzer on **all five** qualified PR87
+quick captures plus the independent mode4 quick capture. It
+printed `Analyzed 0 release-phase result(s)`. This is an
+**analyzer bug**, not a release-time result: that first analyzer
+only recognized phase names `quick-expand`/`quick-lift` or
+`pinch-expand`/`pinch-lift`. The actual
+`guided_session.PROTOCOLS["quick"]` and
+`PROTOCOLS["pinch"]` use unprefixed `expand` and `lift`,
+as confirmed directly in the generator source. Thus an
+otherwise valid capture produced no matching markers.
+
+The correction recognizes **real `expand` / `lift`** and
+keeps prefixed aliases only for older/alternate captures;
+discovery now starts from `operator/cues.tsv` even when the
+evdev JSONL is missing. An empty root prints
+`NO_CAPTURE_FOUND`, unknown pass labels print
+`NO_MATCHING_RELEASE_PHASE` with recorded label names,
+and missing/unreadable evdev is `UNREADABLE`; these all
+produce **nonzero** process exit status, not silent success.
+Regression tests use fixtures shaped after the **real
+unprefixed** recorder, plus malformed/empty-label cases.
+The analysis remains read-only. **Actual release gaps are still
+not determined** until the corrected tool is run against the
+existing local captures.
+
 ## Automated, offline release-latency screening (existing physical captures)
 
 Following the operator's repeated report of “One original finger remains”
