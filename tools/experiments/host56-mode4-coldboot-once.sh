@@ -89,7 +89,27 @@ stage() {
     fi
     [[ "$module" == /* && -s "$module" ]] || { echo "Signed module missing" >&2; exit 1; }
     [[ -d /sys/bus/acpi/devices/MSHW0231:00 ]] || { echo "MSHW0231 absent" >&2; exit 1; }
-    [[ "$(mode)" == 1 ]] || { echo "Working Gate5 mode1 required" >&2; exit 1; }
+    [[ "$(mode)" == 1 ]] || { echo "Gate5 mode1 must be loaded" >&2; exit 1; }
+    # A loaded HID module can still report mode1 with NO SPI controller.
+    # Staging a power-cycle experiment from that broken state would make
+    # the baseline appear healthy when no physical touchscreen exists.
+    local controller_path="" controller_binding="" touch_binding=""
+    for controller_path in /sys/bus/platform/devices/AMDI0060:*; do
+        [[ -d "$controller_path" ]] && break
+    done
+    if [[ -L "$controller_path/driver" ]]; then
+        controller_binding="$(basename "$(readlink -f "$controller_path/driver")")"
+    fi
+    if [[ -L /sys/bus/acpi/devices/MSHW0231:00/physical_node/driver ]]; then
+        touch_binding="$(basename "$(readlink -f /sys/bus/acpi/devices/MSHW0231:00/physical_node/driver)")"
+    fi
+    if [[ "$controller_binding" != sl4a_spi_amd_v2_multi ||
+          "$touch_binding" != sl4a_spi_hid || ! -r "$STATS" ]]; then
+        echo "REFUSE staging: working Gate5 needs BOTH driver bindings and readable protocol_stats" >&2
+        echo "AMD_binding=${controller_binding:-UNBOUND} HID_binding=${touch_binding:-UNBOUND}" >&2
+        echo "Recover normal touch first; never infer functionality from mode1 alone." >&2
+        exit 1
+    fi
     grep -q 'std_raw_transition=1' /etc/modprobe.d/sl4a-spi-hid.conf || {
         echo "Persistent Gate5 profile not recognized" >&2; exit 1;
     }
