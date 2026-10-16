@@ -4070,7 +4070,11 @@ static void seq_handle_data(struct spi_hid *shid, int type, u16 blen)
 		    body[7] == 0x0C && shid->touch_input) {
 			int cret;
 
-			if (stream_watchdog_ms > 0 && !shid->stream_watchdog_active) {
+			/* Standard CapImg must not arm raw runtime recovery: with
+			 * std_liveness_ms=0 that accidentally schedules repeated
+			 * 'standard-mode liveness: ... within 0ms' callbacks. */
+			if (shid->raw_mode_active && stream_watchdog_ms > 0 &&
+			    !shid->stream_watchdog_active) {
 				shid->stream_watchdog_active = true;
 				stream_watchdog_mark_live(shid);
 				shid->stream_watchdog_reinits = 0;
