@@ -112,7 +112,9 @@ with tempfile.TemporaryDirectory(prefix="mode4-coldboot-state-") as work:
         'echo SIMULATEDREV > "'+str(temp)+'/srcversion"',
         'exit 0'
     ]))
-    tool("journalctl", 'echo "kernel synthetic MSHW0231"')
+    tool("journalctl", 'if [[ -f "'+str(t/'earlier-hid')+'" ]]; then '+
+         'echo "kernel sl4a_spi_hid probe begin"; '+
+         'else echo "kernel synthetic MSHW0231"; fi')
     environment=dict(os.environ, PATH=str(bindir)+os.pathsep+os.environ.get("PATH",""))
     def call(verb, want=0):
         r=subprocess.run(["bash",str(helper),verb],env=environment,text=True,
@@ -174,5 +176,35 @@ with tempfile.TemporaryDirectory(prefix="mode4-coldboot-state-") as work:
     call("boot",want=1)
     assert not dropin.exists()
     assert "insmod" not in (t/"call.log").read_text()
+
+    # A probe earlier in the SAME boot invalidates first-HID qualification,
+    # even if that earlier module was unloaded before the late service runs.
+    (base/"armed").write_text("")
+    (base/"stage_boot_id").write_text("before-test4\n")
+    (base/"result").write_text("ARMED_NOT_TESTED\n")
+    bootid.write_text("test4-boot\n")
+    dropin.write_text("temporary override")
+    modulepath.write_bytes(b"synthetic signed module binary")
+    (t/"earlier-hid").write_text("prior boot probe")
+    (t/"call.log").write_text("")
+    call("boot")
+    assert (base/"result").read_text().strip() == "INCONCLUSIVE_EARLIER_HID_PROBE"
+    assert not dropin.exists()
+    assert "insmod" not in (t/"call.log").read_text()
+    (t/"earlier-hid").unlink()
+
+    # Independent timer firing before operator confirmation must restore
+    # Gate5 and mark the trial INCONCLUSIVE rather than qualify it.
+    (base/"armed").write_text("")
+    (base/"stage_boot_id").write_text("before-test5\n")
+    (base/"result").write_text("ARMED_NOT_TESTED\n")
+    bootid.write_text("test5-boot\n")
+    dropin.write_text("temporary override")
+    (t/"call.log").write_text("")
+    call("boot")
+    assert (base/"result").read_text().strip() == "ACTIVE_AWAITING_POSTBOOT_TOUCH"
+    call("rollback")
+    assert (temp/"parameters/std_raw_transition").read_text().strip() == "1"
+    assert (base/"result").read_text().strip() == "INCONCLUSIVE_WATCHDOG_ROLLBACK"
 
 print("coldboot one-shot consumption, signed identity, Gate5 rollback, stale timer and negative controls: PASS")
