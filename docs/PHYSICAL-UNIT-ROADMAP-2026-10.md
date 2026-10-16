@@ -4,6 +4,78 @@
 the independent DieSchatten device, and Syax89's upstream PR #87.
 This is an operating plan, not a claim of broad compatibility.
 
+## 2026-10-16 cold-boot next step: reviewed one-shot stage (not physically run)
+
+**Safety rationale:** installed `sl4a-touch-activate.service` activates
+after `multi-user.target` by design (early automatic ACPI binding
+previously caused boot failures). Do NOT edit that service's original
+unit, existing Gate5 `/etc/modprobe.d/sl4a-spi-hid.conf`, installed
+DKMS modules, Secure Boot MOK, initramfs or boot loader. The experimental
+one-shot helper adds **only**
+`/etc/systemd/system/sl4a-touch-activate.service.d/90-mode4-once.conf`
+with a replacement `ExecStart` targeting a root-owned helper.
+
+**Staging** requires working loaded Gate5 mode1, an enabled known
+activation unit with no competing drop-ins, correct MSHW0231 ACPI
+hardware, correct kernel vermagic and signed mode4 module, manual
+typed `ARM`, and complete root-only evidence staging. Stage copies
+the signed module into `/var/lib/sl4a-mode4-coldboot/signed-mode4.ko`
+without altering DKMS. **After staging, fully POWER OFF** using
+`sudo systemctl poweroff`. Manually press the physical power button
+after shutdown. A warm reboot would NOT qualify true cold startup.
+
+**Next-boot one-shot:** the replacement boot service first refuses to
+run on the staging boot. On the next boot it consumes/removes its own
+drop-in *before driver insertion*, then arms an **independent 20-minute
+systemd rollback timer**. It attempts a first mode4 HID load only if
+**no HID module was loaded earlier** and the signed binary SHA256,
+source version, kernel and staging age match. If the driver already
+autoloaded earlier, the trial is **INCONCLUSIVE**; no warm swap is
+permitted just to manufacture a pass. The trial's claimed first HID
+load and boot ID are recorded.
+
+**After login**, `coldboot-finish` checks that the current boot is the
+new one and the exact signed mode4 is still loaded; operator confirms
+`COLD` (physical power-off/power-on), then it runs the *existing
+spoken and live event-gated* `quick` protocol. On success it records
+one exact-build cold-start PASS and immediately restores installed
+Gate5 mode1. On a normal failure it restores Gate5 and marks the
+run INCONCLUSIVE. If the terminal dies, the independent timer attempts
+recovery. If the machine must be hard rebooted, the already-consumed
+drop-in is absent and **the original Gate5 startup service resumes**
+automatically. No cold PASS is asserted without physical operator
+confirmation, preserved trial boot identity, first HID insertion and
+actual gesture/checksum evidence.
+
+**Operator sequence (on the Surface):**
+
+```bash
+cd ~/SL4A_TouchScreen-host56
+git fetch https://github.com/avgbob/SL4A_TouchScreen.git experiment/sl4-std-host56-set5
+git switch --detach FETCH_HEAD
+bash tools/experiments/host56-mode4.sh coldboot-stage
+# Read the displayed safety instructions, type ARM if accepted.
+sudo systemctl poweroff
+# Wait until actually off, then press the physical power button.
+# Log in to the SAME user desktop/terminal:
+cd ~/SL4A_TouchScreen-host56
+bash tools/experiments/host56-mode4.sh coldboot-finish
+# Type COLD only if physically powered off; follow spoken quick cues.
+```
+
+Before shutdown, cancel safely with `bash
+tools/experiments/host56-mode4.sh coldboot-cancel`. For inspection
+`coldboot-status` is read-only. If boot unexpectedly fails, use a
+recovery shell to remove just
+`/etc/systemd/system/sl4a-touch-activate.service.d/90-mode4-once.conf`,
+reload systemd if appropriate, and reboot normally; never remove the
+Gate5 original service or DKMS modules.
+
+**Acceptance remains PENDING until the real hardware run.**
+No user machine was altered by preparing these source files in GitHub.
+An independent exact-head `upstream/std-capimg-mt` (PR #87) test
+must follow and must not inherit the mode4 result.
+
 ## Latest result — 2026-10-16 17:34–17:39 UTC: mode4 **s2idle 2/2 PASS**
 
 **Physical test:** Surface Laptop 4 AMD / kernel `7.0.0-31-generic`,
