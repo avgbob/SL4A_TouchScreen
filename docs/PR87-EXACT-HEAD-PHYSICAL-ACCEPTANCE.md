@@ -164,6 +164,61 @@ Evidence will be retained at
 `~/sl4a-hardware-runs/pr87-exact-warm3-<timestamp>/`.
 Do not claim 3/3 PASS from CI or from this documentation alone.
 
+## Next physical step: PR87 EXACT-HEAD TRUE S2IDLE **2/2 (PENDING)**
+
+**Prerequisites:** save open work and ensure the same tested PR branch
+commit remains `18f0fe79623e6de4fdf1ae493f82a7048397386a`.
+The stable production Gate5 mode1 must be loaded and physically
+responsive before running. The previous warm test confirmed that
+the PR module builds, loads, and restores safely on kernel34;
+**that does not count as suspend testing**.
+
+Use the independent, regression-tested external harness:
+
+```bash
+cd ~/SL4A_TouchScreen-host56
+git fetch https://github.com/avgbob/SL4A_TouchScreen.git experiment/sl4-std-host56-set5
+git switch --detach FETCH_HEAD
+bash tools/experiments/pr87-exact-head.sh preflight
+bash tools/experiments/pr87-exact-head.sh s2idle2
+```
+
+The read-only `preflight` verifies the current installed Gate5
+module and both live bindings. `s2idle2` requires explicit
+**`S2IDLE`** before compiling/signing/loading any experimental
+driver. It builds the *same exact PR source* once into a transient,
+MOK-signed module. Its signed SHA may or may not be identical to
+the previous warm3 SHA due to rebuild/signing; this test explicitly
+pins one signed SHA *across both suspend cycles*. The physical
+first-person results still need to be observed, not inferred.
+
+For each of TWO sleep cycles, user hears the warning, then types
+**`YES`** before `systemctl suspend`. Wake manually and unlock,
+return to the same terminal. The runner refuses to count an early
+`systemctl` return as a real sleep: it requires `CLOCK_BOOTTIME -
+CLOCK_MONOTONIC` sleep gap ≥2 seconds, both kernel
+`PM: suspend entry (s2idle)` and `PM: suspend exit` markers,
+unchanged loaded experimental driver srcversion and signed module
+file, both AMD+HID bindings and usable protocol counters. The
+post-wake voice must actually be *heard* and confirmed (another
+typed **`YES`**) before the event-gated quick one/two-finger
+gesture test. Separate capture files and PM logs are retained
+per cycle. After both, the helper unloads only the matching
+experimental module, reloads Gate5 controller/HID, and verifies
+production identity and binding.
+
+On an ordinary failure or signal it attempts Gate5 restore.
+As before, SIGKILL or loss of power can bypass a shell trap;
+the installed production boot profile remains unchanged, so
+a normal reboot is the fallback. This is deliberately NOT a
+persistent DKMS/boot experiment.
+
+An actual PASS requires output `PR87 S2IDLE 2/2 PASS`,
+both independent verified sleep gaps, the event-driven guided
+gestures after wake, and final Gate5 restore. Local artifact:
+`~/sl4a-hardware-runs/pr87-exact-s2idle2-<timestamp>`.
+**No s2idle PASS has yet been observed for the current PR**.
+
 ## Next acceptance categories after warm 3/3
 
 1. **Exact-head full gesture matrix** (all phases with live evdev
