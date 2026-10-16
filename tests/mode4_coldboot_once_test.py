@@ -63,6 +63,7 @@ with tempfile.TemporaryDirectory(prefix="mode4-coldboot-state-") as work:
     modulepath.write_bytes(b"synthetic signed module binary")
     (base/"module_sha").write_text(hashlib.sha256(modulepath.read_bytes()).hexdigest()+"\n")
     (base/"srcversion").write_text("SIMULATEDREV\n")
+    (base/"source_sha").write_text("test-source-abcdef\n")
     (base/"stage_boot_id").write_text("staging-boot\n")
     (base/"stage_epoch").write_text(str(int(time.time()))+"\n")
     (base/"kernel").write_text(subprocess.check_output(["uname","-r"],text=True).strip()+"\n")
@@ -128,7 +129,6 @@ with tempfile.TemporaryDirectory(prefix="mode4-coldboot-state-") as work:
     assert (temp/"parameters/std_raw_transition").read_text().strip()=="4"
     assert "--on-active=20m" in (t/"call.log").read_text()
     call("verify")
-    call("finish",want=2) if False else None  # finish needs PASS arg
     r=subprocess.run(["bash",str(helper),"finish","PASS"],env=environment,
                      text=True,capture_output=True,timeout=15)
     assert r.returncode==0,(r.stdout,r.stderr)
@@ -136,6 +136,10 @@ with tempfile.TemporaryDirectory(prefix="mode4-coldboot-state-") as work:
     assert (temp/"parameters/std_raw_transition").read_text().strip()=="1"
     assert (base/"stats-after-touch.txt").exists()
     assert (base/"kernel-coldboot.log").exists()
+    assert (base/"SHA256SUMS.txt").exists()
+    check = subprocess.run(["sha256sum", "-c", "SHA256SUMS.txt"],
+                           cwd=base,text=True,capture_output=True)
+    assert check.returncode == 0, check.stdout + check.stderr
 
     # Next reboot timer/stale callback MUST NOT unload a different boot.
     bootid.write_text("later-normal-boot\n")
