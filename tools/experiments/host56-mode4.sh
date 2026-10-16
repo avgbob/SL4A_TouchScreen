@@ -119,22 +119,28 @@ restore() {
 }
 capture() {
     require_device
-    echo "=== BEFORE ==="
-    show_status
-    echo "Move one then two fingers for 10 seconds..."
-    sleep 10
-    echo "=== AFTER ==="
-    show_status
-    echo "=== KERNEL LOG ==="
-    as_root journalctl -k -b --since '10 minutes ago' --no-pager |
-        grep -Ei 'MSHW0231|host56|mode4|transition|RESET_RSP|heatmap body|CapImg|dropped' |
-        tail -100 || true
+    local protocol="${1:-quick}"
+    case "$protocol" in quick|pinch|contacts|stylus) ;; *)
+        echo "ERROR: protocol must be quick, pinch, contacts, or stylus" >&2
+        exit 2 ;; esac
+    [[ -r "$SYS" && "$(cat "$SYS")" == 4 ]] || {
+        echo "ERROR: guided mode4 capture requires experimental mode 4 active" >&2
+        exit 1
+    }
+    local run_id="mode4-${protocol}-$(date -u +%Y%m%dT%H%M%SZ)"
+    local output="${HOME}/sl4a-hardware-runs/${run_id}"
+    echo "Audibly guided test, timestamped cue markers, evtest and sysfs evidence."
+    echo "Evidence destination: $output"
+    python3 "$ROOT/tools/hardware_evidence/guided_session.py" \
+        --protocol "$protocol" --case "$run_id" --period p1 --output "$output"
 }
+
 case "${1:-}" in
     prepare) prepare ;;
     activate) activate ;;
     restore) restore ;;
-    capture) capture ;;
+    capture) capture "${2:-quick}" ;;
+    audio-check) python3 "$ROOT/tools/hardware_evidence/guided_session.py" --audio-check ;;
     status) show_status ;;
-    *) echo "Usage: $0 {prepare|activate|capture|status|restore}" >&2; exit 2 ;;
+    *) echo "Usage: $0 {prepare|activate|audio-check|capture [quick|pinch|contacts|stylus]|status|restore}" >&2; exit 2 ;;
 esac
