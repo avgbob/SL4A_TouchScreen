@@ -4,6 +4,57 @@
 the independent DieSchatten device, and Syax89's upstream PR #87.
 This is an operating plan, not a claim of broad compatibility.
 
+## 2026-10-16: AMD controller loaded manually; both driver bindings RECOVERED
+
+**Physical hardware follow-up on kernel `7.0.0-34-generic`:**
+after the first cold-boot attempt stopped on the known signed
+module/kernel mismatch, the HID module was present (`mode1`) but
+the AMD controller and MSHW0231 touchscreen were unbound. The user
+ran the minimal recovery action **`sudo modprobe sl4a-spi-amd`**,
+followed by `sleep 3`, without DKMS reinstall, HID removal or reboot.
+
+The command exited without errors. Subsequent physical-unit output
+proved **both expected bindings are established**:
+
+```text
+/sys/bus/platform/drivers/sl4a_spi_amd_v2_multi
+/sys/bus/spi/drivers/sl4a_spi_hid
+reset_rsp=1
+device_desc=1
+rpt_desc=1
+data=121
+getfeat_resp=0
+frames_dropped=0
+irq_count=125
+wire_patches=1
+poll_missed=0
+raw_observed=109
+```
+
+**Verdict:** AMD SPI controller restoration **PASS**; MSHW0231
+binding and standard-mode CapImg transport initialization **PASS**;
+**actual finger-to-desktop evdev/GUI movement NOT YET VERIFIED** by
+this particular transcript. The single stats snapshot includes
+121 DATA packets and 109 raw observations with no dropped frames,
+but contains no after/before delta explicitly tied to a live touch
+gesture. Do not equate successful driver binding with end-to-end
+multitouch qualification. Ask for a quick real touch confirmation
+or a before/after counter + event-gated capture if the user still
+sees no response.
+
+**Root cause of current no-touch state supported by evidence:** the
+original cold-boot `fallback()` loaded only HID, omitting
+`sl4a-spi-amd`. Before manual recovery, both devices were unbound
+and `protocol_stats` did not exist; after loading AMD they bound
+and transport counters became available. Separately the cold trial
+itself remains INCONCLUSIVE due to the unrelated kernel31→34
+migration; this manual recovery is not a coldboot PASS.
+
+**Pending:** do not rearm experimental mode4 until functional
+finger input on stable production Gate5 is established. The source
+fallback has been fixed to load AMD before HID and the new staging
+guard checks both bindings plus readable stats.
+
 ## 2026-10-16: confirmed incomplete fallback — AMD controller absent
 
 The user's read-only checks on booted kernel **`7.0.0-34-generic`**
