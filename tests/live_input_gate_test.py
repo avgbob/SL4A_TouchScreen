@@ -52,6 +52,11 @@ assert ctx["pair"] == frozenset((11, 12))
 expand = GestureGate("quick-expand", ctx)
 assert not send(expand, [(11, 275, 100), (12, 675, 100)], 10)
 assert not send(expand, [(11, 100, 100), (13, 800, 100)], 11)  # ID change
+assert expand.failed_reason, "lost contact IDs must hard-veto the attempt"
+assert not send(expand, [(11, 100, 100), (12, 900, 100)], 12), (
+    "a failed continuation must not be resurrected")
+expand = GestureGate("quick-expand", ctx)  # only for independent gate unit coverage
+assert not send(expand, [(11, 275, 100), (12, 675, 100)], 11.5)
 assert send(expand, [(11, 100, 100), (12, 900, 100)], 12)
 lift = GestureGate("quick-lift", ctx)
 assert not send(lift, [], 12.5), "early lift must not pass merely because pair was stored"
@@ -72,6 +77,10 @@ assert send(g, [(15, 350, 100), (16, 780, 100)], 17)
 g = GestureGate("pinch-hold", ctx)
 assert not send(g, [(15, 350, 100), (16, 780, 100)], 18)
 assert not send(g, [(15, 350, 100), (17, 780, 100)], 19)
+assert g.failed_reason, "a hold phase cannot ignore changed IDs"
+assert not send(g, [(15, 350, 100), (16, 780, 100)], 20)
+# New gate after explicit operator restart can succeed with continuous IDs.
+g = GestureGate("pinch-hold", ctx)
 assert not send(g, [(15, 350, 100), (16, 780, 100)], 20)
 assert send(g, [(15, 350, 100), (16, 780, 100)], 22.5)
 
