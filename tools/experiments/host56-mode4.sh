@@ -47,10 +47,22 @@ prepare() {
             echo "ERROR: enrolled Ubuntu MOK signing files unavailable. Driver untouched." >&2
             exit 1
         }
-        mokutil --test-key "$cert" 2>&1 | grep -qi 'already enrolled' || {
-            echo "ERROR: signing key is not confirmed enrolled; driver untouched." >&2
+        # The Ubuntu MOK directory can be root-only. A plain mokutil call
+        # therefore reports failure to read the certificate even when that
+        # exact certificate is enrolled and signs the production DKMS module.
+        # Verify with the same privileges used to sign, and preserve the
+        # underlying output if trust verification genuinely fails.
+        local mok_test_output
+        mok_test_output="$(as_root mokutil --test-key "$cert" 2>&1)" || {
+            echo "ERROR: failed to check Ubuntu MOK enrollment:" >&2
+            echo "$mok_test_output" >&2
             exit 1
         }
+        if ! grep -qi 'already enrolled' <<<"$mok_test_output"; then
+            echo "ERROR: Ubuntu signing key is not enrolled:" >&2
+            echo "$mok_test_output" >&2
+            exit 1
+        fi
         as_root "$KDIR/scripts/sign-file" sha256 "$key" "$cert" "$MODULE"
     fi
     [[ "$(modinfo -F vermagic "$MODULE" | awk '{print $1}')" == "$(uname -r)" ]] || {
