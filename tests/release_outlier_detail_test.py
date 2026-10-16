@@ -46,6 +46,10 @@ with tempfile.TemporaryDirectory() as td:
     out = captured.getvalue()
     assert "425.775 ms" in out
     assert "voice-cue mark AFTER final 0-contact frame by 174.225 ms" in out
+    assert "TIMELINE VERDICT: the intermediate 'one finger remains'" in out
+    assert "QUEUED AFTER both releases" in out
+    assert "by 174.225 ms" in out
+    assert "Gesture PASS recorded 574.225 ms AFTER the final zero-contact input frame." in out
     assert "Tracking-ID anomalies: none observed" in out
     assert "physical touch release latency" in out
     assert '"x"' not in out and '"y"' not in out
@@ -62,6 +66,8 @@ with tempfile.TemporaryDirectory() as td:
     with contextlib.redirect_stdout(saved):
         assert examine(early) == 0
     assert "final 0-contact frame recorded 375.775 ms AFTER voice-cue mark" in saved.getvalue()
+    assert "the intermediate cue was logged BEFORE the final release" in saved.getvalue()
+
 
     # Missing final release is not silently treated as valid.
     incomplete = fixture(root / "missing", [
