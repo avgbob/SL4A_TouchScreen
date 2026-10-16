@@ -23,6 +23,8 @@ import threading
 import time
 import wave
 
+# Also import correctly when host CI loads this module with importlib.spec.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 from live_input_gate import GestureGate
 
 ROOT = Path(__file__).resolve().parents[2]
