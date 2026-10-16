@@ -306,6 +306,16 @@ def live_capture(audio, marks, phases, events, evidence_proc):
                 success, speech = gate.feed(frame)
                 for announcement in speech:
                     mark(marks, "gesture-progress", f"{label}:{announcement}")
+                    # This is a TRANSIENT evdev state, often {A,B}->{A}->{}.
+                    # Speaking "Lift it now" takes longer than that state:
+                    # by playback time the operator has usually lifted BOTH
+                    # fingers. Keep the timestamped tracking-ID evidence, but
+                    # do not turn this intermediate observation into a stale
+                    # physical instruction. The gate STILL requires empty
+                    # contact set before it can PASS and rejects new IDs.
+                    if (gate.action == "lift" and
+                            announcement == "One original finger remains. Lift it now."):
+                        continue
                     audio.speak(announcement)
                 if gate.failed_reason:
                     reason = f"{label}: {gate.failed_reason}"
