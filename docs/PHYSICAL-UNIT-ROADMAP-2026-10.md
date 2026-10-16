@@ -4,6 +4,35 @@
 the independent DieSchatten device, and Syax89's upstream PR #87.
 This is an operating plan, not a claim of broad compatibility.
 
+## 2026-10-16 19:37 UTC: upstream PR #87 WARM 3/3 **PASS** (EXACT HEAD)
+
+Separate physical test (NOT GET6-free mode4):
+Syax89's draft PR #87 exact source
+`18f0fe79623e6de4fdf1ae493f82a7048397386a`,
+Ubuntu kernel `7.0.0-34-generic`, MSHW0231,
+signed module SHA256
+`61ec6f796d60b6e50d1c1888dc693e6cd135d08a023f1bccb0fc5ade15054d8e`,
+experiment `srcversion=65F0D14FBDFB5E84748373E`.
+
+After a recovered prior incomplete harness run, all **3 of 3**
+genuine separate warm activations passed audible, evdev event-gated
+one-finger and original two-finger pinch/expand/lift tests, source
+identity, reset/drop counter and integrity checks, and the installed
+Gate5 `srcversion=3326E559A916BE5CB52375D` was restored and bound
+after each cycle. Evidence:
+`~/sl4a-hardware-runs/pr87-exact-warm3-20261016T193705Z`,
+with three distinct `cycle-*-quick` capture directories.
+The full raw artifacts and per-counter deltas have not been separately
+uploaded; do not invent them. Upstream comment:
+https://github.com/Syax89/SL4A_TouchScreen/pull/87#issuecomment-6223447635 .
+
+**PR #87 still DRAFT.** Its true cold first-HID load,
+2/2 genuine s2idle, full gesture matrix and default-standard
+negative control remain unqualified. The independent
+`pr87-exact-head.sh s2idle2` runner is code/CI ready;
+no physical PR87 suspend result yet. Full distinct-category plan:
+[PR87 exact-head physical acceptance](PR87-EXACT-HEAD-PHYSICAL-ACCEPTANCE.md).
+
 ## 2026-10-16 18:58–18:59 UTC: mode4 TRUE COLD POWER-ON 1/1 **PASS**
 
 **Physical Surface Laptop 4 AMD / MSHW0231**, Ubuntu kernel
