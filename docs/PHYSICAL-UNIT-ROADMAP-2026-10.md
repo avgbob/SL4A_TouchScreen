@@ -4,6 +4,41 @@
 the independent DieSchatten device, and Syax89's upstream PR #87.
 This is an operating plan, not a claim of broad compatibility.
 
+## Latest result — 2026-10-16 16:49–16:55 UTC: mode4 warm reloads **3/3 PASS**
+
+**Hardware:** original Surface Laptop 4 AMD 13.5-inch, kernel
+`7.0.0-31-generic`. **Exact Git checkout:** `3fb72d4`.
+**Exact enrolled-MOK-signed temporary module SHA256:**
+`71a03f648c17699610f1f02ae5d59baf813fb75c0dffa78ca428b8edb005d680`.
+The wrapper built and signed once, and printed the *identical hash* before
+each of the three separate driver activations. On every activation
+`std_raw_transition=4`, `reset_rsp=1`, `device_desc=1`,
+`rpt_desc=1`, `frames_dropped=0` before touch.
+Each of three **separate** short spoken/actual-evdev sessions passed
+one-finger movement+release, same-two-finger pinch, expansion and release.
+Each collector reported source/signature identity, no post-activation reset
+or dropped frame during gestures, and checksum checks PASS. After each
+cycle the **unchanged installed Gate5** driver was reloaded and
+`std_raw_transition=1` independently confirmed.
+
+| Warm activation | Original evidence folder | Result |
+| --- | --- | --- |
+| 1 | `mode4-quick-20261016T164955Z` | PASS, Gate5 restored |
+| 2 | `mode4-quick-20261016T165148Z` | PASS, Gate5 restored |
+| 3 | `mode4-quick-20261016T165325Z` | PASS, Gate5 restored |
+
+All under `~/sl4a-hardware-runs/`. **Warm-reload acceptance: 3/3
+PASS for exact tested code `3fb72d4` only.** Do not treat these as
+true cold power-ons, S0ix/s2idle resume evidence, or acceptance of
+upstream PR #87, which uses a different activation sequence/SHA.
+
+**Next physical task:** two s2idle/resume cycles with mode4 intentionally
+remaining loaded over actual platform sleep, audible post-wake event-verified
+`quick` check for each cycle, startup/resume sysfs and journal evidence,
+and final Gate5 rollback. Reboot while mode4 is temporary still loads the
+production Gate5 boot profile. Mode4 cold-boot qualification needs a
+separate controlled persistent opt-in; do not change boot config yet.
+
 ## Latest result — 2026-10-16 16:38 UTC: all remaining contacts PASSED
 
 **Physical Surface, exact checkout `14a8991`**, signed mode4 binary SHA256
