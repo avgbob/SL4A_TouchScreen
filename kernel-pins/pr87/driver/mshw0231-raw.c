@@ -1,0 +1,1968 @@
+// SPDX-License-Identifier: GPL-2.0
+/* Raw payload consumer. Touch grid is 72 columns × 48 rows, row-major.
+ * Transport and lifecycle ownership remain in core. */
+#include <linux/errno.h>
+#include <linux/input.h>
+#include <linux/input/mt.h>
+#include <linux/jiffies.h>
+#include <linux/kernel.h>
+#include <linux/math.h>
+#include <linux/module.h>
+#include <linux/slab.h>
+#include <linux/string.h>
+
+#include "spi-hid-core.h"
+#include "spi-hid-capimg.h"
+#include "mshw0231-raw.h"
+#include "mshw0231-raw-constants.h"
+
+/* The peak budget must cover the blob budget: raw_ccl_flood_fill()'s
+ * velocity rejection needs a recorded peak near each committed blob, and a
+ * blob whose own local maximum was never recorded (scan cap reached) is
+ * dropped silently. A smaller peak budget than blob budget is a bug, not a
+ * tuning (P6 double-blind review). */
+_Static_assert(HEATMAP_MAX_PEAKS >= HEATMAP_MAX_BLOBS,
+	       "HEATMAP_MAX_PEAKS must be >= HEATMAP_MAX_BLOBS");
+
+extern int sl4a_debug_level;
+#define seq_dbg(shid, level, fmt, ...) \
+	do { if (sl4a_debug_level >= (level)) \
+		dev_info(&(shid)->spi->dev, "TRACE[hid:%d] " fmt, (level), ##__VA_ARGS__); } while (0)
+
+/* ── Screen calibration ────────────────────────────────────────── */
+
+static bool invert_x;
+module_param(invert_x, bool, 0444);
+MODULE_PARM_DESC(invert_x, "Experimental raw-pipeline X-axis inversion (load-time only)");
+
+static bool invert_y;
+module_param(invert_y, bool, 0444);
+MODULE_PARM_DESC(invert_y, "Experimental raw-pipeline Y-axis inversion (load-time only)");
+
+static bool swap_xy;
+module_param(swap_xy, bool, 0444);
+MODULE_PARM_DESC(swap_xy, "Experimental raw-pipeline axis swap (load-time only)");
+
+/* ── Blob detection tunables (runtime-validated) ────────────────── */
+
+static int blob_min_weight = 1000;
+module_param(blob_min_weight, int, 0444);
+MODULE_PARM_DESC(blob_min_weight,
+	"Experimental raw-pipeline minimum blob signal rise (load-time only)");
+
+static int ema_alpha = HEATMAP_EMA_ALPHA_DEFAULT;
+module_param(ema_alpha, int, 0444);
+MODULE_PARM_DESC(ema_alpha,
+	"Experimental raw-pipeline EMA smoothing (load-time only)");
+
+static int dfa_data_offset;
+module_param(dfa_data_offset, int, 0444);
+MODULE_PARM_DESC(dfa_data_offset,
+	"DFT antenna frame data offset in bytes (0 = decoded raster, no offset)");
+
+static int ghost_dist = 6;
+module_param(ghost_dist, int, 0444);
+MODULE_PARM_DESC(ghost_dist,
+	"Experimental raw-pipeline coalescence radius (load-time only)");
+
+static int grid_cols = 0;  /* 0 = default 72 */
+module_param(grid_cols, int, 0444);
+MODULE_PARM_DESC(grid_cols, "Experimental raw grid columns (0=current unvalidated 72x48 fallback)");
+
+static int grid_rows = 0;  /* 0 = default 48 */
+module_param(grid_rows, int, 0444);
+MODULE_PARM_DESC(grid_rows, "Experimental raw grid rows (0=current unvalidated 72x48 fallback)");
+
+static int calib_scale_x = 0;  /* 0 = use default: SCREEN_MAX/(cols-1) */
+module_param(calib_scale_x, int, 0444);
+MODULE_PARM_DESC(calib_scale_x, "Experimental raw X scale x1000 (load-time only)");
+
+static int calib_scale_y = 0;
+module_param(calib_scale_y, int, 0444);
+MODULE_PARM_DESC(calib_scale_y, "Experimental raw Y scale x1000 (load-time only)");
+
+static int calib_offset_x = 0;  /* screen pixel offset */
+module_param(calib_offset_x, int, 0444);
+MODULE_PARM_DESC(calib_offset_x, "Experimental raw X offset (load-time only)");
+
+static int calib_offset_y = 0;
+module_param(calib_offset_y, int, 0444);
+MODULE_PARM_DESC(calib_offset_y, "Experimental raw Y offset (load-time only)");
+
+static int blob_debounce = 3;
+module_param(blob_debounce, int, 0444);
+MODULE_PARM_DESC(blob_debounce, "Experimental raw new-contact debounce (load-time only)");
+
+static int blob_lift_frames = 3;
+module_param(blob_lift_frames, int, 0444);
+MODULE_PARM_DESC(blob_lift_frames, "Experimental raw missed frames before lift (load-time only)");
+
+static int hold_frames = 0;
+module_param(hold_frames, int, 0444);
+MODULE_PARM_DESC(hold_frames,
+	"Experimental raw contact hold grace frames (load-time only)");
+
+static int pre_assoc_ratio = 0;
+module_param(pre_assoc_ratio, int, 0444);
+MODULE_PARM_DESC(pre_assoc_ratio,
+	"Experimental raw pre-association ratio x1000 (load-time only)");
+
+static int blob_max_distance = 3;
+module_param(blob_max_distance, int, 0444);
+MODULE_PARM_DESC(blob_max_distance,
+	"Experimental raw slot reassignment distance (load-time only)");
+
+static void release_all_slots(struct input_dev *input, u8 *slot_state,
+		unsigned int max_slots)
+{
+	bool had_touch = false;
+
+	for (unsigned int s = 0; s < max_slots; s++) {
+		if (slot_state[s] >= 1) {
+			input_mt_slot(input, s);
+			input_mt_report_slot_state(input, MT_TOOL_FINGER, false);
+			had_touch = true;
+		}
+	}
+	if (had_touch) {
+		input_mt_sync_frame(input);
+		input_report_key(input, BTN_TOUCH, 0);
+		input_sync(input);
+	}
+}
+
+void mshw0231_raw_reset(struct spi_hid *shid)
+{
+	if (shid->touch_input)
+		release_all_slots(shid->touch_input, shid->blob_slot_state,
+				  HEATMAP_MAX_SLOTS);
+
+	shid->heatmap_have_baseline = false;
+	shid->heatmap_baseline_frames = 0;
+	shid->heatmap_drift_div = HEATMAP_DRIFT_DIV;
+	memset(shid->heatmap_baseline, 0, sizeof(shid->heatmap_baseline));
+	memset(shid->blob_slot_state, 0, sizeof(shid->blob_slot_state));
+	memset(shid->blob_slot_duration, 0, sizeof(shid->blob_slot_duration));
+	memset(shid->blob_slot_gx, 0, sizeof(shid->blob_slot_gx));
+	memset(shid->blob_slot_gy, 0, sizeof(shid->blob_slot_gy));
+	memset(shid->blob_slot_weight, 0, sizeof(shid->blob_slot_weight));
+	memset(shid->blob_slot_missed, 0, sizeof(shid->blob_slot_missed));
+	memset(shid->eigmaj, 0, sizeof(shid->eigmaj));
+	memset(shid->eigmin, 0, sizeof(shid->eigmin));
+	memset(shid->eigori, 0, sizeof(shid->eigori));
+	memset(shid->heatmap_touched, 0, sizeof(shid->heatmap_touched));
+	memset(shid->heatmap_signal, 0, sizeof(shid->heatmap_signal));
+	memset(shid->blob_slot_hx, 0, sizeof(shid->blob_slot_hx));
+	memset(shid->blob_slot_hy, 0, sizeof(shid->blob_slot_hy));
+	memset(shid->blob_slot_hpos, 0, sizeof(shid->blob_slot_hpos));
+	memset(shid->blob_slot_hcount, 0, sizeof(shid->blob_slot_hcount));
+	memset(shid->blob_slot_stationary, 0, sizeof(shid->blob_slot_stationary));
+	memset(shid->blob_x, 0, sizeof(shid->blob_x));
+	memset(shid->blob_y, 0, sizeof(shid->blob_y));
+	memset(shid->blob_wsum, 0, sizeof(shid->blob_wsum));
+	memset(shid->blob_raw_wsum, 0, sizeof(shid->blob_raw_wsum));
+	memset(shid->blob_active, 0, sizeof(shid->blob_active));
+	shid->heatmap_last_frame_jiffies = 0;
+}
+
+/* Screen mapping: logical range 0..32767 for both X and Y.
+ * Reverse-engineered from TouchPenProcessor0C19.dll (GROUND_TRUTH.md §22.3):
+ * The grid is 72 columns × 48 rows, row-major layout (3456 cells).
+ * Each byte indexes a float[256] lookup table (c590) for actual signal level.
+ * Signal = c590[raw_byte] = max_signal - (index * step + offset).
+ *
+ * Grid calibration formula (§22.8):
+ *   screen_x = grid_x * scale_x  where scale_x = (phys_x * SCALE) / (grid_w - 1)
+ *   screen_y = grid_y * scale_y  where scale_y = (phys_y * SCALE) / (grid_h - 1)
+ *
+ * Using max range 0..32767 with aspect ratio from HID descriptor (2934×1652).
+ *
+ * Grid geometry derived from analyzing captured raw frames:
+ * frames): the content_id=0x0C report carries a contiguous 3456-byte cell
+ * field starting at dfa_data_offset=26, laid out as 72 columns × 48 rows
+ * (row-major, 72-wide fast axis). This is a clean 3:2 grid matching the
+ * landscape display — confirmed by connected-component / compactness analysis
+ * across 150 touch frames (W=72 gave a single compact blob per finger; other
+ * widths fragmented the blobs). The earlier 288×~14 assumption stretched Y
+ * onto ~14 rows and scrambled the X/Y mapping. The trailing ~820 bytes of the
+ * frame past cell 3456 are footer/metadata and must NOT be treated as cells.
+ */
+#define GRID_COLS_DEFAULT   72     /* default, overridden by auto-detect or module param */
+#define GRID_ROWS_DEFAULT   48
+#define GRID_CELLS_DEFAULT  (GRID_COLS_DEFAULT * GRID_ROWS_DEFAULT)  /* 3456 */
+#define GRID_ROW_STRIDE_DEFAULT GRID_COLS_DEFAULT
+
+/* Signal lookup table (c590[256]). Extracted from TouchPenProcessor0C19.dll .rdata:
+ *   c590[i] = 1.0 - (i * 0.00222035428 + 0.600000024)
+ * The polynomial itself spans 0.4 (byte 0) down to ~-0.166 (byte 255), but
+ * the LUT is clamped at 0: byte 0 -> 4000, byte 180 (the resting level on
+ * this panel) -> 3, byte >180 -> 0.
+ * Fixed-point: c590[i] = (10000 - ((i * 22204 + 500) / 1000 + 6000)), clamped >= 0.
+ * Scaled to [0, 4000] with 4 decimal digits of precision. */
+#define C590_BASE   10000
+#define C590_STEP_NUM 22204   /* 0.00222035428 * 10000000 / 1000 */
+#define C590_STEP_DEN 1000
+#define C590_OFFSET 6000      /* 0.600000024 * 10000 ≈ 6000 */
+
+void mshw0231_raw_init(struct spi_hid *shid)
+{
+	int i;
+	for (i = 0; i < 256; i++) {
+		s32 v = C590_BASE - (((s32)i * C590_STEP_NUM + C590_STEP_DEN / 2) / C590_STEP_DEN + C590_OFFSET);
+		shid->c590_lut[i] = (s16)(v > 0 ? v : 0);
+	}
+	seq_dbg(shid, 1, "HEATMAP: c590 lookup table initialized (range %d..%d)\n",
+		(int)shid->c590_lut[0], (int)shid->c590_lut[255]);
+	/* Copy the probe-selected per-device tuning (baseline frames: 30 SL4 /
+	 * 33 SL3; baseline recovery alpha 7 on both — the Windows-documented
+	 * 12.5% recovery rate, which alpha 2 did not provide: the baseline
+	 * converged to raw/6 instead of resting raw). Falls back to the SL4
+	 * defaults if no config was supplied (e.g. host replay tests). */
+	shid->heatmap_baseline_needed = shid->cfg ? shid->cfg->heatmap_baseline_needed
+						  : HEATMAP_BASELINE_FRAMES;
+	shid->heatmap_baseline_alpha = shid->cfg ? shid->cfg->heatmap_baseline_alpha
+						 : HEATMAP_EMA_ALPHA_DEFAULT;
+	shid->heatmap_drift_div = HEATMAP_DRIFT_DIV;
+	if (!shid->heatmap_grid_cols && shid->cfg) {
+		shid->heatmap_grid_cols = shid->cfg->grid_cols;
+		shid->heatmap_grid_rows = shid->cfg->grid_rows;
+	}
+	{
+		int val;
+		val = READ_ONCE(blob_min_weight); if (val < 1) val = 1;
+		blob_min_weight = val;
+		val = READ_ONCE(ema_alpha); if (val < 0 || val > 10000) val = 3;
+		ema_alpha = val;
+		val = READ_ONCE(blob_debounce); if (val < 1) val = 3;
+		blob_debounce = val;
+		val = READ_ONCE(blob_lift_frames); if (val < 1) val = 3;
+		blob_lift_frames = val;
+		val = READ_ONCE(hold_frames); if (val < 0) val = 0;
+		hold_frames = val;
+		val = READ_ONCE(blob_max_distance); if (val < 1) val = 3; if (val > 655) val = 655;
+		blob_max_distance = val;
+		val = READ_ONCE(ghost_dist); if (val < 1) val = 6; if (val > 255) val = 255;
+		ghost_dist = val;
+	}
+}
+
+/* Fixed-point atan2 approximation. Returns angle in degrees * 100.
+ * Diamond-angle rational approximation:
+ *   angle = |y| * 9000 / (|x| + |y|), quadrant-corrected
+ * (exact on the axes and on the diagonal, approximate in between).
+ * Range: [-18000, 18000] (i.e., [-180.00°, 180.00°]). */
+static s32 atan2_approx(s32 y, s32 x)
+{
+	s32 ax = x < 0 ? -x : x;
+	s32 ay = y < 0 ? -y : y;
+	s32 angle;
+
+	if (ax + ay == 0)
+		return 0;
+
+	angle = (s32)(((s64)ay * 9000) / (ax + ay));
+
+	if (x < 0)
+		angle = 18000 - angle;
+	if (y < 0)
+		angle = -angle;
+
+	return angle;
+}
+
+/* Blob entry used in sorted lists for tracking pipeline. */
+struct blob_entry {
+	u32 gx;
+	u32 gy;
+	u32 w;      /* edge-penalised weight: what the input layer gets */
+	u32 raw_w;  /* pre-penalty weight: what the tracker decides on */
+	u8 idx;
+};
+
+/* ── Pipeline stage 1: baseline acquisition + signal computation ─── */
+
+/* Max-tracking baseline: track the per-cell maximum raw byte index
+ * over ~30 frames to establish the resting (no-touch) reference.
+ * A higher raw byte index maps to a lower c590 signal.
+ *
+ * After baseline is established, use Exponential Moving Average (EMA)
+ * to slowly track thermal drift: baseline[i] = (baseline[i]*7 + raw)/8.
+ * This prevents single-count thermal shifts from being detected as
+ * false touches (a single raw count is ~22 c590 units, far below the
+ * HEATMAP_TOUCH_MIN_RISE gate, but sustained drift accumulates).
+ *
+ * Returns true if processing should continue (baseline established,
+ * touch_input available, signal computed). Returns false to abort early. */
+static bool raw_compute_signal(struct spi_hid *shid, const u8 *data,
+			       u32 data_offset, u32 cell_count,
+			       u8 content_id)
+{
+	u32 i;
+	bool decay_now = false;
+
+	if (!shid->heatmap_have_baseline) {
+		if (content_id == 0x0C && cell_count >= 1000) {
+			shid->heatmap_baseline_frames++;
+			for (i = 0; i < cell_count && i < HEATMAP_MAX_CELLS; i++) {
+				u8 raw = data[data_offset + i];
+				if (shid->heatmap_baseline_frames == 1 || raw > shid->heatmap_baseline[i])
+					shid->heatmap_baseline[i] = raw;
+			}
+			if (shid->heatmap_baseline_frames >= shid->heatmap_baseline_needed) {
+				shid->heatmap_have_baseline = true;
+				seq_dbg(shid, 1, "HEATMAP: baseline stabilized after %u frames (%u cells)\n",
+					 shid->heatmap_baseline_frames, cell_count);
+			}
+		}
+		return false;
+	}
+	/* Asymmetric baseline tracking. Resting raw is the per-cell maximum
+	 * (a touch only *lowers* the raw byte). So:
+	 *  - raw >= baseline: recover toward resting quickly (EMA 12.5%), which
+	 *    also absorbs slow upward thermal drift;
+	 *  - raw <  baseline: this is (probably) an active touch — do NOT let the
+	 *    baseline chase it down, otherwise a held finger fades into the
+	 *    baseline within a few frames and stops being detected. Allow only a
+	 *    very slow decay (~1 count / many frames) to track genuine downward
+	 *    thermal drift without swallowing touches. */
+	if (--shid->heatmap_drift_div == 0) {
+		shid->heatmap_drift_div = HEATMAP_DRIFT_DIV;
+		decay_now = true;
+	}
+	for (i = 0; i < cell_count && i < HEATMAP_MAX_CELLS; i++) {
+		u8 base = shid->heatmap_baseline[i];
+		u8 raw = data[data_offset + i];
+
+		if (raw >= base) {
+			u16 cur = (u16)base * shid->heatmap_baseline_alpha + (u16)raw;
+			shid->heatmap_baseline[i] = (u8)(cur / 8);
+		} else if (decay_now) {
+			shid->heatmap_baseline[i] = base - 1;
+		}
+	}
+
+	if (!shid->touch_input)
+		return false;
+
+	/* Step 1: compute signal rise per cell once, reuse everywhere. */
+	memset(shid->heatmap_touched, 0, cell_count);
+	for (i = 0; i < cell_count && i < HEATMAP_MAX_CELLS; i++) {
+		s16 base = shid->c590_lut[shid->heatmap_baseline[i]];
+		s16 curr = shid->c590_lut[data[data_offset + i]];
+		s16 rise = curr - base;
+		shid->heatmap_signal[i] = rise;
+		/* Noise floor (Windows DAT_1806c08c8 = 0.04):
+		 * absolute c590 < 400 → class 5 (suppressed).
+		 * DLL config table +0xecc = 0.04 confirms. */
+		shid->heatmap_touched[i] = (rise >= HEATMAP_TOUCH_MIN_RISE && curr >= HEATMAP_TOUCH_MIN_ABSOLUTE) ? 1 : 0;
+	}
+	return true;
+}
+
+/* ── Pipeline stage 2: local-maximum peak detection ──────────────── */
+
+/*
+ * Peak-detection gate: touched cells only, rise >= 200, kept only when no
+ * higher touched neighbour exists in the full (2*HEATMAP_PEAK_RADIUS+1)^2
+ * neighbourhood. Lowered from 300 to catch weaker fingers at 3+ density.
+ * The previous ±5 cross probe (four points, one per axis) could not reject
+ * a tapering blob's non-center cells — see the HEATMAP_PEAK_RADIUS comment
+ * in mshw0231-raw-constants.h for the full replay evidence. Collect all
+ * peaks for velocity rejection.
+ *
+ * One peak per equal-signal region: the tie-break below lets a flat-topped
+ * plateau contribute a single cell, and the recorded position is re-anchored
+ * to the region's centre so it stays near the blob's centroid at any width.
+ * heatmap_label[] is used as scratch: it must be all-zero on entry (the
+ * caller memsets it immediately before) and is all-zero again on return.
+ *
+ * Fills peaks_col[] and peaks_row[] (each size HEATMAP_MAX_PEAKS).
+ * Returns npeaks. */
+static u8 raw_detect_peaks(struct spi_hid *shid, u32 cell_count,
+			   u32 ncols, u32 nrows,
+			   u16 *peaks_col, u16 *peaks_row)
+{
+	u32 i;
+	u8 npeaks = 0;
+
+	for (i = 0; i < cell_count && npeaks < HEATMAP_MAX_PEAKS; i++) {
+		u16 col, row;
+		s16 rise;
+		bool ok;
+		s32 dr, dc;
+
+		if (!shid->heatmap_touched[i])
+			continue;
+		col = i % ncols;
+		row = i / ncols;
+		if (row >= nrows)
+			break;
+		rise = shid->heatmap_signal[i];
+		if (rise < HEATMAP_TOUCH_MIN_RISE)
+			continue;
+		/* Equal-signal region already claimed by an earlier peak: its
+		 * representative was recorded and the whole region marked, so
+		 * a second survivor (a non-convex plateau — an L, a cross)
+		 * must not become a second peak. */
+		if (shid->heatmap_label[i])
+			continue;
+
+		/* True local-maximum suppression over the full
+		 * (2*RADIUS+1)^2 neighborhood, not just 4 points at one
+		 * fixed exact distance. A real finger blob tapers smoothly
+		 * across several concentric rings of decreasing signal
+		 * (center highest, falling off toward the edges) — a
+		 * 4-point exact-distance check almost always finds its two
+		 * opposite sample points on the *same* ring (equal signal,
+		 * not strictly greater) or entirely outside the blob
+		 * (untouched), so it practically never rejects a non-center
+		 * cell. Scanning the whole neighborhood always finds the
+		 * blob's true (higher-signal) center within range of any
+		 * of its own cells, correctly leaving only the center as a
+		 * peak. */
+		ok = true;
+		for (dr = -(s32)HEATMAP_PEAK_RADIUS; ok && dr <= (s32)HEATMAP_PEAK_RADIUS; dr++) {
+			s32 nrow = (s32)row + dr;
+
+			if (nrow < 0 || nrow >= (s32)nrows)
+				continue;
+			for (dc = -(s32)HEATMAP_PEAK_RADIUS; dc <= (s32)HEATMAP_PEAK_RADIUS; dc++) {
+				s32 ncol = (s32)col + dc;
+				u32 nidx;
+
+				if ((dr == 0 && dc == 0) || ncol < 0 || ncol >= (s32)ncols)
+					continue;
+				nidx = (u32)nrow * ncols + (u32)ncol;
+				/* Strictly higher neighbours reject the cell. Equal
+				 * signals (a flat-topped saturated plateau) are
+				 * settled by raster order: an equal neighbour with a
+				 * lower raster index counts as "higher", so one cell
+				 * of an equal-signal region survives the scan and
+				 * claims the whole region (below). Without the
+				 * tie-break, a 6x6 flat top produced 20 peaks on its
+				 * own border and exhausted the shared
+				 * HEATMAP_MAX_PEAKS budget, silently dropping the
+				 * frame's other real blobs at the CCL near-peak
+				 * check. The recorded peak is the region's centre
+				 * cell, not the surviving corner: a corner sits more
+				 * than HEATMAP_VELOCITY_REJECT_RADIUS from a wide
+				 * plateau's blob centroid and the whole contact used
+				 * to be silently velocity-rejected. */
+				if (shid->heatmap_touched[nidx] &&
+				    (shid->heatmap_signal[nidx] > rise ||
+				     (shid->heatmap_signal[nidx] == rise && nidx < i))) {
+					ok = false;
+					break;
+				}
+			}
+		}
+		if (ok) {
+			/* One peak per equal-signal region, anchored to the
+			 * cell nearest the region's centroid. Flood the
+			 * 4-connected cells sharing this rise value (a
+			 * flat-topped plateau) and pick the member closest to
+			 * the region centroid, raster-first on a tie —
+			 * deterministic, and near the blob centroid at any
+			 * width, so CCL's velocity rejection keeps the
+			 * contact instead of silently dropping a wide
+			 * saturated one (>= 15 cells sat > the reject radius
+			 * from the corner that used to be recorded). */
+			u32 *queue = shid->heatmap_queue;
+			u32 head = 0, tail = 0;
+			s64 sc = 0, sr = 0;
+			u32 best = i;
+			u32 best_d = ~0u;
+			u32 k;
+
+			shid->heatmap_label[i] = 1;
+			queue[tail++] = i;
+			while (head < tail) {
+				u32 idx = queue[head++];
+				u32 c2 = idx % ncols;
+				u32 r2 = idx / ncols;
+				u32 nxt;
+
+				sc += c2;
+				sr += r2;
+				if (c2 > 0) {
+					nxt = idx - 1;
+					if (shid->heatmap_touched[nxt] &&
+					    shid->heatmap_signal[nxt] == rise &&
+					    !shid->heatmap_label[nxt] &&
+					    tail < HEATMAP_MAX_CELLS) {
+						shid->heatmap_label[nxt] = 1;
+						queue[tail++] = nxt;
+					}
+				}
+				if (c2 + 1 < ncols) {
+					nxt = idx + 1;
+					if (shid->heatmap_touched[nxt] &&
+					    shid->heatmap_signal[nxt] == rise &&
+					    !shid->heatmap_label[nxt] &&
+					    tail < HEATMAP_MAX_CELLS) {
+						shid->heatmap_label[nxt] = 1;
+						queue[tail++] = nxt;
+					}
+				}
+				if (r2 > 0) {
+					nxt = idx - ncols;
+					if (shid->heatmap_touched[nxt] &&
+					    shid->heatmap_signal[nxt] == rise &&
+					    !shid->heatmap_label[nxt] &&
+					    tail < HEATMAP_MAX_CELLS) {
+						shid->heatmap_label[nxt] = 1;
+						queue[tail++] = nxt;
+					}
+				}
+				if (r2 + 1 < nrows) {
+					nxt = idx + ncols;
+					if (shid->heatmap_touched[nxt] &&
+					    shid->heatmap_signal[nxt] == rise &&
+					    !shid->heatmap_label[nxt] &&
+					    tail < HEATMAP_MAX_CELLS) {
+						shid->heatmap_label[nxt] = 1;
+						queue[tail++] = nxt;
+					}
+				}
+			}
+			/* Nearest member to the region centroid; scaled by
+			 * tail so no division is needed. */
+			for (k = 0; k < tail; k++) {
+				u32 idx = queue[k];
+				s64 dcc = (s64)(idx % ncols) * tail - sc;
+				s64 drr = (s64)(idx / ncols) * tail - sr;
+				u32 dd = (u32)(dcc < 0 ? -dcc : dcc);
+				u32 dr2 = (u32)(drr < 0 ? -drr : drr);
+				u32 dist = dd > dr2 ? dd : dr2;
+
+				if (dist < best_d || (dist == best_d && idx < best)) {
+					best_d = dist;
+					best = idx;
+				}
+			}
+			peaks_col[npeaks] = (u16)(best % ncols);
+			peaks_row[npeaks] = (u16)(best / ncols);
+			npeaks++;
+		}
+	}
+
+	/* Clear the claim marks: raw_ccl_flood_fill() uses heatmap_label for
+	 * its own component labels and must start from all-zero. */
+	for (i = 0; i < cell_count; i++)
+		if (shid->heatmap_label[i])
+			shid->heatmap_label[i] = 0;
+
+	return npeaks;
+}
+
+/* ── Pipeline stage 3: 4-connected CCL flooding + blob classification ─── */
+
+/*
+ * 4-connected flood-fill — each connected region of signal-above-
+ * baseline becomes one blob candidate.  Includes velocity rejection,
+ * blob splitting, edge penalty, centroid, and eigenvalue computation.
+ *
+ * Updates *nlabels and *touched_count. Returns final blob count. */
+/* Edge-contact weight penalty (Windows DLL config):
+ * +0x8D0=0.967 top edge — mild penalty
+ * +0x8D4=0.228 bottom edge — harsh penalty
+ * (panel connector bezel produces false touches).
+ * Top/left/right: keep ~97% weight. Bottom (max_r near nrows): keep ~23%.
+ * One place for both blob paths: the split path used to skip this entirely. */
+static u32 raw_edge_penalised_weight(u32 wsum, s32 min_r, s32 max_r,
+				     s32 min_c, s32 max_c, u32 nrows, u32 ncols)
+{
+	if (max_r >= (s32)nrows - 2)
+		return wsum * HEATMAP_EDGE_PENALTY_BOTTOM / 100;
+	if (min_r <= 1 || min_c <= 1 || max_c >= (s32)ncols - 2)
+		return wsum * HEATMAP_EDGE_PENALTY_TOP / 100;
+	return wsum;
+}
+
+static u16 raw_ccl_flood_fill(struct spi_hid *shid, u32 cell_count,
+			      u32 ncols, u32 nrows,
+			      u16 *nlabels, int *touched_count,
+			      u8 npeaks, const u16 *peaks_col,
+			      const u16 *peaks_row)
+{
+	u32 *queue = shid->heatmap_queue;
+	u16 next_label = 1;
+	u32 ci;
+
+	for (ci = 0; ci < (u32)cell_count; ci++) {
+		u32 col, row;
+
+		if (!shid->heatmap_touched[ci])
+			continue;
+		if (shid->heatmap_signal[ci] <= 0)
+			continue;
+		if (shid->heatmap_label[ci] != 0)
+			continue;
+		if (*nlabels >= HEATMAP_MAX_BLOBS)
+			break;
+
+		{
+			u32 head = 0, tail = 0;
+			s64 sx = 0, sy = 0, sw = 0;
+			s64 sxx = 0, syy = 0, sxy = 0;
+			s32 min_r = 9999, max_r = -1, min_c = 9999, max_c = -1;
+			u32 pixel_count = 0;
+			s16 max_rise = 0;
+			u16 label = next_label;
+
+			queue[tail++] = ci;
+			shid->heatmap_label[ci] = label;
+
+			while (head < tail) {
+				u32 idx = queue[head++];
+				s16 w;
+				u32 r, c;
+				u32 nxt;
+
+				col = idx % ncols;
+				row = idx / ncols;
+				if (row >= nrows)
+					continue;
+				w = shid->heatmap_signal[idx];
+				if (w <= 0)
+					continue;
+				if (w > max_rise)
+					max_rise = w;
+
+				sx += (s64)col * w;
+				sy += (s64)row * w;
+				sw += w;
+				pixel_count++;
+				r = (u16)row;
+				c = (u16)col;
+				/* Cast to s32: `r`/`c` are u32 here while the bounds
+				 * start at -1, so a plain `r > max_r` is evaluated
+				 * unsigned and the maximum is never updated — which
+				 * silently disabled the bottom/right edge penalty and
+				 * the ellipse below (found while writing the recovery
+				 * guard check, review R14). */
+				if ((s32)r < min_r)
+					min_r = r;
+				if ((s32)r > max_r)
+					max_r = r;
+				if ((s32)c < min_c)
+					min_c = c;
+				if ((s32)c > max_c)
+					max_c = c;
+
+				/* 4-connected neighbors */
+				if (col > 0) {
+					nxt = idx - 1;
+					if (shid->heatmap_touched[nxt] &&
+					    shid->heatmap_label[nxt] == 0 &&
+					    tail < HEATMAP_MAX_CELLS) {
+						shid->heatmap_label[nxt] = label;
+						queue[tail++] = nxt;
+					}
+				}
+				if (col + 1 < ncols) {
+					nxt = idx + 1;
+					if (shid->heatmap_touched[nxt] &&
+					    shid->heatmap_label[nxt] == 0 &&
+					    tail < HEATMAP_MAX_CELLS) {
+						shid->heatmap_label[nxt] = label;
+						queue[tail++] = nxt;
+					}
+				}
+				if (row > 0) {
+					nxt = idx - ncols;
+					if (shid->heatmap_touched[nxt] &&
+					    shid->heatmap_label[nxt] == 0 &&
+					    tail < HEATMAP_MAX_CELLS) {
+						shid->heatmap_label[nxt] = label;
+						queue[tail++] = nxt;
+					}
+				}
+				if (row + 1 < nrows) {
+					nxt = idx + ncols;
+					if (shid->heatmap_touched[nxt] &&
+					    shid->heatmap_label[nxt] == 0 &&
+					    tail < HEATMAP_MAX_CELLS) {
+						shid->heatmap_label[nxt] = label;
+						queue[tail++] = nxt;
+					}
+				}
+			}
+
+			/* Advance next_label unconditionally for every component
+			 * whose cells were just marked above, regardless of
+			 * whether it ends up rejected (noise/velocity) or split
+			 * below. If a rejected/split component's label were
+			 * reused by a later committed blob, the eigenvalue pass
+			 * further down (which rescans by bounding box and
+			 * matches on heatmap_label[idx] == label) could pick up
+			 * that earlier component's stale-labeled cells and
+			 * corrupt the second-moment sums for an unrelated blob. */
+			next_label++;
+
+			/* Filter noise: at least 2 pixels, max_rise >=
+			 * HEATMAP_TOUCH_MIN_RISE (200), and total weight >=
+			 * blob_min_weight. The max_rise check alone rejects
+			 * residual noise after lift (typically 2-5 pixels at
+			 * <200 rise). */
+			if (pixel_count < HEATMAP_MIN_BLOB_PIXELS || max_rise < HEATMAP_TOUCH_MIN_RISE || sw < blob_min_weight)
+				continue;
+
+			/* Velocity rejection (Windows FUN_180600c40):
+			 * blob centroid must be within 6 grid cells of at
+			 * least one detected peak. Rejects CCL artifacts
+			 * far from any genuine signal maximum. */
+			{
+				u32 gx = (u32)(sx / sw); /* integer cell */
+				u32 gy = (u32)(sy / sw);
+				u8 p;
+				bool near_peak = false;
+				for (p = 0; p < npeaks; p++) {
+					s32 dx = (s32)gx - (s32)peaks_col[p];
+					s32 dy = (s32)gy - (s32)peaks_row[p];
+					if (dx < 0)
+						dx = -dx;
+					if (dy < 0)
+						dy = -dy;
+					if ((u32)dx <= HEATMAP_VELOCITY_REJECT_RADIUS && (u32)dy <= HEATMAP_VELOCITY_REJECT_RADIUS) {
+						near_peak = true;
+						break;
+					}
+				}
+				if (!near_peak)
+					continue;
+			}
+
+			{
+				s32 bi = *nlabels;
+				u32 cx, cy;
+
+				shid->blob_x[bi] = (u32)(sx * 100 / sw);
+				shid->blob_y[bi] = (u32)(sy * 100 / sw);
+				shid->blob_wsum[bi] = (u32)sw;
+				shid->blob_raw_wsum[bi] = (u32)sw;
+
+				/* Blob splitting: if this CCL blob contains
+				 * 2+ peaks at >= 4 cells apart, it's likely
+				 * two merged fingers. Split them into separate
+				 * blobs using the peak positions (Windows
+				 * FUN_180602770 per-neighbor sub-centroids). */
+				if (npeaks >= HEATMAP_SPLIT_MIN_PEAKS && pixel_count >= 8) {
+					u8 p, split_count = 0;
+					u8 split_peaks[HEATMAP_MAX_PEAKS];
+					for (p = 0; p < npeaks && split_count < HEATMAP_MAX_PEAKS; p++) {
+						u32 pix = (u32)peaks_row[p] * ncols + (u32)peaks_col[p];
+						if (shid->heatmap_label[pix] == label)
+							split_peaks[split_count++] = p;
+					}
+					if (split_count >= HEATMAP_SPLIT_MIN_PEAKS && split_count <= 4) {
+						bool too_close = true;
+						for (p = 1; p < split_count && too_close; p++) {
+							u8 q;
+							for (q = 0; q < p; q++) {
+								s32 dx = (s32)peaks_col[split_peaks[p]] -
+									 (s32)peaks_col[split_peaks[q]];
+								s32 dy = (s32)peaks_row[split_peaks[p]] -
+									 (s32)peaks_row[split_peaks[q]];
+								if (dx < 0)
+									dx = -dx;
+								if (dy < 0)
+									dy = -dy;
+								if ((u32)dx >= HEATMAP_SPLIT_MIN_DIST || (u32)dy >= HEATMAP_SPLIT_MIN_DIST) {
+									too_close = false;
+									break;
+								}
+							}
+						}
+						if (!too_close) {
+							/* The current blob has not been committed yet: append
+							 * split blobs without decrementing the prior count. */
+							for (p = 0; p < split_count && *nlabels < HEATMAP_MAX_BLOBS; p++) {
+								s32 pr = peaks_row[split_peaks[p]];
+								s32 pc = peaks_col[split_peaks[p]];
+								s64 ssx = 0, ssy = 0, ssw = 0;
+								s32 r, c;
+								/* The sub-blob's own extent, not the sampling
+								 * window: the window is a superset, so penalising
+								 * with it drops a peak two rows from the edge that
+								 * touches nothing (adversarial review R14). */
+								s32 b_min_r = (s32)nrows, b_max_r = -1;
+								s32 b_min_c = (s32)ncols, b_max_c = -1;
+							for (r = max(0, pr - HEATMAP_SPLIT_RADIUS); r <= min((s32)nrows - 1, pr + HEATMAP_SPLIT_RADIUS); r++) {
+								for (c = max(0, pc - HEATMAP_SPLIT_RADIUS); c <= min((s32)ncols - 1, pc + HEATMAP_SPLIT_RADIUS); c++) {
+										u32 idx = (u32)r * ncols + (u32)c;
+										s16 w;
+										if (shid->heatmap_label[idx] != label)
+											continue;
+										w = shid->heatmap_signal[idx];
+										if (w <= 0)
+											continue;
+										ssx += (s64)c * w;
+										ssy += (s64)r * w;
+										ssw += w;
+										if (r < b_min_r) b_min_r = r;
+										if (r > b_max_r) b_max_r = r;
+										if (c < b_min_c) b_min_c = c;
+										if (c > b_max_c) b_max_c = c;
+									}
+								}
+								if (ssw > 0) {
+									s32 sbi = *nlabels;
+									shid->blob_x[sbi] = (u32)(ssx * 100 / ssw);
+									shid->blob_y[sbi] = (u32)(ssy * 100 / ssw);
+									shid->blob_raw_wsum[sbi] = (u32)ssw;
+									/* Penalise by the sub-blob's own window, not the
+									 * parent's bbox: the interior peak of a bent
+									 * component is not a bezel contact. */
+									shid->blob_wsum[sbi] = raw_edge_penalised_weight((u32)ssw,
+											b_min_r, b_max_r, b_min_c, b_max_c, nrows, ncols);
+									shid->blob_active[sbi] = true;
+									shid->blob_eigmaj[sbi] = 0;
+									shid->blob_eigmin[sbi] = 0;
+									shid->blob_eigori[sbi] = 0;
+									(*nlabels)++;
+									(*touched_count)++;
+								}
+							}
+							continue; /* skip normal single-blob path */
+						}
+					}
+				}
+
+				/* Edge-contact weight penalty — see raw_edge_penalised_weight(). */
+				if (min_r <= 1 || max_r >= (s32)nrows - 2 ||
+				    min_c <= 1 || max_c >= (s32)ncols - 2) {
+					shid->blob_wsum[bi] = raw_edge_penalised_weight(shid->blob_wsum[bi],
+											min_r, max_r, min_c, max_c, nrows, ncols);
+				}
+
+				shid->blob_active[bi] = true;
+				(*nlabels)++;
+				(*touched_count)++;
+
+				/* Eigenvalues: second moments around centroid.
+				 * Use the blob's bounding box instead of the
+				 * full grid scan for performance. */
+				cx = shid->blob_x[bi] / 100;
+				cy = shid->blob_y[bi] / 100;
+				{
+					s32 r, c;
+					for (r = min_r; r <= max_r; r++) {
+						for (c = min_c; c <= max_c; c++) {
+							u32 idx = (u32)r * ncols + (u32)c;
+							s16 w;
+							s32 dx, dy;
+
+							if (shid->heatmap_label[idx] != label)
+								continue;
+							w = shid->heatmap_signal[idx];
+							if (w <= 0)
+								continue;
+							dx = c - (s32)cx;
+							dy = r - (s32)cy;
+							sxx += (s64)dx * dx * w;
+							syy += (s64)dy * dy * w;
+							sxy += (s64)dx * dy * w;
+						}
+					}
+				}
+				{
+					s64 cov_xx = div_s64(sxx, sw);
+					s64 cov_yy = div_s64(syy, sw);
+					s64 cov_xy = div_s64(sxy, sw);
+					s64 diff = cov_xx - cov_yy;
+					u64 disc = (u64)(diff * diff) +
+						4ULL * (u64)(cov_xy * cov_xy);
+					s32 sq = (s32)int_sqrt(disc);
+					s64 major = (cov_xx + cov_yy + sq) / 2;
+					s64 minor = (cov_xx + cov_yy - sq) / 2;
+
+					shid->blob_eigmaj[bi] = clamp_t(s64, major, 0, S32_MAX);
+					shid->blob_eigmin[bi] = clamp_t(s64, minor, 0, S32_MAX);
+					if (diff != 0 || cov_xy != 0) {
+						s32 deg = atan2_approx((s32)(2 * cov_xy),
+								       (s32)(cov_yy - cov_xx)) / 2;
+						if (deg >= 18000)
+							deg -= 18000;
+						else if (deg <= -18000)
+							deg += 18000;
+						shid->blob_eigori[bi] = deg;
+					} else {
+						shid->blob_eigori[bi] = 0;
+					}
+				}
+			}
+		}
+	}
+	return *nlabels;
+}
+
+/* ── Pipeline stage 6: ghost merge / pre-association coalescence ─── */
+
+/*
+ * Ghost rejection (GROUND_TRUTH.md §22.7 step 3):
+ * Merge blobs closer than ghost_dist threshold (grid cells).
+ * Windows uses Euclidean squared distance (dx²+dy² < ghost_dist²),
+ * not axis-aligned box. If two blobs are within radius, keep the one
+ * with the larger PRE-PENALTY weight (raw_w): this is a tracker-stage
+ * decision, and the bottom-edge penalty (x0.23) can otherwise make a
+ * real bottom-edge finger lose the merge to a lighter interior
+ * artifact — the same contract the recovery guard already follows.
+ * The loser is zapped via its `w` field, the discard marker.
+ *
+ * Modifies sorted[] in-place; updates *sorted_count. */
+static void raw_ghost_merge(struct spi_hid *shid, struct blob_entry *sorted,
+			    u8 *sorted_count, u32 ghost_dist)
+{
+	u8 a, b, j, col;
+	u8 active_slots = 0;
+	u32 gd;
+	u32 gdsq;
+
+	/* Count claimed slots, same definition raw_hungarian_match() uses. */
+	for (col = 0; col < HEATMAP_MAX_SLOTS; col++)
+		if (shid->blob_slot_state[col] >= 2)
+			active_slots++;
+
+	/* Scale merge radius by finger count. Direction is opposite of
+	 * raw_hungarian_match()'s ASSOC_RADIUS_*: here we tighten as
+	 * finger count rises, since real distinct fingers get physically
+	 * closer together in multi-finger gestures and a radius sized
+	 * for 1-2 fingers starts falsely merging them. See constants
+	 * header for the (not yet hardware-validated) reasoning. */
+	gd = ghost_dist; /* baseline: 0/2 active slots, unscaled */
+	if (active_slots == 1)
+		gd = ghost_dist * GHOST_RADIUS_1_FINGER / 10;
+	else if (active_slots == 3)
+		gd = ghost_dist * GHOST_RADIUS_3_FINGERS / 10;
+	else if (active_slots == 4)
+		gd = ghost_dist * GHOST_RADIUS_4_FINGERS / 10;
+	else if (active_slots >= 5)
+		gd = ghost_dist * GHOST_RADIUS_5_FINGERS / 10;
+	if (gd < 1)
+		gd = 1;
+
+	gdsq = gd * gd * 10000; /* ×100 scale */
+
+	for (a = 0; a < *sorted_count; a++) {
+		if (sorted[a].w == 0)
+			continue;
+		for (b = a + 1; b < *sorted_count; b++) {
+			s32 dx, dy;
+
+			if (sorted[b].w == 0)
+				continue;
+			dx = (s32)sorted[a].gx - (s32)sorted[b].gx;
+			dy = (s32)sorted[a].gy - (s32)sorted[b].gy;
+			/* Strict, as in Windows and the in-tree oracle test: a
+			 * distance of exactly ghost_dist does not merge. */
+			if ((u32)(dx * dx) + (u32)(dy * dy) < gdsq) {
+				if (sorted[b].raw_w > sorted[a].raw_w) {
+					sorted[a].w = 0;
+					break;
+				} else {
+					sorted[b].w = 0;
+				}
+			}
+		}
+	}
+	j = 0;
+	for (a = 0; a < *sorted_count; a++) {
+		if (sorted[a].w > 0) {
+			if (a != j)
+				sorted[j] = sorted[a];
+			j++;
+		}
+	}
+	*sorted_count = j;
+}
+
+/* ── Pipeline stage 7: Hungarian matching ─────────────────────────── */
+
+/*
+ * Hungarian global assignment (matching Windows TouchPenProcessor0C19).
+ * Replaces the old greedy nearest-neighbor with minimum-cost bipartite
+ * matching.  Each blob is assigned to exactly one slot, minimizing
+ * Euclidean squared distance. Empty slots receive a uniform penalty
+ * so that new slots are only created when no claimed slot is nearby.
+ *
+ * Windows config values (per-device, from decomp):
+ *   Normal association radius:  config+0x8dc = 0.545 grid units
+ *   Continuity radius (1 track): config+0x8e0 = 1.218 grid units
+ *   Coalesce threshold squared: frame_data+0x0c = 36.0
+ * blob_max_distance=3 maps to ~0.545; single-track uses 2.2x.
+ *
+ * Fills assigned_slot[] (size HEATMAP_MAX_BLOBS). Returns bmd. */
+static u32 raw_hungarian_match(struct spi_hid *shid,
+			       const struct blob_entry *sorted, u8 n_blobs,
+			       u8 *assigned_slot, u32 blob_max_distance)
+{
+	u8 row, col;
+	u8 active_slots = 0;
+	u32 bmd;
+
+	/* Count claimed slots for single-track continuity radius. */
+	for (col = 0; col < HEATMAP_MAX_SLOTS; col++)
+		if (shid->blob_slot_state[col] >= 2)
+			active_slots++;
+
+	/* Scale association radius by finger count
+	 * (matching DLL config table DAT_1808e0460):
+	 *   1 finger: 1.218 / 0.545 = 2.23x (continuity +0x8E0)
+	 *   2 fingers: 0.545 = 1.00x (normal +0x8DC)
+	 *   3 fingers: 1.549 / 0.545 = 2.84x (+0x8E4)
+	 *   4 fingers: 1.845 / 0.545 = 3.39x (+0x8E8)
+	 *   5+ fingers: 2.161 / 0.545 = 3.97x (+0x8EC)
+	 * More fingers → each blob has lower signal → wider
+	 * search needed for Hungarian to maintain tracking. */
+	bmd = (u32)blob_max_distance * HUNGARIAN_COST_SCALE;
+	if (active_slots == 1)
+		bmd = bmd * ASSOC_RADIUS_1_FINGER / 10;
+	else if (active_slots == 3)
+		bmd = bmd * ASSOC_RADIUS_3_FINGERS / 10;
+	else if (active_slots == 4)
+		bmd = bmd * ASSOC_RADIUS_4_FINGERS / 10;
+	else if (active_slots >= 5)
+		bmd = bmd * ASSOC_RADIUS_5_FINGERS / 10;
+
+	/* Build cost matrix: matching Python oracle Hungarian.
+	 * In-range: 10*sqrt(dx²+dy²), empty/new slot: 1000,
+	 * out-of-range (claimed slot, but outside bmd): 1500 —
+	 * deliberately pricier than an empty slot (see
+	 * HUNGARIAN_COST_OUT_RANGE) since an out-of-range match is
+	 * always rejected by the final validation below and must
+	 * never look cheaper to the optimizer than a valid empty-slot
+	 * match, or a blob can lose to a doomed match and get dropped
+	 * instead of claiming the empty slot it should have.
+	 *
+	 * Track-continuity bias (see HUNGARIAN_CONTINUITY_BONUS): an
+	 * in-range candidate that is a currently *claimed* slot
+	 * (state==2, i.e. an actively-tracked finger) gets a small
+	 * cost discount so the solver prefers keeping existing
+	 * tracking over a marginally cheaper swap between two claimed
+	 * slots (e.g. converging fingers during a pinch/rotate).  Not
+	 * applied to new/lift/hold slots — only actively-tracked ones
+	 * are worth protecting from an identity swap. */
+	for (row = 0; row < n_blobs; row++) {
+		for (col = 0; col < HEATMAP_MAX_SLOTS; col++) {
+			s32 dx, dy;
+
+			if (shid->blob_slot_state[col] >= 1) {
+				dx = (s32)sorted[row].gx - (s32)shid->blob_slot_gx[col];
+				dy = (s32)sorted[row].gy - (s32)shid->blob_slot_gy[col];
+				if (dx < 0)
+					dx = -dx;
+				if (dy < 0)
+					dy = -dy;
+				if ((u32)dx <= bmd && (u32)dy <= bmd) {
+					u32 d = (u32)dx * (u32)dx + (u32)dy * (u32)dy;
+					u16 c = (u16)(int_sqrt((u64)d) / HUNGARIAN_COST_IN_RANGE);
+
+					if (shid->blob_slot_state[col] == 2) {
+						if (c > HUNGARIAN_CONTINUITY_BONUS)
+							c -= HUNGARIAN_CONTINUITY_BONUS;
+						else
+							c = 0;
+					}
+					shid->cost[row][col] = c;
+				} else {
+					shid->cost[row][col] = HUNGARIAN_COST_OUT_RANGE;
+				}
+			} else {
+				shid->cost[row][col] = HUNGARIAN_COST_EMPTY;
+			}
+		}
+	}
+
+	/* Hungarian algorithm (Kuhn-Munkres via successive shortest
+	 * augmenting paths with potentials), O(n^2 * m). This replaces
+	 * the previous greedy zero-assignment approach, which could
+	 * leave a blob unassigned even when a valid rearrangement of
+	 * existing assignments would have matched it (first row to
+	 * scan a shared zero grabbed it, starving a later row that had
+	 * no other in-range option).
+	 *
+	 * Internal arrays are 1-indexed (index 0 is a sentinel), the
+	 * classic e-maxx presentation; shid->cost[][] itself stays
+	 * 0-indexed. n_blobs <= HEATMAP_MAX_BLOBS <= HEATMAP_MAX_SLOTS
+	 * always holds. */
+	{
+		s32 u[HEATMAP_MAX_BLOBS + 1] = { 0 };
+		s32 v[HEATMAP_MAX_SLOTS + 1] = { 0 };
+		int p[HEATMAP_MAX_SLOTS + 1] = { 0 };
+		int way[HEATMAP_MAX_SLOTS + 1] = { 0 };
+		int i, j;
+
+		for (i = 1; i <= n_blobs; i++) {
+			s32 minv[HEATMAP_MAX_SLOTS + 1];
+			bool used[HEATMAP_MAX_SLOTS + 1] = { false };
+			int j0 = 0;
+
+			p[0] = i;
+			for (j = 0; j <= HEATMAP_MAX_SLOTS; j++)
+				minv[j] = S32_MAX;
+
+			do {
+				int i0 = p[j0], j1 = -1;
+				s32 delta = S32_MAX;
+
+				used[j0] = true;
+				for (j = 1; j <= HEATMAP_MAX_SLOTS; j++) {
+					s32 cur;
+
+					if (used[j])
+						continue;
+					cur = (s32)shid->cost[i0 - 1][j - 1] - u[i0] - v[j];
+					if (cur < minv[j]) {
+						minv[j] = cur;
+						way[j] = j0;
+					}
+					if (minv[j] < delta) {
+						delta = minv[j];
+						j1 = j;
+					}
+				}
+				for (j = 0; j <= HEATMAP_MAX_SLOTS; j++) {
+					if (used[j]) {
+						u[p[j]] += delta;
+						v[j] -= delta;
+					} else {
+						minv[j] -= delta;
+					}
+				}
+				j0 = j1;
+			} while (p[j0] != 0);
+
+			do {
+				int j1 = way[j0];
+
+				p[j0] = p[j1];
+				j0 = j1;
+			} while (j0);
+		}
+
+		/* Build final assignments from p[]. p[j] (1-indexed col)
+		 * holds the 1-indexed row assigned to it, 0 if unassigned.
+		 * Only keep matches whose slot is still within range —
+		 * p[] can validly assign a blob to a far-away *empty* slot
+		 * (cost ~1000) when nothing better exists; that empty-slot
+		 * creation case is accepted as-is, matching prior
+		 * behaviour. */
+		for (row = 0; row < n_blobs; row++)
+			assigned_slot[row] = 0xFF;
+		for (j = 1; j <= HEATMAP_MAX_SLOTS; j++) {
+			s32 dx, dy;
+
+			if (p[j] == 0)
+				continue;
+			row = (u8)(p[j] - 1);
+			col = (u8)(j - 1);
+			if (row >= n_blobs)
+				continue;
+			if (shid->blob_slot_state[col] >= 1) {
+				dx = (s32)sorted[row].gx - (s32)shid->blob_slot_gx[col];
+				dy = (s32)sorted[row].gy - (s32)shid->blob_slot_gy[col];
+				if (dx < 0)
+					dx = -dx;
+				if (dy < 0)
+					dy = -dy;
+				if ((u32)dx <= bmd && (u32)dy <= bmd)
+					assigned_slot[row] = col;
+			} else {
+				assigned_slot[row] = col;
+			}
+		}
+	}
+
+	return bmd;
+}
+
+/* ── Pipeline stage 8: slot state machine ─────────────────────────── */
+
+/*
+ * Process slot state transitions (GROUND_TRUTH §22.4):
+ * 0=empty, 1=new, 2=claimed, 3=lift, 4=hold
+ *
+ * Includes: jump rejection, EMA smoothing, deadband, stationary lock,
+ * history ring push, state transitions.
+ *
+ * Fills new_gx[], new_gy[], new_active[] (each size HEATMAP_MAX_SLOTS). */
+/* A slot's lift-lookback history belongs to one contact: clear it whenever the
+ * slot starts a new contact or frees one, or a fast tap on a reused slot
+ * reports the previous contact's position as its lift point (libinput then sees
+ * a tap as a swipe). */
+static void slot_history_clear(struct spi_hid *shid, u32 s)
+{
+	shid->blob_slot_hcount[s] = 0;
+	shid->blob_slot_hpos[s] = 0;
+}
+
+static void raw_update_slots(struct spi_hid *shid,
+			     const struct blob_entry *sorted, u8 sorted_count,
+			     const u8 *assigned_slot, u32 bmd,
+			     u32 *new_gx, u32 *new_gy, bool *new_active,
+			     int frame_ema_alpha, int blob_debounce,
+			     int blob_lift_frames, int hold_frames)
+{
+	u8 s;
+	u32 i;
+
+	memset(new_active, 0, HEATMAP_MAX_SLOTS * sizeof(bool));
+	memset(new_gx, 0, HEATMAP_MAX_SLOTS * sizeof(u32));
+	memset(new_gy, 0, HEATMAP_MAX_SLOTS * sizeof(u32));
+
+	for (s = 0; s < HEATMAP_MAX_SLOTS; s++) {
+		u8 bi = 0xFF;
+
+		for (i = 0; i < sorted_count; i++) {
+			if (assigned_slot[i] == s) {
+				bi = i;
+				break;
+			}
+		}
+
+		if (bi != 0xFF) {
+			u32 gx = sorted[bi].gx;
+			u32 gy = sorted[bi].gy;
+			u32 w  = sorted[bi].w;
+			/* The tracker recovers a contact from a substantial blob, but
+			 * `w` is already edge-penalised: a real bottom-edge finger can
+			 * sit at 23% of its own weight and fail the recovery guard, so
+			 * the guard uses the pre-penalty weight. */
+			u32 guard_w = sorted[bi].raw_w;
+			u8 old_state = shid->blob_slot_state[s];
+			u32 old_gx = shid->blob_slot_gx[s];
+			u32 old_gy = shid->blob_slot_gy[s];
+			bool was_claimed = (old_state >= 2);
+			u8 blob_idx = sorted[bi].idx;
+
+			/* Sanity: reject jumps beyond association radius
+			 * + 2 cells for claimed slots — noise blobs can't
+			 * steal existing finger assignments (3+ finger).
+			 * Scales with the per-finger-count radius. */
+			if (was_claimed) {
+				s32 jdx = (s32)gx - (s32)shid->blob_slot_gx[s];
+				s32 jdy = (s32)gy - (s32)shid->blob_slot_gy[s];
+				u32 jmax = bmd + HUNGARIAN_JUMP_REJECT_MARGIN;
+				if (jdx < 0)
+					jdx = -jdx;
+				if (jdy < 0)
+					jdy = -jdy;
+				if ((u32)jdx > jmax || (u32)jdy > jmax)
+					goto slot_unassigned;
+			}
+
+			switch (shid->blob_slot_state[s]) {
+			case 0:
+				slot_history_clear(shid, s);
+				shid->blob_slot_state[s] = 1;
+				shid->blob_slot_duration[s] = 1;
+				shid->blob_slot_stationary[s] = 0;
+				break;
+			case 1:
+				shid->blob_slot_duration[s]++;
+				if (shid->blob_slot_duration[s] >= (u32)blob_debounce)
+					shid->blob_slot_state[s] = 2;
+				break;
+			case 2:
+				shid->blob_slot_duration[s]++;
+				break;
+			case 3:
+				/* Re-acquisition while the lift is still pending:
+				 * same guard as hold recovery. Restarting the
+				 * debounce here turned a single dropped frame
+				 * into a release plus re-press for blob_debounce
+				 * frames, which aborts multi-finger gestures. */
+				if (guard_w < HEATMAP_HOLD_RECOVERY_WEIGHT)
+					goto slot_unassigned;
+				shid->blob_slot_state[s] = 2;
+				shid->blob_slot_duration[s] = 1;
+				shid->blob_slot_stationary[s] = 0;
+				break;
+			case 4:
+				/* Hold recovery: only accept a substantial blob.
+				 * Noise after finger lift produces low-weight
+				 * blobs (w < 4000) that should not re-claim the
+				 * slot. Let them expire through hold→lift instead. */
+				if (guard_w < HEATMAP_HOLD_RECOVERY_WEIGHT || shid->blob_slot_missed[s] < 2)
+					goto slot_unassigned;
+				shid->blob_slot_state[s] = 2;
+				shid->blob_slot_duration[s] = 1;
+				shid->blob_slot_stationary[s] = 0;
+				break;
+			}
+
+			/* Copy per-blob eigenvalues to the assigned slot.
+			 * Must run only after the state-machine switch above
+			 * has accepted this match — case 4 (hold) can still
+			 * `goto slot_unassigned` on a low-weight candidate,
+			 * and copying before that point would let a rejected
+			 * noise blob's shape/orientation contaminate the
+			 * slot's persistent ellipse even though its position
+			 * update is correctly skipped (found by blind review).
+			 * Must be unconditional here: split sub-blobs
+			 * legitimately carry a zero ellipse (no eigen-
+			 * decomposition was computed for them), and that zero
+			 * has to clear the slot's previous ellipse state
+			 * rather than leave it unchanged, otherwise
+			 * raw_emit_mt() would keep reporting stale
+			 * MAJOR/MINOR/ORIENTATION from an earlier frame right
+			 * when two fingers converge and split apart. */
+			if (blob_idx < HEATMAP_MAX_BLOBS) {
+				shid->eigmaj[s] = shid->blob_eigmaj[blob_idx];
+				shid->eigmin[s] = shid->blob_eigmin[blob_idx];
+				shid->eigori[s] = shid->blob_eigori[blob_idx];
+			}
+
+			shid->blob_slot_missed[s] = 0;
+			shid->blob_slot_gx[s] = gx;
+			shid->blob_slot_gy[s] = gy;
+			/* EMA on blob weight (matching Windows: weight_smoothed = (old*7+new)/8).
+			 * Fixed alpha, independent of the position-smoothing ema_alpha
+			 * module param — see HEATMAP_WEIGHT_EMA_ALPHA.
+			 * Only for continuously-claimed slots — reset weight after hold/lift. */
+			if (old_state == 2)
+				shid->blob_slot_weight[s] = (shid->blob_slot_weight[s] * HEATMAP_WEIGHT_EMA_ALPHA + w) / (HEATMAP_WEIGHT_EMA_ALPHA + 1);
+			else
+				shid->blob_slot_weight[s] = w;
+
+			new_active[s] = (shid->blob_slot_state[s] >= 2);
+
+			if (new_active[s]) {
+				/* EMA + deadband + stationary lock.
+				 * EMA alpha = frame_ema_alpha (default 2,
+				 * weight 1/3) for smooth tracking.
+				 * Deadband ±HEATMAP_DEADBAND_THRESHOLD
+				 * (20 → 0.2 cells) suppresses antenna-noise
+				 * jitter during slow holds. After
+				 * HEATMAP_STATIONARY_FRAMES (2) consecutive
+				 * stationary frames the position is frozen
+				 * until a real move occurs. */
+				if (old_state == 2) {
+					u32 egx = (old_gx * frame_ema_alpha + gx) /
+						  (frame_ema_alpha + 1);
+					u32 egy = (old_gy * frame_ema_alpha + gy) /
+						  (frame_ema_alpha + 1);
+					s32 ddx = (s32)egx - (s32)old_gx;
+					s32 ddy = (s32)egy - (s32)old_gy;
+
+				if (ddx >= -(HEATMAP_DEADBAND_THRESHOLD) && ddx <= HEATMAP_DEADBAND_THRESHOLD &&
+				    ddy >= -(HEATMAP_DEADBAND_THRESHOLD) && ddy <= HEATMAP_DEADBAND_THRESHOLD) {
+					u8 c = shid->blob_slot_stationary[s];
+					if (c < HEATMAP_STATIONARY_FRAMES) {
+						c++;
+						shid->blob_slot_stationary[s] = c;
+					}
+					if (c >= HEATMAP_STATIONARY_FRAMES) {
+							new_gx[s] = old_gx;
+							new_gy[s] = old_gy;
+						} else {
+							new_gx[s] = egx;
+							new_gy[s] = egy;
+						}
+					} else {
+						shid->blob_slot_stationary[s] = 0;
+						new_gx[s] = egx;
+						new_gy[s] = egy;
+					}
+				} else {
+					new_gx[s] = gx;
+					new_gy[s] = gy;
+				}
+				shid->blob_slot_gx[s] = new_gx[s];
+				shid->blob_slot_gy[s] = new_gy[s];
+
+				/* Push to history ring for lift lookback. */
+				{
+					u8 hp = shid->blob_slot_hpos[s];
+					shid->blob_slot_hx[s][hp] = new_gx[s];
+					shid->blob_slot_hy[s][hp] = new_gy[s];
+					shid->blob_slot_hpos[s] = (hp + 1) % SLOT_HISTORY_DEPTH;
+					if (shid->blob_slot_hcount[s] < SLOT_HISTORY_DEPTH)
+						shid->blob_slot_hcount[s]++;
+				}
+			}
+		} else {
+slot_unassigned:
+			switch (shid->blob_slot_state[s]) {
+			case 1:
+				slot_history_clear(shid, s);
+				shid->blob_slot_state[s] = 0;
+				shid->blob_slot_duration[s] = 0;
+				break;
+			case 2:
+				if (hold_frames < 1) {
+					/* Lift lookback: use position from 2 frames
+					 * ago when the finger was still fully down. */
+					u8 hc = shid->blob_slot_hcount[s];
+					if (hc >= 2) {
+						u8 hp = shid->blob_slot_hpos[s];
+						u8 back = (hp + SLOT_HISTORY_DEPTH - 2) % SLOT_HISTORY_DEPTH;
+						shid->blob_slot_gx[s] = shid->blob_slot_hx[s][back];
+						shid->blob_slot_gy[s] = shid->blob_slot_hy[s][back];
+					}
+					shid->blob_slot_state[s] = 3;
+					shid->blob_slot_missed[s] = 0;
+				} else {
+					shid->blob_slot_state[s] = 4;
+					shid->blob_slot_missed[s] = 1;
+				}
+				break;
+			case 4:
+				shid->blob_slot_missed[s]++;
+				if (shid->blob_slot_missed[s] >= (u32)hold_frames) {
+					/* Lift lookback: use position from 2 frames
+					 * ago (when the finger was still fully down). */
+					u8 hc = shid->blob_slot_hcount[s];
+					if (hc >= 2) {
+						u8 hp = shid->blob_slot_hpos[s];
+						u8 back = (hp + SLOT_HISTORY_DEPTH - 2) % SLOT_HISTORY_DEPTH;
+						shid->blob_slot_gx[s] = shid->blob_slot_hx[s][back];
+						shid->blob_slot_gy[s] = shid->blob_slot_hy[s][back];
+					}
+					shid->blob_slot_state[s] = 3;
+					shid->blob_slot_missed[s] = 0;
+				}
+				break;
+			case 3:
+				shid->blob_slot_missed[s]++;
+				if (shid->blob_slot_missed[s] >=
+				    (u32)blob_lift_frames) {
+					slot_history_clear(shid, s);
+					shid->blob_slot_state[s] = 0;
+					shid->blob_slot_missed[s] = 0;
+				}
+				break;
+			case 0:
+				break;
+			}
+
+			/* Hold and lift states remain active — emit last
+			 * known position (hold) or lookback position (lift). */
+			if (shid->blob_slot_state[s] == 4 ||
+			    shid->blob_slot_state[s] == 3) {
+				new_active[s] = true;
+				new_gx[s] = shid->blob_slot_gx[s];
+				new_gy[s] = shid->blob_slot_gy[s];
+			} else {
+				new_active[s] = false;
+			}
+		}
+	}
+}
+
+/* ── Pipeline stage 9: MT protocol emission ───────────────────────── */
+
+/*
+ * Grid → screen mapping per GROUND_TRUTH.md §22.8.  Calibration
+ * parameters describe the final screen axes.
+ *
+ * Emits input_mt_slot, input_mt_report_slot_state, input_report_abs,
+ * and touch ellipse for each active slot. Returns any_touch flag. */
+static bool raw_emit_mt(struct spi_hid *shid, struct input_dev *input,
+			const bool *new_active,
+			const u32 *new_gx, const u32 *new_gy,
+			u32 scale_x, u32 scale_y, u32 screen_max,
+			int calib_offset_x, int calib_offset_y,
+			bool invert_x, bool invert_y, bool swap_xy)
+{
+	bool any_touch = false;
+	u8 s;
+
+	for (s = 0; s < HEATMAP_MAX_SLOTS; s++) {
+		input_mt_slot(input, s);
+		input_mt_report_slot_state(input, MT_TOOL_FINGER, new_active[s]);
+		if (new_active[s]) {
+			s64 fx, fy, tmp;
+			u32 screen_gx = new_gx[s];
+			u32 screen_gy = new_gy[s];
+			/* Orient first: scales and offsets always address final X/Y. */
+			if (swap_xy) {
+				tmp = screen_gx;
+				screen_gx = screen_gy;
+				screen_gy = tmp;
+			}
+			/* Fixed-point ×100: divide by 100000 not 1000. */
+			fx = ((s64)screen_gx * scale_x + 50000) / 100000;
+			fy = ((s64)screen_gy * scale_y + 50000) / 100000;
+			fx += calib_offset_x;
+			fy += calib_offset_y;
+			if (invert_x)
+				fx = (s64)screen_max - fx;
+			if (invert_y)
+				fy = (s64)screen_max - fy;
+			if (fx < 0)
+				fx = 0;
+			if (fy < 0)
+				fy = 0;
+			if (fx > screen_max)
+				fx = screen_max;
+			if (fy > screen_max)
+				fy = screen_max;
+			input_report_abs(input, ABS_MT_POSITION_X, (u16)fx);
+			input_report_abs(input, ABS_MT_POSITION_Y, (u16)fy);
+			any_touch = true;
+
+			/* Emit touch ellipse for this slot. */
+			if (shid->eigmaj[s] > 0) {
+				u32 major, minor;
+				s32 ori;
+
+				major = ((u32)int_sqrt(shid->eigmaj[s]) * scale_x + 500) / 1000;
+				minor = ((u32)int_sqrt(shid->eigmin[s]) * scale_y + 500) / 1000;
+				ori = shid->eigori[s] / 100;
+				if (swap_xy) {
+					u32 t = major;
+					major = minor;
+					minor = t;
+					ori = -ori;
+				}
+				if (major < 1)
+					major = 1;
+				if (minor < 1)
+					minor = 1;
+				if (major > screen_max)
+					major = screen_max;
+				if (minor > screen_max)
+					minor = screen_max;
+				if (ori > 89)
+					ori = 89;
+				if (ori < -89)
+					ori = -89;
+				input_report_abs(input, ABS_MT_TOUCH_MAJOR, major);
+				input_report_abs(input, ABS_MT_TOUCH_MINOR, minor);
+				input_report_abs(input, ABS_MT_ORIENTATION, ori);
+			} else {
+				/* No ellipse for this blob (a split sub-blob,
+				 * or a blob whose second moment came out
+				 * zero): report the zero so the clear reaches
+				 * the client. Skipping these reports left the
+				 * previous frame's MAJOR/MINOR/ORIENTATION in
+				 * place — a stale oval exactly when two
+				 * fingers converge and split apart. */
+				input_report_abs(input, ABS_MT_TOUCH_MAJOR, 0);
+				input_report_abs(input, ABS_MT_TOUCH_MINOR, 0);
+				input_report_abs(input, ABS_MT_ORIENTATION, 0);
+			}
+		}
+	}
+	return any_touch;
+}
+
+/*
+ * Process a raw heatmap frame through the full CCL touch pipeline.
+ *
+ * Pipeline stages:
+ *   1. Baseline subtraction + noise floor
+ *   2. Peak detection gate (full neighbourhood scan, HEATMAP_PEAK_RADIUS)
+ *   3. CCL flood-fill (4-connected BFS)
+ *   4. Velocity rejection + edge penalty + blob splitting
+ *   5. Centroid + eigenvalues computation
+ *   6. Pre-merge (ghost rejection)
+ *   7. Hungarian assignment with multi-finger radii
+ *   8. Slot state machine + EMA + deadband + stationary lock
+ *   9. MT protocol emission
+ *
+ * The function modifies blob_* and blob_slot_* arrays in shid.
+ */
+static void mshw0231_raw_process_samples(struct spi_hid *shid, const u8 *data,
+				 u32 data_len, u8 content_id)
+{
+	struct device *dev = &shid->spi->dev;
+	u32 i, cell_count, ncols, nrows;
+	u16 nlabels;
+	int data_offset;
+	int configured_cols, configured_rows;
+	int frame_ema_alpha;
+	int touched_count = 0;
+
+	if (!shid->touch_input)
+		return;
+
+	/* Parameters are fixed at module load; validate the frame before caching geometry. */
+	data_offset = READ_ONCE(dfa_data_offset);
+	configured_cols = READ_ONCE(grid_cols);
+	configured_rows = READ_ONCE(grid_rows);
+	frame_ema_alpha = READ_ONCE(ema_alpha);
+	if (frame_ema_alpha < 0 || frame_ema_alpha > 10000)
+		frame_ema_alpha = 3;
+	if (data_offset < 0 || data_offset >= data_len)
+		return;
+
+	/* The candidate cell field begins after metadata. Its geometry is not yet
+	 * proven, so never infer cells from a short or malformed frame. */
+	{
+		u32 avail = data_len - data_offset;
+		cell_count = avail;
+	}
+
+	/* The 72×48 default is an unvalidated experimental candidate. It remains
+	 * configurable only for controlled capture comparison, never calibration. */
+	/* Geometry: the module parameters are an explicit override, the cached
+	 * per-device geometry is the default. Without this the parameters were
+	 * unreachable: mshw0231_raw_init() always fills the cache from shid->cfg
+	 * (never NULL), and the auto-detect block below is skipped once it is.
+	 * The override also has to fit this frame: re-arming a geometry the
+	 * mismatch branch below just dropped would reset the pipeline once per
+	 * frame — the storm this code exists to avoid (adversarial review R14).
+	 * Rows derived from grid_cols always fit, so only an explicit row count
+	 * needs the test. */
+	if (configured_cols > 1 &&
+	    (!(configured_rows > 1) ||
+	     (u32)configured_cols * (u32)configured_rows <= cell_count) &&
+	    (shid->heatmap_grid_cols != configured_cols ||
+	     (configured_rows > 1 && shid->heatmap_grid_rows != configured_rows))) {
+		shid->heatmap_grid_cols = configured_cols;
+		shid->heatmap_grid_rows = configured_rows > 1 ? configured_rows : 0;
+	}
+	if (!shid->heatmap_grid_cols || !shid->heatmap_grid_rows) {
+		if (configured_cols > 1)
+			ncols = configured_cols;
+		else
+			ncols = GRID_COLS_DEFAULT;
+		if (configured_rows > 1)
+			nrows = configured_rows;
+		else if (configured_cols > 1)
+			nrows = cell_count / ncols;   /* custom cols: derive rows */
+		else
+			nrows = GRID_ROWS_DEFAULT;
+		if (ncols < 2) {
+			dev_warn(dev, "HEATMAP: invalid grid columns %u, using default\n", ncols);
+			ncols = GRID_COLS_DEFAULT;
+		}
+		if (nrows < 2) {
+			dev_warn(dev, "HEATMAP: invalid grid rows %u, using default\n", nrows);
+			nrows = GRID_ROWS_DEFAULT;
+		}
+		if (nrows > HEATMAP_MAX_CELLS / ncols || ncols * nrows > cell_count) {
+			dev_warn_ratelimited(dev, "HEATMAP: frame has %u bytes, insufficient for %ux%u grid\n",
+				 cell_count, ncols, nrows);
+			return;
+		}
+		shid->heatmap_grid_cols = ncols;
+		shid->heatmap_grid_rows = nrows;
+		seq_dbg(shid, 1, "HEATMAP: grid %u cols × %u rows (offset %d, frame avail %u cells)\n",
+			 ncols, nrows, data_offset, cell_count);
+	}
+	ncols = shid->heatmap_grid_cols;
+	nrows = shid->heatmap_grid_rows;
+
+	/* Every frame must cover the cached grid. Otherwise stale cells from a
+	 * larger prior frame could become phantom touches. */
+	if (!ncols || !nrows || nrows > HEATMAP_MAX_CELLS / ncols) {
+		dev_warn(dev, "HEATMAP: invalid grid %ux%u\n", ncols, nrows);
+		return;
+	}
+	if (cell_count < ncols * nrows) {
+		/* The cached grid does not fit this frame. A configured
+		 * dfa_data_offset makes that permanent, so drop the cached geometry
+		 * and let the auto-detect above re-derive it instead of wiping the
+		 * pipeline 100 times per second — but reset once on the way out, so
+		 * a slot held from a previous valid frame cannot stay published.
+		 * The reset is latched per mismatch episode: with grid_cols/
+		 * grid_rows set next to an impossible offset the override above
+		 * re-arms the cache every frame, and an unlatched reset would then
+		 * release every held contact at the frame rate (review R14). */
+		dev_warn_ratelimited(dev,
+			"HEATMAP: frame has %u cells, need %u for cached grid (match grid_cols/grid_rows, or set dfa_data_offset=0)\n",
+			cell_count, ncols * nrows);
+		if (!shid->heatmap_grid_mismatch) {
+			shid->heatmap_grid_mismatch = true;
+			if (data_offset && shid->heatmap_grid_cols) {
+				shid->heatmap_grid_cols = 0;
+				shid->heatmap_grid_rows = 0;
+			}
+			mshw0231_raw_reset(shid);
+		}
+		return;
+	}
+	shid->heatmap_grid_mismatch = false;
+	cell_count = ncols * nrows;
+
+	/* At the default 100 Hz stream rate, six missing frames are roughly
+	 * 60 ms. Use elapsed time rather than a local counter that increments
+	 * only when a frame has already arrived. */
+	if (shid->heatmap_last_frame_jiffies &&
+	    time_after(jiffies, shid->heatmap_last_frame_jiffies +
+		       msecs_to_jiffies(HEATMAP_MISSED_FRAME_TIMEOUT_MS))) {
+		release_all_slots(shid->touch_input, shid->blob_slot_state,
+				  HEATMAP_MAX_SLOTS);
+		memset(shid->blob_slot_state, 0, sizeof(shid->blob_slot_state));
+		memset(shid->blob_slot_duration, 0, sizeof(shid->blob_slot_duration));
+		memset(shid->blob_slot_gx, 0, sizeof(shid->blob_slot_gx));
+		memset(shid->blob_slot_gy, 0, sizeof(shid->blob_slot_gy));
+		memset(shid->blob_slot_weight, 0, sizeof(shid->blob_slot_weight));
+		memset(shid->blob_slot_missed, 0, sizeof(shid->blob_slot_missed));
+		memset(shid->blob_slot_stationary, 0, sizeof(shid->blob_slot_stationary));
+		memset(shid->blob_slot_hcount, 0, sizeof(shid->blob_slot_hcount));
+		memset(shid->blob_slot_hpos, 0, sizeof(shid->blob_slot_hpos));
+		memset(shid->eigmaj, 0, sizeof(shid->eigmaj));
+		memset(shid->eigmin, 0, sizeof(shid->eigmin));
+		memset(shid->eigori, 0, sizeof(shid->eigori));
+	}
+	shid->heatmap_last_frame_jiffies = jiffies;
+
+	if (cell_count > HEATMAP_MAX_CELLS) {
+		dev_warn(dev, "HEATMAP: frame too large (%u cells > %u max)\n", cell_count, HEATMAP_MAX_CELLS);
+		return;
+	}
+
+	/* Store raw frame for sysfs debug */
+	if (!shid->heatmap_buf || shid->heatmap_capacity < data_len) {
+		u8 *new_buf = kmalloc(data_len, GFP_KERNEL);
+
+		if (new_buf) {
+			kfree(shid->heatmap_buf);
+			shid->heatmap_buf = new_buf;
+			shid->heatmap_capacity = data_len;
+		}
+	}
+	if (shid->heatmap_buf && shid->heatmap_capacity >= data_len) {
+		memcpy(shid->heatmap_buf, data, data_len);
+		shid->heatmap_len = data_len;
+		shid->heatmap_content_id = content_id;
+	}
+
+	/* ── Stage 1: baseline + noise floor ── */
+	if (!raw_compute_signal(shid, data, data_offset, cell_count, content_id))
+		return;
+
+	/* ── Stage 2+3: peak detection + CCL flood-fill ── */
+	/* Step 2+3: Connected-component labeling + centroid + eigenvalues
+	 * (matching Windows FUN_180600c40 CCL pipeline).
+	 * 4-connected flood-fill — each connected region of signal-above-
+	 * baseline becomes one blob candidate.
+	 *
+	 * Pre-filter: peak-detection gate (Windows FUN_1805fba00).  If no
+	 * peak is found at all, the entire CCL pass is skipped — residual
+	 * noise after finger lift never creates phantom blobs. */
+	memset(shid->blob_wsum, 0, sizeof(shid->blob_wsum));
+	memset(shid->blob_raw_wsum, 0, sizeof(shid->blob_raw_wsum));
+	memset(shid->blob_active, 0, sizeof(shid->blob_active));
+	memset(shid->heatmap_label, 0, cell_count * sizeof(shid->heatmap_label[0]));
+	nlabels = 0;
+	touched_count = 0;
+
+	{
+	u16 peaks_col[HEATMAP_MAX_PEAKS];
+	u16 peaks_row[HEATMAP_MAX_PEAKS];
+		u8 npeaks;
+
+		npeaks = raw_detect_peaks(shid, cell_count, ncols, nrows,
+				   peaks_col, peaks_row);
+
+		if (npeaks > 0)
+			raw_ccl_flood_fill(shid, cell_count, ncols, nrows,
+					   &nlabels, &touched_count, npeaks,
+					   peaks_col, peaks_row);
+	}
+
+	/* ── Stage 4-9: tracking + emission ── */
+	/* Step 5: emit multitouch events with EMA smoothing and slot tracking.
+	 * Grid → screen mapping per GROUND_TRUTH.md §22.8.  Calibration
+	 * parameters describe the final screen axes, so choose the source grid
+	 * extent after swap_xy has selected which grid axis feeds each output. */
+	{
+		struct input_dev *input = shid->touch_input;
+		bool any_touch = false;
+		struct blob_entry sorted[HEATMAP_MAX_BLOBS];
+		u8 sorted_count = 0;
+		const u32 SCREEN_MAX = 32767;
+		u32 scale_x, scale_y;
+		u32 screen_x_cells = swap_xy ? nrows : ncols;
+		u32 screen_y_cells = swap_xy ? ncols : nrows;
+
+		if (calib_scale_x > 0)
+			scale_x = (u32)calib_scale_x;
+		else
+			scale_x = (SCREEN_MAX * 1000) / (screen_x_cells - 1);
+
+		if (calib_scale_y > 0)
+			scale_y = (u32)calib_scale_y;
+		else
+			scale_y = (SCREEN_MAX * 1000) / (screen_y_cells - 1);
+
+		for (i = 0; i < HEATMAP_MAX_BLOBS; i++) {
+			if (!shid->blob_active[i] || shid->blob_raw_wsum[i] < blob_min_weight)
+				continue;
+			sorted[sorted_count].gx = shid->blob_x[i];
+			sorted[sorted_count].gy = shid->blob_y[i];
+			sorted[sorted_count].w = shid->blob_wsum[i];
+			sorted[sorted_count].raw_w = shid->blob_raw_wsum[i];
+			sorted[sorted_count].idx = i;
+			sorted_count++;
+		}
+		for (i = 0; i + 1 < sorted_count; i++)
+			for (u8 j = i + 1; j < sorted_count; j++)
+				if (sorted[j].w > sorted[i].w) {
+					struct blob_entry t = sorted[i];
+					sorted[i] = sorted[j];
+					sorted[j] = t;
+				}
+		if (sorted_count > HEATMAP_MAX_SLOTS)
+			sorted_count = HEATMAP_MAX_SLOTS;
+
+		/* Pre-association filter (Windows DLL:
+		 * +0x8C0=0.611, +0x8C4=0.755, +0x8C8=0.831, +0x8CC=0.871).
+		 * Discards blobs weaker than (max_weight * pre_assoc_ratio/1000)
+		 * before Hungarian assignment — catches noise blobs that survived
+		 * initial filtering but are order-of-magnitude weaker than real
+		 * fingers. Disabled by default (pre_assoc_ratio=0). */
+		if (pre_assoc_ratio > 0 && sorted_count >= 2) {
+			u32 min_w = (u64)sorted[0].w * (u32)pre_assoc_ratio / 1000;
+			u8 keep = 0;
+			for (i = 0; i < sorted_count; i++) {
+				if (sorted[i].w >= min_w) {
+					if (i != keep)
+						sorted[keep] = sorted[i];
+					keep++;
+				}
+			}
+			sorted_count = keep;
+		}
+
+		for (i = 0; i < sorted_count; i++) {
+			u32 screen_gx = swap_xy ? sorted[i].gy : sorted[i].gx;
+			u32 screen_gy = swap_xy ? sorted[i].gx : sorted[i].gy;
+
+			/* Fixed-point scale step identical to the emission path, but on
+			 * pre-tracker blobs and before calib_offset/invert/clamp: this
+			 * trace documents the raw grid→screen mapping, not what gets
+			 * published, which is why the label says so. */
+			seq_dbg(shid, 2, "CALIB: blob[%u] grid=(%u,%u) screen-pre-offset=(%u,%u) weight=%u scale=(%ux%u)\n",
+				 i, sorted[i].gx, sorted[i].gy,
+				 (u32)(((s64)screen_gx * scale_x + 50000) / 100000),
+				 (u32)(((s64)screen_gy * scale_y + 50000) / 100000),
+				 sorted[i].w, scale_x, scale_y);
+		}
+		if (sorted_count || touched_count)
+			seq_dbg(shid, 2, "CALIB: blobs=%u cells_touched=%d\n",
+				 sorted_count, touched_count);
+
+		/* ── Stage 6: ghost merge ── */
+		raw_ghost_merge(shid, sorted, &sorted_count,
+				(u32)READ_ONCE(ghost_dist));
+
+		/* ── Stage 7: Hungarian global assignment ── */
+		{
+			u8 assigned_slot[HEATMAP_MAX_BLOBS];
+			u32 new_gx[HEATMAP_MAX_SLOTS], new_gy[HEATMAP_MAX_SLOTS];
+			bool new_active[HEATMAP_MAX_SLOTS];
+			u32 bmd;
+
+			bmd = raw_hungarian_match(shid, sorted, sorted_count,
+						 assigned_slot,
+						 (u32)READ_ONCE(blob_max_distance));
+
+			/* ── Stage 8: slot state machine ── */
+			raw_update_slots(shid, sorted, sorted_count,
+					 assigned_slot, bmd,
+					 new_gx, new_gy, new_active,
+					 frame_ema_alpha,
+					 READ_ONCE(blob_debounce),
+					 READ_ONCE(blob_lift_frames),
+					 READ_ONCE(hold_frames));
+
+			/* ── Stage 9: MT protocol emission ── */
+			any_touch = raw_emit_mt(shid, input,
+						new_active, new_gx, new_gy,
+						scale_x, scale_y, SCREEN_MAX,
+						calib_offset_x, calib_offset_y,
+						invert_x, invert_y, swap_xy);
+		}
+
+		/* Bug fix: only HEATMAP_MAX_SLOTS slots were
+		 * ever allocated via input_mt_init_slots() — the loop above
+		 * already reports the correct active/inactive state for all of
+		 * them. Calling input_mt_slot() with an out-of-range index here
+		 * was a no-op in the input core (slot left unchanged at the last
+		 * valid one, HEATMAP_MAX_SLOTS-1), so this loop was re-clearing
+		 * that last real slot immediately after it was just reported
+		 * active, silently deactivating the second finger every frame. */
+		input_mt_sync_frame(input);
+		input_report_key(input, BTN_TOUCH, any_touch ? 1 : 0);
+		input_sync(input);
+	}
+}
+
+
+int mshw0231_raw_input_register(struct spi_hid *shid)
+{
+	struct device *dev = &shid->spi->dev;
+	int ret;
+
+	/* The caller decides whether the heatmap-backed MT device is needed.
+	 * This lets the normal HID-over-SPI transport reuse the CapImg tracker
+	 * after an explicit standard-transport activation. */
+	{
+		shid->touch_input = input_allocate_device();
+		if (shid->touch_input) {
+			shid->touch_input->name = "MSHW0231 Touchscreen";
+			shid->touch_input->phys = "spi-hid/input1";
+			shid->touch_input->id.bustype = BUS_SPI;
+			shid->touch_input->id.vendor = 0x045E;
+			shid->touch_input->id.product = 0x0C19;
+			shid->touch_input->dev.parent = &shid->spi->dev; /* attach to physical SPI dev */
+			set_bit(INPUT_PROP_DIRECT, shid->touch_input->propbit);
+			set_bit(EV_ABS, shid->touch_input->evbit);
+			set_bit(EV_KEY, shid->touch_input->evbit);
+			set_bit(BTN_TOUCH, shid->touch_input->keybit);
+			input_set_abs_params(shid->touch_input, ABS_MT_POSITION_X, 0, 32767, 0, 0);
+			input_set_abs_params(shid->touch_input, ABS_MT_POSITION_Y, 0, 32767, 0, 0);
+			input_set_abs_params(shid->touch_input, ABS_X, 0, 32767, 0, 0);
+			input_set_abs_params(shid->touch_input, ABS_Y, 0, 32767, 0, 0);
+			input_abs_set_res(shid->touch_input, ABS_MT_POSITION_X, 112);
+			input_abs_set_res(shid->touch_input, ABS_MT_POSITION_Y, 198);
+			input_abs_set_res(shid->touch_input, ABS_X, 112);
+			input_abs_set_res(shid->touch_input, ABS_Y, 198);
+			input_set_abs_params(shid->touch_input, ABS_MT_TOUCH_MAJOR, 0, 32767, 0, 0);
+			input_set_abs_params(shid->touch_input, ABS_MT_TOUCH_MINOR, 0, 32767, 0, 0);
+			input_set_abs_params(shid->touch_input, ABS_MT_ORIENTATION, -89, 89, 0, 0);
+			ret = input_mt_init_slots(shid->touch_input, HEATMAP_MAX_SLOTS,
+						  INPUT_MT_DIRECT);
+			if (ret) {
+				dev_warn(dev, "HEATMAP: failed to init MT slots (%d)\n", ret);
+				input_free_device(shid->touch_input);
+				shid->touch_input = NULL;
+				return ret;
+			}
+			if (input_register_device(shid->touch_input)) {
+				dev_warn(dev, "HEATMAP: failed to register touch input device\n");
+				input_free_device(shid->touch_input);
+				shid->touch_input = NULL;
+				return -ENODEV;
+			} else {
+				dev_info(dev, "HEATMAP: multitouch input device registered\n");
+			}
+		} else {
+			/* Reporting success here left the driver in "raw mode"
+			 * with no input device: every frame was discarded and
+			 * nothing said why. */
+			dev_err(dev, "HEATMAP: cannot allocate the multitouch input device\n");
+			return -ENOMEM;
+		}
+	}
+	return 0;
+}
+
+int mshw0231_raw_consume_v0(struct spi_hid *shid, const u8 *body,
+			    u32 body_length)
+{
+	struct spi_hid_capimg_raster raster;
+	u32 expected_samples = shid->cfg ? shid->cfg->capimg_raster_samples
+					 : SPI_HID_CAPIMG_RASTER_SAMPLES;
+	int ret;
+
+	ret = spi_hid_capimg_decode_v0(body, body_length, expected_samples, &raster);
+	if (ret)
+		return ret;
+
+	mshw0231_raw_process_samples(shid, raster.samples, expected_samples, 0x0c);
+	return 0;
+}
+
+void mshw0231_raw_consume_samples(struct spi_hid *shid, const u8 *samples,
+				  u32 sample_count, u8 content_id)
+{
+	mshw0231_raw_process_samples(shid, samples, sample_count, content_id);
+}

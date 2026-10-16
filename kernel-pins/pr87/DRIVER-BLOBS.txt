@@ -1,0 +1,17 @@
+# Exact frozen Git blob identities for PR87
+# Upstream source: 18f0fe79623e6de4fdf1ae493f82a7048397386a
+# Each entry is a SHA1 Git BLOB object ID, not a file digest.
+3a5c688b0875f7f763d2b43c4c04bc2e3aecde0c  hardcoded_rd.h
+e41bb55824bb86ad7ba39090e4ea597feeda3964  mshw0231-raw-constants.h
+d1eb637d3233b1e174b45c6f87b78b1e935f8263  mshw0231-raw.c
+a33e79993585d035efb0707f4b320043643429a1  mshw0231-raw.h
+91b9e3c0f7d17331593ddaf66b75c5d8a7768515  spi-amd.c
+69f7021d7eb5419426e254f56092fb509301a9fe  spi-amd.h
+0a2fa5b582a00534246573387097e23592c0f4ad  spi-hid-capimg.c
+85f8bca4811ef9a1c7ec9777fe9b15542ef206a2  spi-hid-capimg.h
+9c188af6cac4fcaf9af14481a955bd6398afdcfa  spi-hid-core.c
+87ac5a6ea53bc26ec5d061541389b6a850bb4a3f  spi-hid-core.h
+7498a6cf385bc7697b4928276123f3b7b9b86b0f  spi-hid-protocol.h
+223b5a08efc62ebb2960ee4ae20fe83b24798be9  spi-hid-wire-frames.h
+82aacf40a1d0e04dd995f91562698f14f91b1228  spi-hid_trace.h
+e2215d1d9469ffd80e2d90fd22f28be9a47a59e2  trace.c
