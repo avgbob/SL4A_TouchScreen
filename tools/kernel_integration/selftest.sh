@@ -16,16 +16,16 @@ printf 'obj-y += hid-core.o\n' > "$kernel/drivers/hid/Makefile"
 git -C "$kernel" init -q
 git -C "$kernel" -c user.name='SL4A selftest' -c user.email='none@example.invalid' add .
 git -C "$kernel" -c user.name='SL4A selftest' -c user.email='none@example.invalid' commit -qm fixture
-"$script" --check "$kernel"
+bash "$script" --check "$kernel"
 test ! -e "$kernel/drivers/hid/sl4a"
-"$script" --apply "$kernel"
+bash "$script" --apply "$kernel"
 git -C "$kernel" diff --check
 test -f "$kernel/drivers/hid/sl4a/spi-hid-core.c"
 test -f "$kernel/drivers/hid/sl4a/spi-amd.h"
 test -f "$kernel/drivers/spi/sl4a/spi-amd.c"
 grep -q '^config SL4A_HID_SPI$' "$kernel/drivers/hid/sl4a/Kconfig"
 grep -q '^config SL4A_AMD_SPI$' "$kernel/drivers/spi/sl4a/Kconfig"
-if "$script" --apply "$kernel" >/dev/null 2>&1; then
+if bash "$script" --apply "$kernel" >/dev/null 2>&1; then
     echo 'FAIL: repeated staging was not blocked' >&2
     exit 1
 fi
