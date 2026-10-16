@@ -271,12 +271,24 @@ qualify_s2idle_two() {
                 --snapshot "$before"
             echo "=== ENTERING REAL S2IDLE CYCLE $cycle/2 ==="
             as_root systemctl suspend
-            # This line should execute only after the system has resumed.
-            python3 "$ROOT/tools/hardware_evidence/s2idle_clock.py" \
-                --snapshot "$after"
+            # CRITICAL: systemctl may return after queueing the suspend
+            # request, *before* the machine has actually gone to sleep.
+            # The old immediate snapshot falsely read 0.000s, restored
+            # Gate5 and finished BEFORE any post-wake voice prompt.
+            # Wait for the actual sleep clock gap, or fail closed.
+            echo "=== SUSPEND REQUESTED; WAITING FOR VERIFIED WAKE ==="
+            if ! python3 "$ROOT/tools/hardware_evidence/s2idle_clock.py" \
+                --wait-after "$before" "$after" --timeout-seconds 75 \
+                    | tee "$session/clock-verdict-$cycle.txt"; then
+                as_root journalctl -k -b --since "$journal_since" --no-pager \
+                    > "$session/kernel-resume-$cycle.log" || true
+                python3 "$ROOT/tools/hardware_evidence/speak_operator.py" \
+                    "The system could not verify the sleep interval. The test is stopping. The working touchscreen driver will be restored." \
+                    || true
+                echo "ERROR: real suspend/resume unproven. Saved kernel log." >&2
+                exit 1
+            fi
             sleep 2
-            python3 "$ROOT/tools/hardware_evidence/s2idle_clock.py" \
-                --verify "$before" "$after" | tee "$session/clock-verdict-$cycle.txt"
             [[ -r "$SYS" && "$(cat "$SYS")" == 4 ]] || {
                 echo "ERROR: mode4 did not survive s2idle cycle $cycle" >&2
                 exit 1
@@ -301,8 +313,13 @@ qualify_s2idle_two() {
                 echo "ERROR: missing kernel suspend-exit marker for cycle $cycle" >&2
                 exit 1
             }
+            # The desktop audio sink may reconnect only after login/unlock.
+            # Do not continue until the operator confirms the POST-WAKE
+            # voice was actually HEARD. This never counts terminal text
+            # or a successful paplay exit as proof of audible instructions.
             python3 "$ROOT/tools/hardware_evidence/speak_operator.py" \
-                "Laptop awake after suspend cycle $cycle. The touchscreen will now receive a short spoken finger and pinch test."
+                --confirm --retries 5 \
+                "Laptop awake after suspend cycle $cycle. Unlock the screen if necessary. This is the spoken post-wake checkpoint. Type YES in the terminal only if you heard this message. Next is the one-finger movement and two-finger pinch test."
             echo "=== POST-S2IDLE TOUCH VALIDATION $cycle/2 ==="
             capture quick | tee "$session/capture-$cycle.log"
             cat "$STATS" > "$session/stats-after-touch-$cycle.txt"
