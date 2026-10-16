@@ -132,8 +132,10 @@ remain historical evidence only; they are not retroactively upgraded.
       Prevent noisy zero-duration standard-liveness callbacks.
 - [x] Add mode4 feature-order + hardware gate regression checks.
 - [x] Add audible reusable guided evidence runner and host tests.
-- [ ] **Final CI green** on the post-fix exact branch HEAD, including whitespace,
-      plain and sanitizer host tests, Ubuntu and current-kernel builds.
+- [x] **Mode4 runner CI green at `8f35baf7f9`**, including whitespace,
+      ordinary + sanitizer host tests, Ubuntu and current-kernel module builds:
+      [workflow run](https://github.com/avgbob/SL4A_TouchScreen/actions/runs/38926965135).
+      Reverify if the branch head changes before a physical run.
 - [ ] Incorporate Syax89's **extracted production DATA-handler** behavioral test
       (not only source-string checks) into mode4, checking full 4.3 KiB drain,
       hid_creating, no premature HID publication, default-HID negative control,
@@ -148,6 +150,33 @@ remain historical evidence only; they are not retroactively upgraded.
 - [ ] Reconcile old qualification trackers as historical rather than
       overwriting their original results.
 - [ ] Keep speculative GET6 wire/IRQ research separate from release evidence.
+
+### Upstream PR review responses (software only)
+
+The five test/diagnostic findings from Syax89's 2026-10-16 review are
+corrected on their **separate existing draft branches** and green in fork CI:
+
+- **#87**, `2bf81e8`: GCC 14 host kernel-stub warnings exempted narrowly;
+  production DATA handler stays extracted and `-Werror` stays enabled.
+  [CI](https://github.com/avgbob/SL4A_TouchScreen/actions/runs/38925909979).
+- **#88**, `9cc5cc0`: 3456-byte fixture teardown fixed; replay-only
+  ghost-radius now uses the production active-slot scale.
+  [CI](https://github.com/avgbob/SL4A_TouchScreen/actions/runs/38925926108).
+- **#89**, `879a13d`: correct rotation-help warning string, single
+  temporary DKMS config prefix substitution, real last-drop-in-wins test.
+  [CI](https://github.com/avgbob/SL4A_TouchScreen/actions/runs/38925987371).
+
+All three CI gates include normal and sanitizer host suites and two external
+module builds. These results **do not qualify** hardware lifecycles or
+Secure Boot installation. Replies with the SHA and CI proof were posted
+to the respective upstream PRs; they remain draft for independent review.
+
+**New first physical step:** run the read-only
+`tools/hardware_evidence/verify_live_monitor.py` smoke check on the
+**currently working Gate5**, before building or reloading mode4. It tests
+spoken instructions, sudo, exact input-node selection, live one-finger
+movement and release; it does NOT modify the module, MOK or DKMS profile.
+Only proceed to the full mode4 battery after this smoke check passes.
 
 ## 4. Physical preflight — once per machine/session
 
