@@ -757,6 +757,20 @@ static int spi_hid_seq_write_vendor_init(struct spi_hid *shid)
 	return spi_hid_seq_write(shid, frame.bytes, (int)frame.len, NULL, 0);
 }
 
+/* Diagnostic only: report 0x56 carrying FF x6 (no host Bluetooth address).
+ * Reuse the pinned all-FF builder; its historical "stop" name must not
+ * imply this write always tears down touch. Never replay a host's real BD_ADDR. */
+static int spi_hid_seq_write_host56_none(struct spi_hid *shid)
+{
+	struct spi_hid_wire_frame frame =
+		spi_hid_wire_vendor_stop(spi_hid_wire_doubled_setfeat());
+
+	shid->read_resp_type = SPI_HID_CONTENT_TYPE_SET_FEATURE;
+	shid->read_resp_content_id = SPI_HID_RAW_STREAM_CONTENT_ID;
+
+	return spi_hid_seq_write(shid, frame.bytes, (int)frame.len, NULL, 0);
+}
+
 /* GET_FEATURE Report ID 6 (probe-time calibration read). Doubled form like
  * every other sequencer write: the controller consumes the first byte, so
  * doubled-in-driver is what puts Windows' ten bytes on the wire (July
@@ -2752,13 +2766,13 @@ module_param(gate3_observe_only, bool, 0444);
 MODULE_PARM_DESC(gate3_observe_only,
 	"Gate 3 default 1: log a stalled golden handshake but do not inject legacy retries/recovery");
 
-/* July one-shot transition in standard mode: GET ID6 + SET ID5=1 after RPT,
- * then passive capture on reg 0 (raw_observed counts). Opt-in; default off
- * keeps standard HID byte-identical. */
+/* Experimental standard-transport activation after RPT_DESC.
+ * Mode 1 remains qualified/default; mode 4 is MSHW0231-only:
+ * 0x56 FF x6 -> 37-40 ms -> SET5, with no GET6. Never selected automatically. */
 static int std_raw_transition;
 module_param(std_raw_transition, int, 0444);
 MODULE_PARM_DESC(std_raw_transition,
-	"Standard-mode heat transition: 0=off, 1=GET6+SET5, 2=GET6-only, 3=SET5-only");
+	"Standard-mode heat transition: 0=off, 1=GET6+SET5, 2=GET6-only, 3=SET5-only, 4=FFx6+SET5 (MSHW0231 diagnostic)");
 
 module_param(skip_std_getfeat, bool, 0444);
 MODULE_PARM_DESC(skip_std_getfeat,
@@ -3743,18 +3757,20 @@ static void seq_handle_rpt(struct spi_hid *shid, int type, u16 blen)
 				}
 			}
 		} else {
-			/* Standard-mode heat transition, opt-in.  Mode 1 preserves
-			 * the July GET6+SET5 sequence; modes 2 and 3 isolate each
-			 * command for hardware A/B testing without changing raw_mode. */
+			/* Preserve modes 1-3; mode 4 is an MSHW0231-only diagnostic.
+			 * Unknown/DT devices may never enter mode 4. */
 			if (std_raw_transition && !shid->transition_done) {
+				bool host56_mode4 = std_raw_transition == 4 &&
+					shid->std_host56_mshw0231;
 				bool do_get6 = std_raw_transition == 1 ||
 					       std_raw_transition == 2;
 				bool do_set5 = std_raw_transition == 1 ||
-					       std_raw_transition == 3;
+					       std_raw_transition == 3 ||
+					       host56_mode4;
 
 				seq_dbg(shid, 1,
-					"SEQ: standard-mode raw transition: mode=%d GET6=%d SET5=%d\n",
-					std_raw_transition, do_get6, do_set5);
+					"SEQ: standard-mode raw transition: mode=%d GET6=%d SET5=%d host56=%d\n",
+					std_raw_transition, do_get6, do_set5, host56_mode4);
 
 				/*
 				 * Gate 4 hardware result:
@@ -3784,9 +3800,22 @@ static void seq_handle_rpt(struct spi_hid *shid, int type, u16 blen)
 					}
 				}
 
-				if (do_set5 && spi_hid_seq_write_setfeat(shid))
+				if (host56_mode4) {
+					/* New A/B: 0x56 FF x6, no GET6, then SET5.
+					 * If 0x56 fails, do not turn this into SET5-only. */
+					if (spi_hid_seq_write_host56_none(shid)) {
+						dev_warn(&shid->spi->dev,
+							 "SEQ: mode4 report 0x56 failed; withholding SET5\n");
+					} else {
+						usleep_range(37000, 40000);
+						if (spi_hid_seq_write_setfeat(shid))
+							dev_warn(&shid->spi->dev,
+								 "SEQ: mode4 SET_FEATURE ID5 failed\n");
+					}
+				} else if (do_set5 && spi_hid_seq_write_setfeat(shid)) {
 					dev_warn(&shid->spi->dev,
 						 "SEQ: transition SET_FEATURE ID5 failed, continuing\n");
+				}
 
 				shid->transition_done = true;
 
@@ -4035,7 +4064,8 @@ static void seq_handle_data(struct spi_hid *shid, int type, u16 blen)
 		if ((shid->raw_mode_active ||
 		     (!shid->raw_mode_active &&
 		      (std_raw_transition == 1 ||
-		       std_raw_transition == 3) &&
+		       std_raw_transition == 3 ||
+		       (std_raw_transition == 4 && shid->std_host56_mshw0231)) &&
 		      raw_input_beta)) &&
 		    body[7] == 0x0C && shid->touch_input) {
 			int cret;
@@ -4930,8 +4960,12 @@ static int spi_hid_probe(struct spi_device *spi)
 	/* Per-device config: ACPI match data carries the right table; anything
 	 * else (DT, unknown ACPI id) falls back to the SL4 defaults. */
 	shid->cfg = device_get_match_data(dev);
+	/* A default/fallback SL4 geometry is not proof of MSHW0231 identity. */
+	shid->std_host56_mshw0231 = shid->cfg == &spi_hid_cfg_sl4;
 	if (!shid->cfg)
 		shid->cfg = &spi_hid_cfg_sl4;
+	if (std_raw_transition == 4 && !shid->std_host56_mshw0231)
+		dev_warn(dev, "SEQ: mode4 FFx6+SET5 denied: not MSHW0231\n");
 	dev_info(dev, "device config: grid %ux%u, %u capimg samples, baseline %u frames, EMA alpha %u\n",
 		 shid->cfg->grid_cols, shid->cfg->grid_rows,
 		 shid->cfg->capimg_raster_samples, shid->cfg->heatmap_baseline_needed,
@@ -5061,7 +5095,8 @@ static int spi_hid_probe(struct spi_device *spi)
 	if (shid->raw_mode_active ||
 	    (!shid->raw_mode_active &&
 	     (std_raw_transition == 1 ||
-	      std_raw_transition == 3) &&
+	      std_raw_transition == 3 ||
+	      (std_raw_transition == 4 && shid->std_host56_mshw0231)) &&
 	     raw_input_beta)) {
 		ret = mshw0231_raw_input_register(shid);
 		if (ret)
