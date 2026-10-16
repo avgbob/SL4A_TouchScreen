@@ -1,13 +1,15 @@
 # MSHW0231 standard-transport host-0x56/no-GET6 activation A/B
 
-**Status (2026-10-16):** opt-in mode4 has **real hardware qualification**
-for the planned gesture matrix (across separately recorded sessions) and
-**three successive warm module activations** on the original SL4 AMD.
-It has **not** yet qualified s2idle/resume or true cold power-on, so it
-remains experimental and **must not be promoted to installer default**.
-The installed Gate5 mode1 remains the qualified production/boot profile.
+**Status (2026-10-16):** opt-in mode4 now has **physical-unit
+qualification** for the planned gesture matrix (across separate runs),
+**three successive warm module activations**, and **two genuine
+s2idle/resume cycles** with event-gated post-wake gestures. These
+results are for the exact tested builds and original SL4 AMD 13.5-inch.
+True cold power-on in mode4 and broad cross-device compatibility remain
+unqualified, so **do not promote it to installer default**.
+The installed Gate5 mode1 remains the safe production/boot profile.
 Do not change DKMS registration, Secure Boot enrollment or persistent
-modprobe settings for this experiment.
+modprobe settings without a reviewed reversible cold-boot test.
 
 ## Why this is a different A/B
 
@@ -223,7 +225,7 @@ All are beneath `~/sl4a-hardware-runs/`. This closes
 suspend/resume, cold boot, upstream PR #87, or DieSchatten's raw
 transport. No kernel reinstall or MOK registration occurred.
 
-**Next physical qualification**, not yet executed: the experimental
+**Historical s2idle test design (now physically PASSED 2/2):** the
 `qualify-s2idle2` helper verifies that `[s2idle]` is selected,
 asks for confirmation before each platform suspend, detects actual
 suspend elapsed time using `CLOCK_BOOTTIME − CLOCK_MONOTONIC`,
@@ -232,6 +234,44 @@ event-gated `quick` capture after each resume *without unloading
 the temporary module between sleeps*. Restores Gate5 mode1 at the end
 or on any ordinary script failure and retains independent evidence.
 Rebooting is still handled by the unchanged production boot profile.
+
+### 2026-10-16 17:34–17:39 UTC: **genuine s2idle/resume 2/2 PASS**
+
+The same Surface Laptop 4 AMD, running kernel `7.0.0-31-generic`,
+executed the corrected audio/clock-aware
+`qualify-s2idle2` from **exact checkout `dc39813`**. The
+transient MOK-signed mode4 binary SHA256 was
+`de10c9769ec97b51a91dd86fcef6570e9f1dd205f4a82303339d773c8d7e7304`.
+This is the same driver functionality as prior mode4 evaluations,
+but the source SHA and signed file hash of **this** s2idle
+qualification are recorded separately.
+
+`CLOCK_BOOTTIME - CLOCK_MONOTONIC` confirmed actual suspend
+intervals of **5.238s** and **23.315s**, and the harness verified
+kernel `PM: suspend entry (s2idle)` and `PM: suspend exit`
+markers, with mode4 still active on return. Both postwake spoken
+prompts were heard and acknowledged, followed by a successful live
+`quick` run: one-finger movement and release; two-finger pinch,
+same-ID expansion, and release. No forbidden reset or dropped-frame
+delta was detected; the collectors and main-session checksums
+verified successfully.
+
+- Main s2idle evidence: `mode4-s2idle2-20261016T173414Z`
+- First postwake evdev trace: `mode4-quick-20261016T173525Z`
+- Second postwake evdev trace: `mode4-quick-20261016T173808Z`
+
+All under `~/sl4a-hardware-runs/` on the physical laptop. **Both
+cycles used the same loaded temporary module**; no reload was
+performed between suspends. The final cleanup restored the installed
+Gate5 driver, verifying live `std_raw_transition=1`.
+
+**Mode4 lifecycle status on the original test machine:** behavioral
+matrix complete across two sessions, warm **3/3**, real s2idle **2/2**.
+Still pending: **true cold power-on with mode4 selected during early
+boot**. Rebooting or power-cycling with the unchanged installed profile
+will load Gate5 mode1, so cannot validate mode4 cold startup. Neither
+these results nor DieSchatten's separate raw transport is a substitute
+for the exact-head acceptance Syax89 requested for PR #87.
 
 ## Opt-in mode 4
 
