@@ -4,6 +4,47 @@
 the independent DieSchatten device, and Syax89's upstream PR #87.
 This is an operating plan, not a claim of broad compatibility.
 
+## 2026-10-16: confirmed incomplete fallback — AMD controller absent
+
+The user's read-only checks on booted kernel **`7.0.0-34-generic`**
+showed **only** `sl4a_spi_hid` loaded, with no
+`sl4a_spi_amd` in `lsmod`. Platform
+`/sys/bus/platform/devices/AMDI0060:00/driver` was **UNBOUND**;
+ACPI `MSHW0231:00/physical_node/driver` was also **UNBOUND**;
+`/sys/bus/spi/devices/spi-MSHW0231:00/protocol_stats` did not exist
+before or after finger movement. Kernel output showed HID loading but
+no successful touch initialization. Both DKMS modules were reported
+installed for kernel34, and the HID `srcversion` of the loaded and
+installed module matched (`3326E559A916BE5CB52375D`).
+
+This **confirms the missing AMD SPI controller is sufficient to
+explain why touch is nonfunctional**, independently of Gate5 mode1
+being present. It is consistent with the specific boot-abort
+`fallback()` bug (only `modprobe sl4a-spi-hid`), and the source
+fallback has now been corrected to load AMD first and inspect both
+bindings. No physical module recovery outcome has yet been submitted.
+**Do not call the touchscreen restored until actual contact events
+are verified.**
+
+One further safety fix prevents `coldboot-stage` from arming if
+`sl4a_spi_amd_v2_multi` and `sl4a_spi_hid` are not both bound,
+or if `protocol_stats` is unreadable, even when mode1 is present.
+
+**Immediate physical recovery, pending observation:**
+
+```bash
+sudo modprobe sl4a-spi-amd
+sleep 3
+readlink -f /sys/bus/platform/devices/AMDI0060:00/driver
+readlink -f /sys/bus/acpi/devices/MSHW0231:00/physical_node/driver
+cat /sys/bus/spi/devices/spi-MSHW0231:00/protocol_stats
+```
+
+No reboot, DKMS reinstall, experimental mode4 insertion, or HID
+unload is needed for this first safe attempt. If bindings remain
+absent, collect module loader error/kernel log before modifying
+another component.
+
 ## 2026-10-16 ~18:15 UTC: IMPORTANT — Gate5 parameter 1 is NOT functional recovery
 
 Following the aborted one-shot boot on newly installed kernel
