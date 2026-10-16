@@ -350,6 +350,10 @@ def live_capture(audio, marks, phases, events, evidence_proc):
                         reason = f"{label}: {gate.failed_reason}"
                         mark(marks, "phase-inconclusive",
                              f"{label};attempt={attempt};{reason}")
+                        # Failure speech must not overlap an in-flight
+                        # reactive prompt. We already rejected the gesture.
+                        for pending in progress_futures:
+                            pending.result()
                         audio.speak("The original finger tracking was lost. "
                                     "This continuous gesture cannot pass. "
                                     "The recording is being saved for review.")
@@ -360,11 +364,6 @@ def live_capture(audio, marks, phases, events, evidence_proc):
                              f"{label};attempt={attempt};last_frame={frame.get('seq')}")
                         if context.get("pair"):
                             context["pair_last_pass_mono"] = frame["monotonic"]
-                        audio.play("go")
-                        # The next action is intentionally short and immediate
-                        # while two fingers are still held against the glass.
-                        if not context.get("pair"):
-                            audio.speak("Detected. Test passed.")
                         results.append((label, "PASS", attempt))
                         passed = True
                         break
@@ -373,6 +372,11 @@ def live_capture(audio, marks, phases, events, evidence_proc):
             for pending in progress_futures:
                 pending.result()
             if passed:
+                # No simultaneous audio output: progress worker has fully
+                # stopped before the success cue and next phase instructions.
+                audio.play("go")
+                if not context.get("pair"):
+                    audio.speak("Detected. Test passed.")
                 break
             mark(marks, "phase-retry", f"{label};attempt={attempt}")
             if continuation:

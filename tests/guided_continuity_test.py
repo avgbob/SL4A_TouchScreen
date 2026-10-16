@@ -112,6 +112,12 @@ class SlowProgressVoice(FakeVoice):
         self.progress_start = None
         self.progress_end = None
 
+    def play(self, cue):
+        assert not (cue == "go" and self.progress_start is not None
+                    and self.progress_end is None), (
+            "success cue overlapped a still-running reactive spoken prompt")
+        super().play(cue)
+
     def speak(self, message):
         if message == "Go." and self.go_count == 1:
             self.speech.append(message)
