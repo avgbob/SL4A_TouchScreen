@@ -8,7 +8,7 @@ usage() {
 	cat <<'EOF'
 Usage: tools/hardware_evidence/run_blinded_session.sh --period p1|p2|p3 --case CASE \
         --duration SECONDS --output NEW_DIRECTORY [--capture-direct-touch] \
-        [--capture-beta-multitouch] [--capture-stylus]
+        [--capture-beta-multitouch] [--capture-stylus] [--stop-file FILE]
 
 Create one blinded hardware-session evidence directory. PERIOD is an opaque
 label; this runner never accepts, selects, installs, loads, unloads, or records
@@ -27,6 +27,7 @@ output=""
 capture_direct_touch=0
 capture_beta_multitouch=0
 capture_stylus=0
+stop_file=""
 while [ "$#" -gt 0 ]; do
 	case "$1" in
 		--period)
@@ -60,6 +61,11 @@ while [ "$#" -gt 0 ]; do
 		--capture-stylus)
 			capture_stylus=1
 			shift
+			;;
+		--stop-file)
+			[ "$#" -ge 2 ] || { usage >&2; exit 2; }
+			stop_file="$2"
+			shift 2
 			;;
 		--help|-h)
 			usage
@@ -100,6 +106,7 @@ mkdir "$output/operator" || exit 1
 
 status="completed"
 trace_args=(--duration "$duration" --output "$output/trace")
+[ -z "$stop_file" ] || trace_args+=(--stop-file "$stop_file")
 if [ "$capture_direct_touch" -eq 1 ]; then
 	trace_args+=(--capture-direct-touch)
 fi
