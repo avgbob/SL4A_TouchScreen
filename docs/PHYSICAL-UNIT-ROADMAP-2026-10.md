@@ -4,6 +4,75 @@
 the independent DieSchatten device, and Syax89's upstream PR #87.
 This is an operating plan, not a claim of broad compatibility.
 
+## 2026-10-16 18:58–18:59 UTC: mode4 TRUE COLD POWER-ON 1/1 **PASS**
+
+**Physical Surface Laptop 4 AMD / MSHW0231**, Ubuntu kernel
+`7.0.0-34-generic`. This is the **second** controlled one-shot attempt,
+after correcting the prior kernel31→34 mismatch and incomplete Gate5
+fallback; the first attempt remains **INCONCLUSIVE** and must not be
+relabelled as a failure of experimental mode4.
+
+**Qualified exact experimental source:** `c196f2064163a1fc5c7be70b2ba3d51f04e9ec61`.
+**Existing-MOK-signed mode4 binary SHA256:**
+`5361315c6bfb28a895888e5394622ba078a1f736e7b84d16aa22e5f13b1b66c4`.
+Stage boot ID `1cd3ebae-96c0-4d4d-9073-85f8485d8d12`;
+power-on trial and current boot ID
+`275a12d5-5e6c-42cc-98cd-28b8435eb5a7`.
+The operator confirmed a **complete power-off → power-button on**
+by typing `COLD` after the boot-ID and driver identity checks;
+the helper reported `ACTIVE_AWAITING_POSTBOOT_TOUCH` with
+`Live mode: 4`. The one-shot bootstrap had also recorded that no
+previous HID driver instance appeared in the kernel log before
+the experimental first HID load.
+
+**Actual spoken and evdev event-gated `quick` session:**
+`~/sl4a-hardware-runs/mode4-quick-20261016T185822Z`.
+The operator confirmed *hearing* the synthesized voice; the runner
+detected single-finger movement + release, original two-finger
+pinch/continuing expansion + sequential releases, and announced
+`All gestures were detected`. Its verdict explicitly said
+`All live gesture gates, source identity, resets, frame drops and evidence checksums passed`.
+Do not mistake a timer or an ordinary `evtest` device listing
+for this operator-driven verification.
+
+**Recovery and sealed evidence:** at 18:59:54Z the one-shot service
+unloaded **only the matching mode4 instance**; at 18:59:57Z it
+reported `ROLLBACK Gate5 mode1 restored` and
+`PASS one cold first-HID load, actual gestures, restored Gate5`.
+All **14 reported** SHA256 items verified, including staged binary,
+module/source identity, stage/trial boot IDs, before/after sysfs,
+before-HID and after-AMD kernel journals, final result and events.
+Root-owned local evidence: `/var/lib/sl4a-mode4-coldboot`;
+the test also preserved a user-owned `mode4-quick` capture bundle.
+The transcript did **not** publish each individual counter delta,
+so cite the runner's verified reset/drop verdict instead of
+inventing measurements. Evidence folders remain on the tester's
+computer and have not been uploaded to GitHub.
+
+| mode4 milestone | Exact revision / kernel | Physical result |
+| --- | --- | --- |
+| Gesture matrix across independent sessions | prior mode4 test revisions / kernel31 | PASS (previous evidence) |
+| Three consecutive warm activations | prior tested mode4 signed build / kernel31 | **3/3 PASS** |
+| Two real s2idle suspend/resumes with postwake touch | `dc39813` / kernel31 | **2/2 PASS** |
+| One-shot real cold power-on with live touch | **`c196f20` / kernel34** | **1/1 PASS** |
+
+**Boundary:** this closes the last **planned category** of mode4
+lifecycle testing on the user's physical MSHW0231. The milestones
+were collected on **different exact builds and two kernels**;
+it is NOT proof that a single immutable binary passed the entire
+matrix, other users' hardware works, stylus is qualified or
+long-term durability is established. **Leave installed Gate5 mode1
+as the production default**; mode4 remains opt-in.
+
+**Different branch and activation:** Syax89 PR #87
+(`upstream/std-capimg-mt`, reviewed head historically
+`2bf81e8`) uses **GET6(write-only) → ~5ms → SET5**; our mode4
+uses **0x56 FF×6 → 37–40ms → SET5 without GET6**.
+The mode4 success cannot count as exact-head PR #87 physical
+coldboot, reload or resume acceptance. Next work is independently
+qualifying the current PR #87 head, checking it again before any
+upstream-ready claim.
+
 ## 2026-10-16: Gate5 touchscreen functionality RESTORED on kernel 7.0.0-34
 
 **Physical operator confirmation:** After `sudo modprobe sl4a-spi-amd`,
