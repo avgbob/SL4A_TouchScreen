@@ -51,13 +51,21 @@ there is **no GET6** in the mode-4 source branch. This proves GET6 is
 **not necessary for CapImg activation** on this controller in this warm
 reload. Neither a second reset nor a dropped frame was observed.
 
-**Qualification still pending:** user has not yet explicitly confirmed
-two-finger pinch/scroll, input quality, repeated warm reloads, cold boot,
-s2idle, pen, or post-test Gate5 restoration. The input counters establish
-CapImg frames, not gesture quality. The comparison with failed mode 3
-also changes **both** the preceding `0x56` write **and** the elapsed delay;
-the data alone does **not** identify which factor is necessary. Historical
-mode-3 success is another confounder. Do not promote mode 4 to default.
+**Input confirmation:** tester subsequently confirmed that **two-finger
+pinch works** with the exact mode-4 build tested here (`308f914`). Therefore
+this run establishes both CapImg streaming and a real multitouch gesture,
+not merely frame arrival. The logged `standard-mode liveness` messages
+(with `std_liveness_ms=0`) are a known inherited watchdog arm outside raw
+mode, independently reported in upstream PR #87 review. They did not cause
+a reset or observed frame drop during this capture; fix separately and
+requalify the resulting code before claiming an exact-revision pass.
+
+**Qualification still pending:** repeated warm reloads, cold boot, s2idle,
+pen, sustained input quality, and independently logged post-test Gate5
+restoration. The comparison with failed mode 3 changes **both** the
+preceding `0x56` write **and** the elapsed delay; this run does **not**
+isolate which is necessary. Historical mode-3 success is another
+confounder. Do not promote mode 4 to default.
 
 Initial CI for commit `308f914` passed, including host tests and kernel
 builds; hardware and regression conclusions are separate.
@@ -67,6 +75,16 @@ sequence: report 0x56 with all-six-`FF` payload, ~37–40 ms delay, SET5,
 and **no GET6**. That combination produced CapImg on his unit; GET6 paths
 reset his controller. See
 https://github.com/Syax89/SL4A_TouchScreen/issues/85
+
+**Independent follow-up (DieSchatten, 2026-10-16):** his live
+`wVersionID=0x0004`, matching our recorded value. His IRQ-driven
+GET6 response-read experiments with SET5 delayed **1.7 ms or 17.3 ms
+after the response** both reset at ~111 ms. This argues against the
+post-response interval alone explaining his Linux GET6 failure, although
+it does not fully test the timing of our distinct write-only GET6 path.
+A shared `wVersionID` does not prove identical internal firmware or panel
+subrevisions. See the exact follow-up:
+https://github.com/Syax89/SL4A_TouchScreen/issues/85#issuecomment-6215981627
 
 This experiment copies only the missing **feature-write order** onto the
 existing **standard HID-over-SPI** transport. A result will not establish
