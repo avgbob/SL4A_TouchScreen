@@ -1,14 +1,21 @@
 # Syax89 PR #87 — exact-head hardware acceptance campaign
 
-**Current status (2026-10-16):** **exact-head PR #87 warm
-3/3 PASS, genuine s2idle post-wake 2/2 PASS, and full physical
-16-phase gesture matrix PASS** on one physical MSHW0231,
-kernel `7.0.0-34-generic`. The experimental signed PR `.ko` was
-verified and production Gate5 restored by the respective runners.
-**Real exact-PR87 cold first-HID load is STILL PENDING.** The default-standard
-opt-out device-registration check is PASS by retrospective correction of one
-original verifier false negative (original capture remains marked INCONCLUSIVE). The full matrix is
-a warm module activation, not a cold boot or default-standard test.
+**Current status (2026-10-16 22:24 UTC):** the **five defined
+exact-head PR #87 physical acceptance categories are COMPLETE** on one
+Surface Laptop 4 AMD / MSHW0231, Ubuntu `7.0.0-34-generic`:
+**3/3 warm loads PASS; 2/2 genuine s2idle/postwake touch PASS;
+16/16 full gesture matrix PASS; default-standard opt-out device-registration
+PASS by retrospective correction of a verifier-only false negative;
+true first-HID fresh power-on cold boot with live gestures PASS**.
+All executed against exact PR source
+`18f0fe79623e6de4fdf1ae493f82a7048397386a`.
+The original opt-out `INCONCLUSIVE` JSON remains part of the evidence.
+All test runners reported restored and correctly rebound installed
+Gate5 at completion. Hardware evidence remains local unless specifically
+uploaded; terminal verdicts are not a separate reanalysis of raw traces.
+A real spontaneous post-DONE reset/re-arm and broader device/kernel
+compatibility remain **unqualified**. This is **not** mainline
+driver readiness or a cross-device compatibility claim.
 Earlier incomplete warm/harness, postwake voice-confirmation attempts,
 and the 425.775ms evdev release-gap outlier are retained as separate
 historical evidence. The old narration occasionally spoke a stale
@@ -50,7 +57,80 @@ The analysis remains read-only. **Actual release gaps are still
 not determined** until the corrected tool is run against the
 existing local captures.
 
-## 2026-10-16: exact PR87 cold first-HID one-shot runner PREPARED
+## 2026-10-16 22:24 UTC: exact-head PR87 cold first-HID **PHYSICAL PASS**
+
+The physical operator ran the separately CI-tested `coldboot-stage`
+and then `coldboot-finish` following a full shutdown and power-button
+startup. The terminal reports **`ACTIVE_AWAITING_POSTBOOT_TOUCH`**.
+Its distinct stage vs trial boot IDs establish a new kernel boot,
+and the operator explicitly confirmed `COLD_PR87` (full poweroff),
+rather than claiming an ordinary warm module replacement or reboot:
+
+- Stage boot ID:
+  `275a12d5-5e6c-42cc-98cd-28b8435eb5a7`
+- Trial boot ID and current boot ID (MATCH):
+  `97c56a82-481b-4f05-b0f1-7f3f8f8558eb`
+- Exact PR source:
+  `18f0fe79623e6de4fdf1ae493f82a7048397386a`
+- Signed module SHA256:
+  `61ec6f796d60b6e50d1c1888dc693e6cd135d08a023f1bccb0fc5ade15054d8e`
+- Experimental module `srcversion`:
+  `65F0D14FBDFB5E84748373E`
+- Installed Gate5 source `srcversion`:
+  `3326E559A916BE5CB52375D`
+- Verified live standard transport mode: `1`.
+
+**Post-cold live input:** the separate spoken/event-gated short
+capture received an audible `YES`, then recorded and passed
+one-finger movement/release, two original fingers
+pinch→expansion without lifting, and complete release. The previously
+reported stale singleton spoken cue was absent in this run.
+The capture reported no failing reset/frame-drop/source-integrity
+checks and all of its own evidence checksums passed. This is a
+**harness-reported device result**, not an independent offline
+review of per-frame evdev or individual stats counters.
+
+Local unuploaded physical capture:
+`~/sl4a-hardware-runs/pr87-cold-first-hid-20261016T222247Z/`
+with `cycle-coldboot-quick`; stage/probe/first-HID/rollback
+evidence under `/var/lib/sl4a-pr87-coldboot`.
+The root evidence manifested and verified all 15 listed files:
+`signed-pr87.ko`, `module_sha`, `srcversion`,
+`production_srcversion`, `source_sha`, `stage_boot_id`,
+`trial_boot_id`, `kernel`, `stats-boot.txt`,
+`stats-after-touch.txt`, `boot-before-hid.log`,
+`boot-after-amd.log`, `kernel-coldboot.log`, `result`,
+`events.log`.
+
+At **22:24:15 UTC** the one-use rollback logged
+`ROLLBACK unloading only matching exact PR87 experimental HID`.
+At **22:24:19 UTC** it logged both
+`ROLLBACK Gate5 mode1 and both bindings restored` and
+`PASS exact PR87 cold first-HID load, actual gestures, restored Gate5`.
+The operator's outer runner printed
+`PR87 COLD FIRST-HID PASS: new boot, real gestures, restored Gate5.`
+
+**Assessment:** the cold first-HID acceptance category is now **PASS**,
+and all five major physical categories set for this exact head
+on this specific unit are complete. The stage/preexisting-driver,
+kernel, prior-probe and one-shot checks were performed by the
+CI-audited boot script; their raw journal records reside in the
+sealed on-device directory and were not independently inspected
+in this review. A boot-ID change alone would not prove actual
+power removal; the result also relies on the operator's explicit
+cold poweroff/on confirmation. The independent mode4 coldboot
+trial is **not** counted toward PR87.
+
+**Remaining scope limitations for upstream review:** a spontaneous
+post-DONE reset/rearm was not deliberately induced; no
+Windows-vs-Linux timing comparison, multi-unit cross-validation,
+long-term endurance run, or upstream-kernel integration test is
+claimed. The default-standard negative-control pass covers device
+registration and discovery, not runtime report 0x0c wire-policy
+proof from silence (that policy has a separate compiled
+production-handler test).
+
+## 2026-10-16: exact PR87 cold first-HID one-shot runner (historical preparation)
 
 A separate `tools/experiments/pr87-coldboot-once.sh` helper implements
 **the last major pending physical qualification**, but this is **NOT YET
@@ -122,7 +202,7 @@ independent timer is the last-resort recovery if the session is
 interrupted. Full poweroff is not necessary until the user decides
 to run the one-shot test.
 
-**Cold first-HID physical status: PENDING operator execution.**
+**Historical status when written: PENDING. Subsequently PASSED at 22:24 UTC on 2026-10-16; see physical evidence section above.**
 
 ## 2026-10-16 21:49 UTC: PR87 standard-negative physical observations **PASS on corrected source contract**
 

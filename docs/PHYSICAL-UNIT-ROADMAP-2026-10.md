@@ -4,7 +4,44 @@
 the independent DieSchatten device, and Syax89's upstream PR #87.
 This is an operating plan, not a claim of broad compatibility.
 
-## Exact PR87 true cold first-HID test: one-shot harness + rollback PREPARED
+## 2026-10-16 22:24 UTC — ALL FIVE PR87 PHYSICAL GATES QUALIFIED ON ONE UNIT
+
+**Exact PR87 source:** `18f0fe79623e6de4fdf1ae493f82a7048397386a`,
+signed module SHA256
+`61ec6f796d60b6e50d1c1888dc693e6cd135d08a023f1bccb0fc5ade15054d8e`,
+loaded `srcversion=65F0D14FBDFB5E84748373E`.
+**Surface Laptop 4 AMD MSHW0231 / Ubuntu
+7.0.0-34-generic.** 3/3 warm activations,
+2/2 measured real s2idle/postwake touch captures,
+16/16 full evdev-gated gestures, default-standard
+opt-out physical evidence (retrospectively corrected
+verifier mismatch), and **true first-HID cold power-on
+with postboot live touches** all completed. On October 16
+at 22:24 UTC the exact-PR87 cold runner confirmed:
+stage boot `275a12d5-5e6c-42cc-98cd-28b8435eb5a7`
+versus matching trial/current boot
+`97c56a82-481b-4f05-b0f1-7f3f8f8558eb`,
+operator `COLD_PR87`, short guided one/two-finger
+touch PASS, Gate5 rollback with **both bindings**
+confirmed 22:24:19 UTC, and 15 root-evidence
+SHA256 entries OK. Local capture
+`~/sl4a-hardware-runs/pr87-cold-first-hid-20261016T222247Z`;
+sealed boot files `/var/lib/sl4a-pr87-coldboot`.
+Full audit:
+[exact PR87 hardware acceptance](PR87-EXACT-HEAD-PHYSICAL-ACCEPTANCE.md).
+
+**Hardware scope only:** one unit, specific kernel,
+driver revision; original negative-control verdict
+was `INCONCLUSIVE` because of a test verifier
+bug, now retrospectively re-adjudicated. Individual
+raw evdev/counter and pre-HID kernel journal files
+remain local, not independently reviewed here. True
+spontaneous post-DONE reset/rearm and broader
+hardware compatibility have not been exercised.
+No claim of automatic upstream merge eligibility or
+mainline kernel integration.
+
+## Exact PR87 true cold first-HID test: one-shot harness + rollback (historical preparation)
 
 One-shot helper: `tools/experiments/pr87-coldboot-once.sh`.
 Operator entry: `tools/experiments/pr87-exact-head.sh coldboot-stage`,
@@ -26,7 +63,8 @@ Gate5 restoration. See
 [exact PR87 acceptance](PR87-EXACT-HEAD-PHYSICAL-ACCEPTANCE.md)
 for precise commands, failure categories and recovery.
 
-**PHYSICAL FIRST-HID COLD PASS STILL PENDING.**
+**Historical staging status: PENDING; actual PR87 first-HID cold power-on
+PASSED at 22:24 UTC 2026-10-16 (see newer section above).**
 Do not label the independent mode4 cold success as PR87 cold PASS.
 
 ## PR87 physical negative control: observational PASS after false-negative correction
@@ -43,9 +81,9 @@ intended opt-out control. The runner then **restored Gate5**.
 The original verdict is preserved and a read-only saved-verdict
 re-review route was added with strict error and identity checks.
 **This does not physically prove report 0x0c HID-dispatch behavior.**
-**Only the true PR87 first-HID cold-power-on gate remains** from
-the defined physical categories; an unforced spontaneous-reset
-scenario has not been observed.
+**Historical status at negative-control completion:** the PR87 cold-power-on
+gate then remained; it subsequently PASSED at 22:24 UTC. An unforced
+spontaneous-reset scenario has not been observed.
 
 ## PR87 default-standard negative-control runner: READY FOR PHYSICAL TEST
 
