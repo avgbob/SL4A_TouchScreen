@@ -63,6 +63,13 @@ stage() {
     [[ ! -e "$OVERRIDE" && ! -e "$BASE/armed" ]] || {
         echo "One-shot already staged; cancel first" >&2; exit 1;
     }
+    # Preserve each previous trial's immutable evidence on restaging.
+    if [[ -d "$BASE" ]]; then
+        local archive
+        archive="$BASE-archive-$(date -u +%Y%m%dT%H%M%SZ)-$"
+        mv "$BASE" "$archive"
+        echo "Prior trial preserved at $archive"
+    fi
     install -d -m 0755 "$BASE" /usr/local/libexec "$(dirname "$OVERRIDE")"
     install -m 0755 "$0" "$HELPER"
     install -m 0644 "$module" "$BASE/signed-mode4.ko"
