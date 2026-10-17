@@ -106,3 +106,17 @@ These **historical names and locations are valuable retrieval clues, not invente
 ## Git history retrieval is now a required discovery step
 
 Historical commit [`c94c399`](https://github.com/avgbob/SL4A_TouchScreen/tree/c94c399618b23588c95711ab4449d9400036ffd0) holds the formerly deleted **468 complete TouchPen processor `.c` decompilation functions**, `FINDINGS.md`, `callgraph.tsv`, `static_data_references.tsv`, `docs/GROUND_TRUTH.md` (181 KB), `touchpen0c19_tables_20260716/` and AMD/HIDSPI `docs/decomp/clean/` artifacts. Original `tools/analyze_raw_corpus.py` was also present and has been reinstated. See [RESEARCH-HISTORICAL-RECOVERY.md](RESEARCH-HISTORICAL-RECOVERY.md) for fully qualified links and verified hashes; see [RESEARCH-HISTORICAL-DECOMP-INDEX-20260716.json](RESEARCH-HISTORICAL-DECOMP-INDEX-20260716.json) for all 469 function-dir entries. The earlier 'external-only' descriptions of these specific files are **superseded**, but independent runtime processed TouchAndPen ETL and original Microsoft DLL bytes are still not located.
+
+
+## Local Surface laptop recovery attested in operator transcript (2026-10-17)
+
+The Surface laptop's repository at `/home/jo/SL4A_TouchScreen-host56`
+contains historical commit `c94c399` and all **468** decompiler `.c` paths
+in that commit. Actual Git object sizes confirmed: classifier `7426`,
+quality hold `5949`, `GROUND_TRUTH.md` **`182732` bytes**. A previous
+character count `181159` must not be mislabelled a byte size. The user
+executed `git archive` / `tar -x` to
+`/home/jo/sl4a-evidence-recovered/` without displayed errors. Original
+DLL/ETL files were **not found by a limited `find`** over three Linux-home
+paths; other volumes were not searched. Details:
+[RESEARCH-HISTORICAL-RECOVERY.md](RESEARCH-HISTORICAL-RECOVERY.md).
