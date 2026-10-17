@@ -243,3 +243,23 @@ Do not conflate TouchBlobCoMX/CoMY centroid with published Touch contact ID.
    research PR #12 with real-frame and adversarial tests.
 4. Keep all production Gate5 and upstream PR #87/#88 source and rollback paths
    separate from this evidence/comparison work.
+
+### Operator copied the exact HeatCore binary for analysis (2026-10-17)
+
+The operator executed the following on Windows:
+
+```powershell
+$dest = "$env:USERPROFILE\Desktop\SL4A-HeatCore-analysis"
+New-Item -ItemType Directory -Path $dest -Force | Out-Null
+Copy-Item "$env:windir\System32\HeatCore.dll" -Destination $dest
+Get-FileHash "$dest\HeatCore.dll" -Algorithm SHA256
+```
+
+The copied `C:\Users\yofac\Desktop\SL4A-HeatCore-analysis\HeatCore.dll`
+returned **SHA-256 `B295B095ACF574007B894F841EF083E8CB06A72A256EE0BB75B4BE80F2FCD5DF`**, identical to the previously verified `C:\Windows\System32\HeatCore.dll`.
+**CLOSED:** preserve a matching local analysis copy on Windows, without altering the installed DLL.
+**STILL OPEN:** move the binary bytes into the isolated analysis environment / Ghidra,
+identify its actual build-26100.9278 entry points, recover the contact-finalization
+and HID/pointer-output code, and compare with published Windows contacts.
+No DLL bytes were uploaded in this chat turn; a copied file on the user's
+machine is **not** a binary currently available to the assistant for analysis.
