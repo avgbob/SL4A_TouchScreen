@@ -80,6 +80,8 @@ public sealed class PinchWindow : Form {
  readonly Timer timer=new Timer();
  readonly string folder;
  readonly int[] ticks=new int[4],two=new int[4],one=new int[4],max=new int[4],marks=new int[4],frameTwo=new int[4];
+ readonly int[] stageDown=new int[4],stageUp=new int[4],oneRun=new int[4],longestOneRun=new int[4];
+ readonly double[] minDist={double.MaxValue,double.MaxValue,double.MaxValue,double.MaxValue}, maxDist=new double[4];
  readonly HashSet<uint>[] ids={new HashSet<uint>(),new HashSet<uint>(),new HashSet<uint>(),new HashSet<uint>()};
  readonly List<string> annotations=new List<string>();
  int stage=-1,frameContacts=-1,frameErr,errors,peak,framePeak;
@@ -134,6 +136,18 @@ public sealed class PinchWindow : Form {
    if(n>=2)two[stage]++;else if(n==1)one[stage]++;
    if(Fresh()&&frameContacts>=2)frameTwo[stage]++;
    max[stage]=Math.Max(max[stage],n);
+   // During the pinch stage, count drops AFTER a two-ID interval begins.
+   // These are candidates, not physical truth unless also marked with M.
+   if(stage==2 && max[stage]>=2 && n==1) {
+    oneRun[stage]++;longestOneRun[stage]=Math.Max(longestOneRun[stage],oneRun[stage]);
+   } else oneRun[stage]=0;
+   if(n>=2){
+    var positions=model.Active.Values.Take(2).ToArray();
+    double dx=positions[0].X-positions[1].X,dy=positions[0].Y-positions[1].Y;
+    double distance=Math.Sqrt(dx*dx+dy*dy);
+    minDist[stage]=Math.Min(minDist[stage],distance);
+    maxDist[stage]=Math.Max(maxDist[stage],distance);
+   }
    foreach(uint id in model.Active.Keys) ids[stage].Add(id);
    samples.WriteLine(string.Join(",",new[]{Utc(),(stage+1).ToString(),
      (stage==0?"1":"2"),n.ToString(),FCount(),FAge().ToString(),ActiveIds()}));
@@ -165,6 +179,10 @@ public sealed class PinchWindow : Form {
   }else{frameErr=Marshal.GetLastWin32Error();errors++;}
   if((pi.Flags&CANCELLED)!=0)kind="CANCELLED";
   model.Apply(kind,id,new Point(x,y));
+  if(stage>=0&&stage<4) {
+   if(kind=="DOWN")stageDown[stage]++;
+   if(kind=="UP")stageUp[stage]++;
+  }
   if(kind=="LEAVE"&&model.Active.ContainsKey(id)){
    model.Active.Remove(id);model.CaptureLost++;
    WriteEvent("UNEXPECTED_LEAVE_WHILE_DOWN",id,x,y,pi,detail,error,"NO_UP");
@@ -192,6 +210,12 @@ public sealed class PinchWindow : Form {
     w.WriteLine("Samples with native frame >=2: "+frameTwo[i]);
     w.WriteLine("Max message count in stage: "+max[i]);
     w.WriteLine("ID numbers observed: "+string.Join(" ",ids[i].OrderBy(x=>x)));
+    w.WriteLine("Stage DOWN/UP events: "+stageDown[i]+" / "+stageUp[i]);
+    w.WriteLine("Min/max two-ID distance (screen px): "+
+       (minDist[i]==double.MaxValue?"N/A":minDist[i].ToString("F1"))+" / "+
+       (minDist[i]==double.MaxValue?"N/A":maxDist[i].ToString("F1")));
+    if(i==2)w.WriteLine("Longest observed one-ID streak AFTER first two-ID frame: "+
+       (longestOneRun[i]/10.0).ToString("F1")+" seconds at 10 Hz");
     w.WriteLine("M markers (operator confirmed two fingers physically down): "+marks[i]);
    }
    w.WriteLine("");w.WriteLine("PHYSICAL TWO-FINGER M MARKERS:");
@@ -199,7 +223,9 @@ public sealed class PinchWindow : Form {
    w.WriteLine("");
    w.WriteLine("Important: one-count samples during finger placement/removal are NOT faults.");
    w.WriteLine("An M marker identifies when the operator confirmed two physical fingers.");
-   w.WriteLine("Frame contacts are pointers OWNED BY THIS WINDOW, not controller raw blobs.");
+   w.WriteLine("Frame contacts reflect this WINDOW'S most recent input frame.");
+   w.WriteLine("A device sending one contact per frame may report frame=1");
+   w.WriteLine("even when the application has TWO active pointers: not an independent ground truth.");
    w.WriteLine("OS pointer IDs are NOT necessarily HID Contact IDs/HeatCore track IDs.");
    w.WriteLine("No driver/registry changes and no system-wide input capture.");
   }
@@ -227,7 +253,7 @@ public sealed class PinchWindow : Form {
    g.DrawString(model.Active.Count.ToString(),number,
        stage>=1&&stage<4&&model.Active.Count<2?red:green,29,143);
    g.DrawString("Active contact IDs from DOWN/UP",detail,dim,35,255);
-   g.DrawString("Frame contact count: "+FCount(),body,white,30,302);
+   g.DrawString("Latest frame (may be serial): "+FCount(),body,white,30,302);
    g.DrawString("Active IDs: "+(ActiveIds()==""?"none":ActiveIds()),body,white,30,348);
    g.DrawString("Peak message IDs: "+peak+" | Frame peak: "+framePeak,detail,dim,30,394);
    if(stage>=1&&stage<4&&model.Active.Count<2)
