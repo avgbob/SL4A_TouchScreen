@@ -68,3 +68,29 @@ Each new observation **must** add a dated row to [RESEARCH-CONTRADICTIONS.md](RE
 The missing classifier and hold-function **bodies were not lost**: historical commit `c94c399618b23588c95711ab4449d9400036ffd0` contains 468 complete decompiler exports, callgraph, exact binary analysis metadata, and a large historical notes file. `docs/RESEARCH-HISTORICAL-DECOMP-INDEX-20260716.json` preserves every recovered function path/size/blob SHA. The restored `tools/analyze_raw_corpus.py` passed `python3 tests/raw_corpus_test.py` under [research-evidence CI run 39052198562](https://github.com/avgbob/SL4A_TouchScreen/actions/runs/39052198562) for all **1422 real Windows frames**, including the original stream hashes, cadence and segment fingerprints. **This fixes D13 and partially resolves D14**; it does not supply final processed Windows contacts or original DLL binaries.
 
 The recovered classifier `FUN_180601690` demonstrably computes four 10-dimensional quadratic configuration scores from candidate features and masks; the `+0xD40` interval is **not** the source of a 10x11 Mahalanobis float matrix. `FUN_180606370` has explicit quality/age/history gates before selecting state 4. See [historical recovery](RESEARCH-HISTORICAL-RECOVERY.md) for exact lines/permalinks. **The next engineering task is to type, port, and test these *available* functions—not request them again.**
+
+## H. Direct local verification and exact PR #87 cold-first-HID test (2026-10-17 report)
+
+The user-provided local Git output confirms commit `c94c399` is present
+inside `~/SL4A_TouchScreen-host56`; the **468 decompiled TouchPen functions**
+are present, including the 7,426-byte classifier and 5,949-byte quality hold
+routine. The historical `GROUND_TRUTH.md` Git object measures **182,732 bytes**
+(not 181,159 bytes; the latter was the decoded text's character count). The
+operator extracted the archive to `~/sl4a-evidence-recovered/` without a
+reported error. See [RESEARCH-HISTORICAL-RECOVERY.md](RESEARCH-HISTORICAL-RECOVERY.md).
+
+Independently, the operator supplied the **PR #87 exact-head cold-first-HID**
+log, source `18f0fe79623e6de4fdf1ae493f82a7048397386a`, kernel module
+SHA-256 `61ec6f796d60b6e50d1c1888dc693e6cd135d08a023f1bccb0fc5ade15054d8e`.
+The scripted operator gate was acknowledged `COLD_PR87`; single-finger motion,
+far-apart two-finger inward/outward movement and lift passed with live input
+events. The script verified boot identities, source/module identity, hashes,
+frame/drop/reset evidence; rolled back the *experimental* module and reported
+production Gate5 restored. Evidence on the user's machine:
+`/var/lib/sl4a-pr87-coldboot` and
+`/home/jo/sl4a-hardware-runs/pr87-cold-first-hid-20261016T222247Z`.
+The run was captured on **2026-10-16 UTC** and shown in the 2026-10-17 session.
+**This is an exact-build single-session cold-first-HID pass, not a new broad E1
+compatibility certification or a proof of Windows classifier equivalence.**
+The local artifacts were not independently opened by this audit; the above
+records are grounded in the supplied terminal transcript.
