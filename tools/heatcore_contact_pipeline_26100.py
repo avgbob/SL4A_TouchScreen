@@ -32,6 +32,15 @@ CHECKS = {
     'hid_2_input_stride': (0x14b52, '486bc83c'),
     'hid_2_output_stride': (0x14b4c, '486bd023'),
     'hid_2_packet_limit': (0x14b6a, '4183f805'),
+    'host_frame_envelope_0x28': (0x2cf2c, '48833b28'),
+    'host_frame_record_count': (0x2cf39, '443b4320'),
+    'host_type_3_record_0x48': (0x2cf50, '48833cc148'),
+    'host_type_2_record_stride_0x3c': (0x2cf67, '486bc03c'),
+    'host_type_2_record_0x3c': (0x2cf6b, '48833c083c'),
+    'host_type_1_record_stride_0x3a': (0x2cf7c, '486bc03a'),
+    'host_type_1_record_0x3a': (0x2cf80, '48833c083a'),
+    'host_injection_slot_0x48': (0x2cfcb, '488b4048'),
+    'host_fallback_slot_0x20': (0x2d008, '488b4020'),
 }
 
 # Field movement only. Source and destination offsets are zero-based.
