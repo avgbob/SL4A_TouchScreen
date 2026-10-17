@@ -86,3 +86,21 @@ jobs:
           make -C "$KDIR" M="$GITHUB_WORKSPACE/driver" modules
           test -s driver/sl4a-spi-amd.ko
           test -s driver/sl4a-spi-hid.ko
+
+  kernel-integration-staging:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+      - name: Install compiler and kernel headers for isolated module smoke test
+        run: sudo apt-get update && sudo apt-get install -y build-essential linux-headers-generic
+      - name: Validate staging and compile its copied module layouts
+        run: |
+          bash -n tools/kernel_integration/*.sh
+          KDIR=
+          for candidate in /usr/src/linux-headers-*-generic; do
+            if [ -f "$candidate/Makefile" ]; then
+              KDIR="$candidate"
+            fi
+          done
+          test -n "$KDIR"
+          SL4A_BUILD_KDIR="$KDIR" bash tools/kernel_integration/selftest.sh

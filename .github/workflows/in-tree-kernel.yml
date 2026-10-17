@@ -1,0 +1,117 @@
+name: Experimental native SL4A kernel
+
+on:
+  push:
+    branches:
+      - experiment/in-tree-kernel
+  workflow_dispatch:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  source-audit:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+      - name: Audit pinned PR87 sources and BOTH staging layouts (no kernel install)
+        run: |
+          bash -n tools/in-tree/audit-packages.sh tools/in-tree/surface-host-preflight.sh \
+                 tools/in-tree/qualified-module-options.sh
+          python3 -m py_compile tools/in-tree/audit-config-delta.py
+          bash tools/in-tree/qualified-module-options.sh
+          bash tools/in-tree/source-selector-test.sh
+          bash tools/in-tree/audit.sh
+          bash tools/kernel_integration/selftest.sh
+          python3 kernel-pins/pr87/tests/std_capimg_activation_source_test.py
+          python3 kernel-pins/pr87/tests/std_capimg_data_drain_source_test.py
+          python3 kernel-pins/pr87/tests/std_capimg_data_handler_test.py
+          python3 kernel-pins/pr87/tests/std_capimg_input_source_test.py
+
+  kernel-packages:
+    needs: source-audit
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install Linux build tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y bc bison flex libssl-dev libelf-dev \
+            dwarves rsync cpio kmod fakeroot dpkg-dev debhelper libdw-dev xz-utils \
+            libncurses-dev build-essential
+
+      - name: Download pinned stable Linux 6.18.57
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/sl4a-kernel-src"
+          curl --fail --location --retry 3 \
+            https://cdn.kernel.org/pub/linux/kernel/v6.x/linux-6.18.57.tar.xz \
+            --output "$RUNNER_TEMP/linux-6.18.57.tar.xz"
+          echo "5bd9acdc82ec5efc3790ae840e5aaa40dfde7efff261cf6dde902dc570acf98c  $RUNNER_TEMP/linux-6.18.57.tar.xz" \
+            | sha256sum --check -
+          tar -xJf "$RUNNER_TEMP/linux-6.18.57.tar.xz" -C "$RUNNER_TEMP/sl4a-kernel-src"
+          test -f "$RUNNER_TEMP/sl4a-kernel-src/linux-6.18.57/Makefile"
+
+      - name: Stage exact pinned PR87 driver and configure modules
+        shell: bash
+        run: |
+          set -euo pipefail
+          kernel="$RUNNER_TEMP/sl4a-kernel-src/linux-6.18.57"
+          bash tools/in-tree/prepare-kernel.sh "$kernel"
+          bash tools/in-tree/configure-kernel.sh "$kernel"
+          grep -qx 'CONFIG_SL4A_SPI_AMD=m' "$kernel/.config"
+          grep -qx 'CONFIG_SL4A_SPI_HID=m' "$kernel/.config"
+          grep -qx 'CONFIG_LOCALVERSION="-sl4a-pr87"' "$kernel/.config"
+          test "$(cat "$kernel/drivers/staging/sl4a/SOURCE-COMMIT")" = "18f0fe79623e6de4fdf1ae493f82a7048397386a"
+          test "$(cat "$kernel/drivers/staging/sl4a/SOURCE-FLAVOR")" = pr87
+          if grep -Eq '^CONFIG_SPI_AMD=[ym]' "$kernel/.config"; then exit 1; fi
+
+      - name: Build native kernel and Debian test packages
+        shell: bash
+        run: |
+          set -euo pipefail
+          kernel="$RUNNER_TEMP/sl4a-kernel-src/linux-6.18.57"
+          # Build in parallel before Debian packaging to avoid dpkg -j1 compile bottleneck.
+          make -C "$kernel" -j3 bzImage modules
+          make -C "$kernel" -j3 bindeb-pkg KDEB_PKGVERSION=6.18.57-sl4a-pr87-1
+          test -s "$kernel/drivers/staging/sl4a/sl4a-spi-amd.ko"
+          test -s "$kernel/drivers/staging/sl4a/sl4a-spi-hid.ko"
+          test -s "$kernel/arch/x86/boot/bzImage"
+          mkdir -p /tmp/sl4a-kernel-output
+          cp -- "$RUNNER_TEMP"/sl4a-kernel-src/*.deb /tmp/sl4a-kernel-output/
+          cp -- "$kernel/.config" /tmp/sl4a-kernel-output/kernel.config
+          cp -- "$kernel/drivers/staging/sl4a/SOURCE-COMMIT" /tmp/sl4a-kernel-output/source-commit.txt
+          cp -- "$kernel/drivers/staging/sl4a/SOURCE-FLAVOR" /tmp/sl4a-kernel-output/source-flavor.txt
+          cp -- "$kernel/drivers/staging/sl4a/INTEGRATION-COMMIT" /tmp/sl4a-kernel-output/integration-commit.txt
+          cp -- kernel-pins/pr87/DRIVER-BLOBS.txt /tmp/sl4a-kernel-output/pinned-driver-blobs.txt
+          printf '%s\n' \
+            "EXPERIMENTAL. Exact PR87 source in Linux 6.18.57; NOT hardware-qualified as an in-tree kernel." \
+            "Unsigned kernel: DO NOT install/boot with Secure Boot enabled." \
+            "Do not install without confirmed backup kernel, external recovery and bootloader access." \
+            "Existing DKMS modules with same names can take precedence. Check modinfo -n." \
+            > /tmp/sl4a-kernel-output/READ-BEFORE-TESTING.txt
+          cd /tmp/sl4a-kernel-output
+          sha256sum ./*.deb *.txt kernel.config > SHA256SUMS.txt
+          ls -lh
+
+      - name: Reject malformed, unsigned-by-assumption or missing native Debian driver packages
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash tools/in-tree/audit-packages.sh /tmp/sl4a-kernel-output | tee /tmp/sl4a-kernel-output/PACKAGE-AUDIT.txt
+          (cd /tmp/sl4a-kernel-output && sha256sum PACKAGE-AUDIT.txt >> SHA256SUMS.txt)
+
+      - name: Upload experimental test packages
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sl4a-linux-6.18.57-pr87-experimental
+          path: /tmp/sl4a-kernel-output/
+          if-no-files-found: error
+          retention-days: 7
