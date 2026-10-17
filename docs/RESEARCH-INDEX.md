@@ -1,5 +1,8 @@
 # Surface Laptop 4 AMD touchscreen — canonical research index
 
+> **2026-10-17 physical two-finger correction:** The operator reports a **live on-screen count of one ID during multiple real one-handed pinches**. Earlier positive 10.92-second two-ID segment is real, **but does not certify other pinches**. A false-negative contact may have occurred or the old reporter may have missed/count-displayed it incorrectly. Both are open. **Use [V2 guided native-frame plus OS message test](../tools/windows_capture/README.md)** with **M** hotkey marking that *two physical fingers are currently down*, so post-hoc CSV metrics are actually tied to operator ground truth. Treat earlier "Windows tracked all pinches" language as retracted.
+
+
 > **ONE-HANDED PINCH SESSION (2026-10-17):** Additional user-supplied `WM_POINTER` CSV yielded **8,947 touch events**, 16 balanced DOWN/UP lifetimes, 12 two-pointer overlap intervals, and **5 large opening/closing pinch cycles with the same two IDs `1440`/`1441` continuously active for 10.920 s**. Approximate matched separation range **50–880 screen pixels**; physical finger continuity between separate lifetimes is not provable. [Detailed private-source metadata and pinch geometry](WINDOWS-ONE-HAND-PINCH-20261017.md). No raw screen coordinates committed.
 
 
