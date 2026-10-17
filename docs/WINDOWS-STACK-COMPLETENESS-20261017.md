@@ -235,6 +235,18 @@ Do not conflate TouchBlobCoMX/CoMY centroid with published Touch contact ID.
 * [Microsoft: Virtual HID Framework](https://learn.microsoft.com/en-us/windows-hardware/drivers/hid/virtual-hid-framework--vhf-): generic Windows virtual HID source-driver model (not proof Surface HeatCore uses VHF for its specific egress).
 * Earlier reports of `C:\Windows\System32\HeatCore.dll` exist in Microsoft Q&A Surface threads, **other device models only**: verify on this SL4; do not infer its presence here from those cases.
 
+## OS-visible pointer oracle tool prepared, not yet Windows-tested
+
+A new read-only Windows PowerShell 5.1 + WinForms observer is committed at
+[`tools/windows_capture/capture_os_pointer_contacts.ps1`](../tools/windows_capture/capture_os_pointer_contacts.ps1).
+It records application-facing `WM_POINTER*` UP/DOWN/UPDATE events with OS
+pointer IDs, screen coordinates, UTC timestamps and unmodified message flags.
+This is **not** equivalent to raw HID `ContactID`. It operates on the
+foreground window only, alongside the **existing** WPR/TouchAndPen provider
+capture. **No Windows test run of the observer has yet been supplied; the
+actual contact oracle remains OPEN.** Instructions:
+[`tools/windows_capture/README.md`](../tools/windows_capture/README.md).
+
 ## Required future-work rules
 
 1. Open this file, `AGENTS.md`, `RESEARCH-INDEX.md`, the historical index,
