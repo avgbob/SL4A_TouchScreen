@@ -2,6 +2,8 @@
 
 **CRITICAL HISTORY-RECOVERY UPDATE (2026-10-17):** The absent TouchPen Ghidra function bodies and `GROUND_TRUTH.md` **were found in Git history** at [`c94c399`](https://github.com/avgbob/SL4A_TouchScreen/tree/c94c399618b23588c95711ab4449d9400036ffd0). The original strict Windows corpus analyzer has been **restored and passed GitHub Actions**. Read [RESEARCH-HISTORICAL-RECOVERY.md](RESEARCH-HISTORICAL-RECOVERY.md); D13/D14 below are superseded by the corrective entries.
 
+**ADDITIONAL BINARY RECOVERY CORRECTION:** Contrary to the earlier D14/D20 prose below, the original 0C19/0C18 DLL binaries and 262 extracted MSI payload files are present at historical commit `c94c399` under `docs/decomp/heat_resources_20260716/`; see [WINDOWS-STACK-COMPLETENESS-20261017.md](WINDOWS-STACK-COMPLETENESS-20261017.md). The HeatCore.dll body/decomp closure, runtime parameters and processed-contact oracle remain open. 'Original TouchPen DLL unlocated' is **RETRACTED**.
+
 **As of 2026-10-17.** No assertions are silently removed: this register identifies *where old information lives*, what newer evidence supports, and which questions remain open. `docs/RESEARCH-INDEX.md` is the summary; `docs/RESEARCH-SOURCE-MANIFEST.md` locates primary/derived artifacts. This register distinguishes **CORRECTED**, **CONFIRMED/SCOPED**, **UNRESOLVED**, and **MISSING**. The absence of original binaries is not proof no one collected them.
 
 | ID | Severity / state | Earlier claim or drift | Present finding and authority | Required action |
