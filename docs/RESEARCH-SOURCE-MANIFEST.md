@@ -164,3 +164,32 @@ and ETL unmodified during evidence analysis.
 - A full-drive recursive PowerShell scan reported **0** after a more focused scan found **148** matching names, an inconsistent search result; do not treat that zero as evidence of no files.
 
 **Research implications:** The recovered ZIP is good for `amdspi.sys` / HID-over-SPI transport comparison; the Gate2 ETL is a validated 3.25M-event SPI/device lifecycle trace but **not yet an identified Windows post-processor contact oracle**. The 468 TouchPenProcessor decompiled functions are already locally recovered on Ubuntu. Prioritize function-level classification/hold reconstruction and search for explicitly processed Windows contact output; no more generic file-search or raw-frame re-collection.
+
+
+## Gate2 full filtered provider report — 2026-10-17
+
+Source: Windows operator's output of `tracerpt` summary filtered by
+`Microsoft-Windows-SPB-ClassExtension|Microsoft-Windows-Input-HIDCLASS|Microsoft-Surface-|TouchAndPen|SurfaceHeat`.
+This is a **provider-count summary**, not decoded payload content. The
+`tracerpt` output repeats many SPB and HID events as both named event
+rows and raw numeric ID rows; **do not double-count the two representations**.
+
+| Provider | GUID | Named rows / main count |
+|---|---|---|
+| Microsoft-Windows-SPB-ClassExtension | `72cd9ff7-4af8-4b89-aede-5f26fda13567` | 3,693 per-operation event rows; 5,969 transfer-direction/transfer-buffer event rows; 28 preprocessing events |
+| Microsoft-Windows-Input-HIDCLASS | `6465da78-e7a0-4f39-b084-8f53c7c30dc6` | 11 information, 1 start, 1 stop |
+| Microsoft-Surface-SurfaceSerialHubDriver | `8ddb06d0-a54b-4014-b119-5a09fb550d18` | 26 |
+| Microsoft-Surface-SurfaceHotPlug | `69cd60e3-430f-4da4-b1b3-e3bdaf945875` | 2 |
+| Microsoft-Surface-SurfaceHidMiniDriver | `2fea7205-b0b1-41ca-8609-5a1d16f3132f` | 1 |
+| Microsoft-Surface-SurfaceService | `1e8d5623-6573-47f2-b69e-eea8923ce036` | 19 (1+18) |
+| Microsoft-Surface-SurfaceOemPanel | `3d53356d-424b-496a-a094-2154d8d2b304` | 20 (19+1) |
+
+**Zero matching rows** for `TouchAndPen` or `SurfaceHeat` in the
+reported filtered summary. This does **not** prove final Windows touch
+coordinates are absent from all possible Windows traces, or that no
+corresponding unknown-GUID provider exists; it only establishes that
+neither named provider appears in this summary. The original
+`C:\gate2\gate2.etl` remains intact and should be inspected by
+provider GUID/payload if transport correlation is needed. The user
+saved filtered text at `%USERPROFILE%\Desktop\gate2-touch-providers.txt`.
+This trace **cannot presently be treated as Windows contact-ID ground truth**.
