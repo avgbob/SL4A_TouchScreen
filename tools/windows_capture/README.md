@@ -1,5 +1,71 @@
 # Windows capture kit — historical research reference
 
+## Recommended test: guided one-hand pinch diagnostic V2 (2026-10-17)
+
+**Use [`capture_os_pointer_contacts_v2.ps1`](capture_os_pointer_contacts_v2.ps1), not the old V1 script** when checking the operator's report that the on-screen active ID count sometimes fell to **one while two fingers were physically pinching**. The previous 8,947-event CSV proved that *some* two-ID intervals existed; it **did not** prove the device tracked both fingers through **every** pinch. The operator's firsthand observation must be tested and recorded as such.
+
+### Launch on the Surface in Windows
+
+Run in **Windows PowerShell** (ordinary user is sufficient; no driver installs):
+
+```powershell
+$script = "$env:USERPROFILE\Desktop\capture_os_pointer_contacts_v2.ps1"
+Invoke-WebRequest "https://raw.githubusercontent.com/avgbob/SL4A_TouchScreen/main/tools/windows_capture/capture_os_pointer_contacts_v2.ps1" -OutFile $script
+powershell.exe -NoProfile -STA -ExecutionPolicy Bypass -File $script
+```
+
+A dark full-screen screen opens. **Large number on the left = number of
+currently tracked Windows pointer IDs**, drawn circles = positions of each
+tracked ID, and **"Frame contact count" = count of in-contact pointers in
+the most recently available native Win32 pointer frame**. The latter is an
+additional view of the same Windows pointer pipeline, **not an independent
+sensor measurement**. `NA` means frame data is unavailable/stale, **not
+zero fingers**.
+
+You control the four stages with your keyboard **SPACE**. Always keep your
+finger(s) inside this test screen; avoid clicking taskbar/browser windows.
+
+1. **SPACE** starts STEP 1 — one finger only. Move it and lift it.
+2. **SPACE** starts STEP 2 — two fingers placed far apart, hold both for
+   at least **five seconds**. You should see two labeled circles and
+   **Active IDs: 2**.
+3. **SPACE** starts STEP 3 — with both fingers physically touching the
+   glass, slowly bring them toward one another and back apart **three
+   times without lifting**. Watch whether the big number drops to 1
+   during the actual pinch.
+4. **SPACE** starts STEP 4 — place two fingers, lift just one, keep
+   the other held for **three seconds**, then lift it.
+5. **SPACE** again to finish (or **ESC** at any point to save and exit).
+
+**The most important key is M:** Press **M immediately while TWO fingers
+are genuinely still touching the glass** if the screen displays only one
+active finger (or the count is otherwise suspicious). Press again if it
+happens a second time. This logs the exact stage, UTC time, tracked IDs
+and recent native frame count together with your **physical two-finger
+observation**, eliminating the ambiguity of the original CSV.
+
+The script creates a timestamped Desktop folder:
+
+* `SUMMARY.txt` — concise stage-by-stage 2/1/0 counts, native-frame
+  totals, ID changes, duplicate/orphan releases and every M marker.
+* `samples.csv` — screen/window counts, frame counts and IDs sampled
+  ten times per second for each stage.
+* `events.csv` — detailed per-event timestamps, pointer flags,
+  contact IDs, coordinates, raw coordinates, contact rectangles,
+  pressure/orientation when available, and operator markers.
+
+**Upload all three**, especially `SUMMARY.txt`. We will not declare
+all pinches correct merely because one interval had two active IDs.
+Do not post raw coordinate CSVs publicly without considering privacy.
+
+### Validation
+
+[GitHub Windows PowerShell 5.1 regression](https://github.com/avgbob/SL4A_TouchScreen/actions/workflows/windows-pointer-v2-check.yml)
+parses the entire script, compiles its embedded Win32 interop C# and
+checks a synthetic two-finger staggered release. It **cannot test actual
+hardware messages**, so the Windows machine trial is still necessary.
+The V1 original remains archived solely for comparisons.
+
 ## Purpose
 
 The Surface multitouch pipeline now implements native Linux tracking
