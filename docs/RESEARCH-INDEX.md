@@ -1,5 +1,8 @@
 # Surface Laptop 4 AMD touchscreen — canonical research index
 
+> **ONE-HANDED PINCH SESSION (2026-10-17):** Additional user-supplied `WM_POINTER` CSV yielded **8,947 touch events**, 16 balanced DOWN/UP lifetimes, 12 two-pointer overlap intervals, and **5 large opening/closing pinch cycles with the same two IDs `1440`/`1441` continuously active for 10.920 s**. Approximate matched separation range **50–880 screen pixels**; physical finger continuity between separate lifetimes is not provable. [Detailed private-source metadata and pinch geometry](WINDOWS-ONE-HAND-PINCH-20261017.md). No raw screen coordinates committed.
+
+
 > **Windows touch event oracle RECORDED (2026-10-17):** Real Windows `WM_POINTER` test produced **6,230 touch events** (5 DOWN, 5 UP, 6,210 UPDATE) across 5 pointer IDs, maximum 2 concurrent and all released. Last two-finger pair shows **291 continued updates / 2.914 seconds** on one remaining finger after the other lifted. [Provenance and boundaries](WINDOWS-OS-POINTER-ORACLE-20261017.md). **This is an OS-app pointer oracle, not synchronized with CapImg frames and not an internal HeatCore/HID Contact ID capture.** Earlier statements below that *no Windows OS output* had been observed are superseded, but the **synchronized raw/processed** gap remains.
 
 
