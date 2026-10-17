@@ -128,3 +128,20 @@ Windows HID IDs exist in this corpus.
 This agreement is *not* evidence that the current detector correctly separates
 two physical fingers when their heatmaps form one region; the Windows candidate
 classifier and split behavior still need code-level reconstruction.
+
+## Verified upper-layer provider coverage (2026-10-17)
+
+[GitHub Actions run 39049953280](https://github.com/avgbob/SL4A_TouchScreen/actions/runs/39049953280)
+ran the provider/event probe on all three checked-in July ETW CSV traces.
+It found **zero** TouchAndPen/TouchBlobCoM-matching event types in each of
+surface_boot_auto.csv, surface_init.csv, and surface_touch.csv. This does
+**not** establish that the original binary ETL files contained no such
+records, that the Windows processor did not generate touch events, or that
+no later runtime TouchAndPen ETL was collected. It means only that the
+three preserved *decoded CSV inputs* do not supply processed-contact truth.
+The Gate2 compact lifecycle JSONL likewise records transport, not a
+Windows final-contact stream.
+
+Prioritize searching the historical TouchAndPen runtime ETL and local
+touchpen0c19_fullheat_20260716/heatcore_20260716 decompiler exports.
+Do not schedule another sensor-only capture to replace data already present.
