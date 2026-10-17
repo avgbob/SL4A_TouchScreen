@@ -79,7 +79,7 @@ class OfflineBundle(unittest.TestCase):
         with tempfile.TemporaryDirectory() as t:
             path=Path(t);p=self.prep(path,True)
             with p.open("a") as f:f.write("tamper\n")
-            with self.assertRaisesRegex(ValueError,"differs from original manifest"):
+            with self.assertRaisesRegex(ValueError,"differ from original manifest"):
                 collect(path)
 
 
