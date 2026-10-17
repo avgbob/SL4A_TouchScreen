@@ -1,5 +1,8 @@
 # SL4A Surface touchscreen research handoff
 
+> **NEW same-session Windows evidence (2026-10-17):** Verified correlated WPR+V2 ZIP shows 8,232 strictly parsed 0x0C 72x48 CapImg frames and 3 operator-confirmed two-finger moments with only one OS pointer. A provisional relative-clock match shows **one dominant CapImg connected region at each marked moment**, but **two** during a far-separated hold; 50 frames per M over ±0.25s support this at thresholds 150/165, size>=3 8-connected pixels. Absolute ETL QPC->UTC remains uncalibrated, no TouchAndPen events, no recovered Windows classifier replay. [Full research report](docs/WINDOWS-CORRELATED-HEATMAP-RESULT-20261017.md). Do not assert hardware defect, reclassify raster as Windows egress, or change kernel Gate5.
+
+
 > **Next instrumented Windows experiment prepared (2026-10-17):** Use [docs/WINDOWS-CORRELATED-PINCH-EXPERIMENT-20261017.md](docs/WINDOWS-CORRELATED-PINCH-EXPERIMENT-20261017.md) and [tools/windows_capture/capture_pinch_correlated.ps1](tools/windows_capture/capture_pinch_correlated.ps1). It pairs WPR SPB/HID/TouchAndPen logging with guided, physically M-marked V2 pointer input in ONE session; it safely stops WPR, attempts tracerpt export, and retains ETL on failure. [Coverage verifier](tools/windows_capture/analyze_correlated_pinch.py) requires actual decoded 0x0C CapImg frames. Windows CI syntactic/synthetic tests pass; **live hardware raw/processed synchrony still unverified**. Do not change the Linux driver without these data.
 
 
