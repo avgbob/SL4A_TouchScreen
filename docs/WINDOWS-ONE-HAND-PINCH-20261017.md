@@ -1,5 +1,8 @@
 # Windows one-hand pinch test: second OS-visible contact reference (2026-10-17)
 
+> **Next V2 trial confirms missing application-visible contact:** 12/13 operator M markers found one reported pointer while two fingers were physically touching. Repeated UP/new DOWN events are logged. The strongest one-ID interval lasted ~12.5 seconds. See [operator-annotated V2 analysis](WINDOWS-V2-ANNOTATED-PINCH-FINDINGS.md) before relying on the earlier positive pinch segment.
+
+
 > **Operator correction — IMPORTANT:** After reviewing the first one-handed test, the user explicitly reported the live window showed **"1" active ID during more than one physical two-finger pinch**. The earlier analysis can prove that **one 10.92-second segment** kept two OS pointer IDs; it **cannot** prove that every physical pinch was captured with two IDs. Sequential ID lifetimes elsewhere in the recording are therefore **suspicious but inconclusive** until instrumented, not casually attributed to deliberate lifting. The operator observation takes precedence over the previous assumption of full test success. Use the new four-stage [V2 pointer diagnostic](../tools/windows_capture/README.md) with the explicit **M** "two fingers physically on glass now" marker, native frame counts and stage timelines. **No driver parity claim is justified yet.**
 
 
