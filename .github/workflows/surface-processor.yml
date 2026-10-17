@@ -1,0 +1,88 @@
+name: Surface processor offline tests
+on:
+  pull_request:
+    paths:
+      - "userspace/surface-processor/**"
+      - ".github/workflows/surface-processor.yml"
+  push:
+    branches:
+      - "research/windows-contact-processor-v1"
+    paths:
+      - "userspace/surface-processor/**"
+      - ".github/workflows/surface-processor.yml"
+
+jobs:
+  offline-tests:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Compile Python
+        run: python3 -m compileall -q userspace/surface-processor
+      - name: Run isolated processor tests
+        run: python3 -m unittest discover -s userspace/surface-processor -p 'test_*.py' -v
+      - name: Reconstruct historical Windows V0 corpus (638 + 247 + 537 frames)
+        run: |
+          set -euo pipefail
+          python3 userspace/surface-processor/windows_evidence.py \
+            traces/surface_boot_auto.csv \
+            traces/surface_init.csv \
+            traces/surface_touch.csv \
+            --output-dir /tmp/sl4a-windows-corpus --check-known-counts \
+            > /tmp/sl4a-windows-corpus-summary.json
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          summary = json.loads(Path('/tmp/sl4a-windows-corpus-summary.json').read_text())
+          counts = {x['source']: x['decoded_capimg_frames'] for x in summary['traces']}
+          assert counts == {'surface_boot_auto.csv': 638,
+                            'surface_init.csv': 247, 'surface_touch.csv': 537}, counts
+          print('Real captured CapImg corpus:', counts, 'total', sum(counts.values()))
+          PY
+      - name: Replay archived Windows touch session without device access
+        run: |
+          set -euo pipefail
+          python3 userspace/surface-processor/replay.py \
+            /tmp/sl4a-windows-corpus/surface_touch/frames.txt \
+            > /tmp/sl4a-windows-touch-output.jsonl
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          rows = [json.loads(x) for x in Path('/tmp/sl4a-windows-touch-output.jsonl').read_text().splitlines()]
+          assert len(rows) == 537, len(rows)
+          stages = {stage: sum(x['stage'] == stage for x in rows) for stage in ('baseline', 'tracking')}
+          print('Real captured heatmap replay:', stages)
+          PY
+      - name: Analyze Windows sensor regions versus prototype candidates (NOT HID truth)
+        run: |
+          set -euo pipefail
+          python3 userspace/surface-processor/analyze_windows_proxy.py \
+            /tmp/sl4a-windows-corpus/surface_touch/frames.txt \
+            /tmp/sl4a-windows-touch-output.jsonl \
+            > /tmp/sl4a-windows-proxy-summary.json
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          m = json.loads(Path('/tmp/sl4a-windows-proxy-summary.json').read_text())
+          assert m['frames'] == 537
+          assert m['counts']['tracking_frames'] == 507
+          print('Sensor-region proxy totals (NOT Windows contacts):', m['counts'])
+          print('Candidate vs raw-region proxy:', m['candidate_versus_raw_proxy'])
+          print('Candidate histogram:', m['histograms']['prototype_candidates'])
+          print('Raw-region histogram:', m['histograms']['raw_qualified_regions'])
+          PY
+      - name: Report upper-layer TouchAndPen provider coverage (not HID truth)
+        run: |
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          base = Path('/tmp/sl4a-windows-corpus')
+          for name in ('surface_boot_auto', 'surface_init', 'surface_touch'):
+              manifest = json.loads((base / name / 'manifest.json').read_text())
+              found = manifest.get('processed_touch_provider_probe', {})
+              print(f'{name}: upper-layer provider event types={len(found)} {found}')
+          PY
