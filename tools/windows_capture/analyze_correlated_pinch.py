@@ -23,6 +23,15 @@ from decode_v0_capimg import decode_body
 HEX = re.compile(r"0[xX]([0-9a-fA-F]+)")
 RAW_PREFIX = bytes.fromhex("ff" * 5)
 BODY_LENGTH = 4304
+csv.field_size_limit(16 << 20)
+
+
+def sha256_streaming(path: Path) -> str:
+    h = hashlib.sha256()
+    with path.open('rb') as stream:
+        for chunk in iter(lambda: stream.read(4 << 20), b''):
+            h.update(chunk)
+    return h.hexdigest()
 
 
 def _bytes(field):
@@ -117,7 +126,7 @@ def verify_wpr_csv(path: Path, output_dir: Path, save_frames: bool = True):
             writer.close()
     report = {
         "source_file": path.name,
-        "source_sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
+        "source_sha256": sha256_streaming(path),
         "spb_transactions_finished": complete,
         "spb_event_kinds": dict(events),
         "provider_counts": dict(providers),
