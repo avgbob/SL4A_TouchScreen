@@ -119,3 +119,7 @@ be reverified by executing extraction against the full CSV sources. They
 are **not processed Windows contacts**. The August MSI report corrects an
 important old assumption: `+0xD40..+0xD78` is structured nonfloat byte
 data, *not* the hypothesized zero 10x11 Mahalanobis matrix.
+
+### First real-corpus CI result (October 17, 2026)
+
+GitHub Actions passed exact counts **638 boot + 247 initialization + 537 touch = 1422 complete V0 frames**. The 537-frame touch replay produced 30 calibration frames and 507 tracking frames. The independent byte<135 *raw-region proxy* agreed with the prototype's candidate count on 501/507 tracking frames; six had more prototype candidates, none fewer. Aggregate: 518 prototype candidates, 452 emitted prototype contact records. This is **not** Windows HID ID/coordinate equivalence; one connected sensor region can contain two fingers. See the research workflow and WINDOWS-EVIDENCE-INVENTORY.md.

@@ -60,3 +60,14 @@ GitHub Actions for this PR executes `python3 -m unittest discover -s userspace/s
 - Acquire a frame/time-aligned **processed Windows contact** oracle; establish
   classifications and actual emission semantics before claiming parity.
 - Only then consider opt-in CapImg export, userspace uinput, or in-kernel port.
+
+## Post-audit addendum — archived Windows corpus
+
+On October 17 the preserved Windows CSVs were used in a GitHub Actions
+check-out. The new offline extractor recovered the expected **1422 valid V0
+frames (638 boot, 247 init, 537 touch)** and passed 31 synthetic/contract
+tests. The 537 touch frames replayed as 30 baseline + 507 tracking frames,
+with 501/507 exact candidate-count agreements against a separate raw-region
+proxy. This retires the earlier limitation that no real frames were run,
+**but does not retire the lack of final processed Windows contact truth**.
+See WINDOWS-EVIDENCE-INVENTORY.md and Actions run 39049773971.

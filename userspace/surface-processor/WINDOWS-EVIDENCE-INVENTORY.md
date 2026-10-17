@@ -80,10 +80,12 @@ python3 replay.py /tmp/sl4a-windows-corpus/surface_touch/frames.txt > /tmp/sl4a-
 
 Do **not** add the reconstructed raw frames to GitHub: the original CSV sources
 and manifests already establish provenance. Run this against a complete clone
-with the CSV files locally available. The large CSVs were not readable in the
-current connector execution, so their historical counts remain **unreplayed**
-for this revision; the extraction implementation passed independent synthetic
-transaction tests, not the real corpus.
+with the CSV files locally available. The large CSVs could not be opened by the chat's GitHub content reader, but
+**the repository's GitHub Actions runner checked them out and replayed them
+successfully** on October 17, 2026. The extractor's historical count checks
+passed: 638+247+537 = **1422** validated frames. The 537-frame touch session
+ran 30 baseline and 507 tracking frames. This is still not a processed-contact
+oracle. See workflow run 39049773971 for the extraction and replay logs.
 
 ## Processed-contact evidence: known search target, not verified present
 
@@ -109,3 +111,20 @@ These full decompilation files are **referenced in GitHub docs but absent from
 its tracked tree**. Request them only if they are not accessible in the
 working machine's local analysis directories; do not assume they were never
 collected.
+
+## October 17 real-corpus raw-region comparison
+
+The dedicated offline test run [39049773971](https://github.com/avgbob/SL4A_TouchScreen/actions/runs/39049773971)
+reported 31/31 tests passing; the full CSV corpus extractor and V0 replay also
+passed. Across **507 tracking frames**, the sensor-region proxy matched the
+prototype's candidate count in **501 frames**, with **6** frames containing
+more prototype candidates and **0** containing fewer. The raw-proxy rule is
+four-connected CCL of raster byte <135, minimum two pixels and weight >=1000.
+The prototype recorded **518 candidates** and **452 emitted research contacts**.
+The difference includes birth/lift policy; it cannot be labeled a measured
+Windows miss/false-touch rate. Neither independent classifier labels nor final
+Windows HID IDs exist in this corpus.
+
+This agreement is *not* evidence that the current detector correctly separates
+two physical fingers when their heatmaps form one region; the Windows candidate
+classifier and split behavior still need code-level reconstruction.
