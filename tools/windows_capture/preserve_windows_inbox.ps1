@@ -56,7 +56,7 @@ try {
     Where-Object { $_.DeviceID -match 'MSHW0231|AMDI0060' } |
     Select-Object DeviceName,DeviceID,InfName,DriverVersion,DriverProviderName,DriverDate)
   $devices | ConvertTo-Json -Depth 5 |
-    Out-File -LiteralPath (Join-Path $sourceDir 'pnp-mshw0231-amdi0060.json') -Encoding UTF8
+    Set-Content -LiteralPath (Join-Path $sourceDir 'pnp-mshw0231-amdi0060.json') -Encoding UTF8
 }
 catch {
   Write-Warning ('PnP inventory unavailable: ' + $_.Exception.Message)
