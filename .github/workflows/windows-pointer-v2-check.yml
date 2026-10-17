@@ -1,0 +1,38 @@
+name: Windows pinch V2 compatibility
+
+on:
+  push:
+    paths:
+      - 'tools/windows_capture/capture_os_pointer_contacts_v2.ps1'
+      - '.github/workflows/windows-pointer-v2-check.yml'
+  pull_request:
+    paths:
+      - 'tools/windows_capture/capture_os_pointer_contacts_v2.ps1'
+      - '.github/workflows/windows-pointer-v2-check.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  powershell51:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Parse Windows PowerShell 5.1 script
+        shell: powershell
+        run: |
+          $tokens = $null
+          $errors = $null
+          [void][System.Management.Automation.Language.Parser]::ParseFile(
+            (Resolve-Path 'tools/windows_capture/capture_os_pointer_contacts_v2.ps1').Path,
+            [ref]$tokens,[ref]$errors)
+          if ($errors.Count -ne 0) {
+            $errors | ForEach-Object { Write-Host $_.ToString() }
+            throw "$($errors.Count) PowerShell parse failures"
+          }
+          Write-Host 'PASS: PowerShell 5.1 parsed'
+      - name: Compile C# interop and regression test two simultaneous fingers
+        shell: powershell
+        run: |
+          powershell.exe -NoProfile -STA -ExecutionPolicy Bypass -File tools/windows_capture/capture_os_pointer_contacts_v2.ps1 -SelfTest
