@@ -1,5 +1,8 @@
 # SL4A research source manifest and artifact locations
 
+> **Windows inbox files FOUND and SHA-256 verified on 2026-10-17:** `HeatCore.dll` 26100.9278, `hidspi.sys`/`HidSpiCx.sys` 26100.8972, and `amdspi.sys` 1.0.0.101; exact locations, sizes and hashes in [WINDOWS-STACK-COMPLETENESS-20261017.md](WINDOWS-STACK-COMPLETENESS-20261017.md). Earlier 'not located' statements below are superseded. HeatCore **decompilation** and final Windows contact trace remain open.
+
+
 > **Latest verified completeness audit (2026-10-17):** [WINDOWS-STACK-COMPLETENESS-20261017.md](WINDOWS-STACK-COMPLETENESS-20261017.md). **The original TouchPenProcessor0C19/0C18 DLL BINARIES were in old Git history** at `c94c399` (not just decompiled function bodies), with their original INF/CAT and 262-file extracted Surface MSI tree. Old 'original DLL missing' lines in this historical ledger are **superseded**. HeatCore.dll, Windows inbox binaries, runtime calibration and final processed contact oracle still need direct verification.
 
 
