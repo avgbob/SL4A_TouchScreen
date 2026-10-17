@@ -1,5 +1,8 @@
 # SL4A research source manifest and artifact locations
 
+> **Latest verified completeness audit (2026-10-17):** [WINDOWS-STACK-COMPLETENESS-20261017.md](WINDOWS-STACK-COMPLETENESS-20261017.md). **The original TouchPenProcessor0C19/0C18 DLL BINARIES were in old Git history** at `c94c399` (not just decompiled function bodies), with their original INF/CAT and 262-file extracted Surface MSI tree. Old 'original DLL missing' lines in this historical ledger are **superseded**. HeatCore.dll, Windows inbox binaries, runtime calibration and final processed contact oracle still need direct verification.
+
+
 **CRITICAL HISTORY RECOVERY (same day):** [RESEARCH-HISTORICAL-RECOVERY.md](RESEARCH-HISTORICAL-RECOVERY.md) documents **468 Windows TouchPen Ghidra `.c` bodies** in commit `c94c399`, indexed in [RESEARCH-HISTORICAL-DECOMP-INDEX-20260716.json](RESEARCH-HISTORICAL-DECOMP-INDEX-20260716.json), and the restored strict corpus analyzer; previous text below saying those exports were only external is superseded.
 
 **Audited:** 2026-10-17 against `avgbob/SL4A_TouchScreen:main` commit `c081075492feae4146510cf0d364b23fd0a394eb`, plus research draft PR #12 at `0782c6cfca09953f29ddb9475561900108d3713e`. Relative paths below resolve from the repository root. This is not a claim that externally referenced local directories exist in the current execution environment.
