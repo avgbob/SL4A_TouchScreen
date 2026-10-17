@@ -1,5 +1,8 @@
 # SL4A research source manifest and artifact locations
 
+> **New Windows paired source, 2026-10-17:** Correlated capture ETL SHA256 `23ee9ad0df5703458a15bd4741acdb910041f84edeef908cce73f0775c7acb30` (221,773,824 B); tracerpt CSV SHA256 `56c9f4b3b9ee7fe526667de208dce59f8a150f7372448a218783e11075502131` (656,619,526 B); pointer events SHA256 `530c574a1aae4b07c8d611d32ea2ddf4962fc8da1c78997f0b6665c9a2c7a474`. Strict decode: 8232 full heatmap frames, zero processor TraceLogging observed. Third V2 trial 3 operator M mismatches. [Correlated heatmap interpretation](WINDOWS-CORRELATED-HEATMAP-RESULT-20261017.md). Originals remain private; optional sanitized derivative is raster-only plus relative time/contact annotations, **not uploaded to GitHub**.
+
+
 > **Uploaded HeatCore original analyzed (2026-10-17):** `HeatCore.dll` version 26100.9278, SHA-256 `b295b095acf574007b894f841ef083e8cb06a72a256ee0bb75b4be80f2fcd5df`, has been uploaded and analyzed OFFLINE. See [HEATCORE-26100.9278-STATIC-AUDIT.md](HEATCORE-26100.9278-STATIC-AUDIT.md) for output contact layouts and corrected RVAs. No raw DLL bytes were added to this public repository. Original Windows processed contact events/IDs remain missing.
 
 
