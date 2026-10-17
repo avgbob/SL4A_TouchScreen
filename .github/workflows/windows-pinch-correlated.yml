@@ -58,8 +58,8 @@ jobs:
       - name: Enforce non-destructive behavior
         shell: powershell
         run: |
-          $p = Get-Content -Raw tools/windows_capture/capture_pinch_correlated.ps1
-          if ($p -match '(?i)wpr\s+-cancel|Run-Command\s+[^\r\n]*\x27-cancel\x27') {
+          $p = (Get-Content tools/windows_capture/capture_pinch_correlated.ps1 | Where-Object { $_ -notmatch '^\s*#' }) -join [Environment]::NewLine
+          if ($p -match '(?i)\bwpr(?:\.exe)?\s+-cancel\b|Run-Command\s+[^\r\n]*\x27-cancel\x27') {
             throw 'Collector must not cancel existing WPR sessions.'
           }
           Write-Host 'PASS: no WPR cancellation command'
