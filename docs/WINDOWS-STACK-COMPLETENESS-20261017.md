@@ -136,30 +136,34 @@ small inventory report in the user's Desktop; it does not install, replace,
 rename or modify any driver.
 
 ```powershell
+# Read-only file inventory; no drivers/services/registry values are modified.
 $names = @(
  'HeatCore.dll','hidspi.sys','HidSpiCx.sys','hidclass.sys',
  'SpbCx.sys','Vhf.sys','amdspi.sys','amdgpio2.sys',
  'TouchPenProcessor0C19.dll','SurfaceHidMiniDriver.sys'
 )
-$roots = @(
- "$env:windir\System32",
- "$env:windir\System32\drivers",
- "$env:windir\System32\DriverStore\FileRepository"
-)
-$rows = foreach ($name in $names) {
- foreach ($root in $roots) {
-  Get-ChildItem -LiteralPath $root -Filter $name -File -Recurse -ErrorAction SilentlyContinue |
-   ForEach-Object {
-    $f=$_
-    $v=$f.VersionInfo
-    [pscustomobject]@{
-     Name=$f.Name; Path=$f.FullName; Bytes=$f.Length
-     Version=$v.FileVersion; SHA256=(Get-FileHash -LiteralPath $f.FullName -Algorithm SHA256).Hash
-    }
-   }
+$systemRoots = @("$env:windir\System32", "$env:windir\System32\drivers")
+$found = foreach ($name in $names) {
+ foreach ($dir in $systemRoots) {
+  $p = Join-Path $dir $name
+  if (Test-Path -LiteralPath $p -PathType Leaf) {
+   Get-Item -LiteralPath $p
+  }
  }
 }
-$rows = @($rows | Sort-Object Path -Unique)
+# Only search DriverStore for names not found at the two direct locations.
+$missing = $names | Where-Object { $_ -notin @($found | ForEach-Object Name) }
+$store = "$env:windir\System32\DriverStore\FileRepository"
+foreach ($name in $missing) {
+ $found += @(Get-ChildItem -LiteralPath $store -Filter $name -File -Recurse -ErrorAction SilentlyContinue)
+}
+$rows = @($found | Sort-Object FullName -Unique | ForEach-Object {
+ [pscustomobject]@{
+  Name=$_.Name; Path=$_.FullName; Bytes=$_.Length
+  Version=$_.VersionInfo.FileVersion
+  SHA256=(Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash
+ }
+})
 $rows | Format-Table -AutoSize -Wrap
 $rows | Export-Csv "$env:USERPROFILE\Desktop\sl4a-windows-component-inventory.csv" -NoTypeInformation
 Write-Host "Matches: $($rows.Count)"
