@@ -2,6 +2,8 @@
 
 **Recovered by commit-history search: 2026-10-17.** This **corrects** the earlier index conclusion that the function bodies and historical `GROUND_TRUTH.md` were available only on an external machine. They are *absent from current branch tips*, but their original contents **survive in Git history**.
 
+**SECOND RECOVERY UPDATE (2026-10-17):** This SAME historical commit also contains **original binary** `docs/decomp/heat_resources_20260716/artifacts/0C19/TouchPenProcessor0C19.dll` (SHA-256 `f05828f04eb7df02ad5a2eeae136ef19d504f987afe2c06d0375ee1264300b4a`, 9,770,336 bytes), the original `0C18` DLL, related INF/CAT, and **262 tracked extracted MSI payload files**. Historical cleanup commit `8198d04` removed them from main later, but the Git objects remain retrievable. **This supersedes the old claim that the original TouchPenProcessor DLL was only on Windows.** The original HeatCore.dll and whole installable MSI are not yet recovered from this Git tree. See [WINDOWS-STACK-COMPLETENESS-20261017.md](WINDOWS-STACK-COMPLETENESS-20261017.md).
+
 ## How to access the material without collecting it again
 
 Historical commit: [`c94c399618b23588c95711ab4449d9400036ffd0`](https://github.com/avgbob/SL4A_TouchScreen/tree/c94c399618b23588c95711ab4449d9400036ffd0)
