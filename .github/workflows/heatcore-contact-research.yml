@@ -1,0 +1,36 @@
+name: HeatCore contact byte-copy model (synthetic only)
+
+on:
+  push:
+    paths:
+      - 'tools/heatcore_contact_pipeline_26100.py'
+      - '.github/workflows/heatcore-contact-research.yml'
+  pull_request:
+    paths:
+      - 'tools/heatcore_contact_pipeline_26100.py'
+      - '.github/workflows/heatcore-contact-research.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  synthetic-regression:
+    name: HeatCore field-copy regression (no Windows DLL in CI)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Python source sanity
+        run: python3 -m py_compile tools/heatcore_contact_pipeline_26100.py
+      - name: Exercise 512 deterministic synthetic contact vectors
+        run: |
+          python3 tools/heatcore_contact_pipeline_26100.py > /tmp/heatcore-contact-selftest.json
+          python3 - <<'PY'
+          import json
+          with open('/tmp/heatcore-contact-selftest.json') as f:
+              r=json.load(f)
+          assert r['binary'].startswith('not checked')
+          assert r['model_selftest']['format1_vectors'] == 256
+          assert r['model_selftest']['format2_vectors'] == 256
+          print('PASS: 512 synthetic vectors; private DLL not needed or uploaded')
+          PY
