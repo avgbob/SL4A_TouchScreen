@@ -8,7 +8,7 @@ Historical commit: [`c94c399618b23588c95711ab4449d9400036ffd0`](https://github.c
 
 - **468 complete exported Windows `TouchPenProcessor0C19.dll` decompiler `.c` files** plus one `index.tsv` (469 directory entries): [`docs/decomp/touchpen0c19_fullheat_20260716/functions/`](https://github.com/avgbob/SL4A_TouchScreen/tree/c94c399618b23588c95711ab4449d9400036ffd0/docs/decomp/touchpen0c19_fullheat_20260716/functions)
 - Source report [`FINDINGS.md`](https://github.com/avgbob/SL4A_TouchScreen/blob/c94c399618b23588c95711ab4449d9400036ffd0/docs/decomp/touchpen0c19_fullheat_20260716/FINDINGS.md); complete graph/report directory also contains `callgraph.tsv` (1,090 direct call edges), `static_data_references.tsv` (6,027 references), `exports.tsv`, `strings.tsv`, `vtables.tsv`, `scope_report.md` and logs.
-- Original 181,159-byte [`docs/GROUND_TRUTH.md`](https://github.com/avgbob/SL4A_TouchScreen/blob/c94c399618b23588c95711ab4449d9400036ffd0/docs/GROUND_TRUTH.md). **HISTORICAL ONLY**: its claim that the entire Windows pipeline was ported is *disproved by the classifier/output gaps*; read as evidence history, not present validation.
+- Original 182,732-byte [`docs/GROUND_TRUTH.md`](https://github.com/avgbob/SL4A_TouchScreen/blob/c94c399618b23588c95711ab4449d9400036ffd0/docs/GROUND_TRUTH.md). **HISTORICAL ONLY**: its claim that the entire Windows pipeline was ported is *disproved by the classifier/output gaps*; read as evidence history, not present validation.
 - [`docs/decomp/touchpen0c19_tables_20260716/`](https://github.com/avgbob/SL4A_TouchScreen/tree/c94c399618b23588c95711ab4449d9400036ffd0/docs/decomp/touchpen0c19_tables_20260716) includes table manifest, `ccl_consumers.c`, and `keyword_xrefs.c` (~1.7 MB of static xrefs); `docs/decomp/clean/` holds 42 decompiled controller/HID extracts; `docs/decomp/heat_resources_20260716/` contains resource analysis.
 - Original [`tools/analyze_raw_corpus.py`](https://github.com/avgbob/SL4A_TouchScreen/blob/c94c399618b23588c95711ab4449d9400036ffd0/tools/analyze_raw_corpus.py) SHA `3a6f6e1523e519ff435caea717a6d22a5aa80215`, removed at cleanup commit [`82807826`](https://github.com/avgbob/SL4A_TouchScreen/commit/82807826c36509621a0717640858b17c30a82b7b), **restored in the docs audit branch** to execute the original strict corpus checks.
 
@@ -45,3 +45,44 @@ The recovered classifier is **more concrete than earlier docs admitted**: the co
 3. The old analyzer may restore the historical strict checks, including raw per-trace SHA, cadence, and segment falsification that PR #12's newer extractor did not reproduce. Run `python3 tests/raw_corpus_test.py` in CI (and fail on skip), not just the new frame-count gate.
 4. `heatcore_20260716/functions/*` may not be present under that literal path; inspect this commit's `docs/decomp/heat_resources_20260716/` and code history before claiming those specific HeatCore function bodies are likewise recovered. **Only the listed TouchPen files have been directly verified.**
 5. Do **not** restore older source implementation blobs or `GROUND_TRUTH.md` indiscriminately into today's main branch: their unqualified Windows parity statements and legacy transport behaviors can regress the working driver. Historical permalinks are safer.
+
+## Direct Surface Laptop 4 local verification — 2026-10-17
+
+The operator ran the following on the **Ubuntu Surface Laptop 4** at
+`/home/jo/SL4A_TouchScreen-host56` (provided terminal output):
+
+```text
+$ git cat-file -t c94c399618b23588c95711ab4449d9400036ffd0
+commit
+$ git cat-file -s c94c399:docs/decomp/touchpen0c19_fullheat_20260716/functions/180601690_FUN_180601690.c
+7426
+$ git cat-file -s c94c399:docs/decomp/touchpen0c19_fullheat_20260716/functions/180606370_FUN_180606370.c
+5949
+$ git ls-tree -r --name-only c94c399 docs/decomp/touchpen0c19_fullheat_20260716/functions/ | grep -c '\\.c$'
+468
+$ git cat-file -s c94c399:docs/GROUND_TRUTH.md
+182732
+```
+
+The operator then successfully invoked `git archive c94c399` piped to
+`tar -x` into **`/home/jo/sl4a-evidence-recovered/`**, extracting
+`touchpen0c19_fullheat_20260716/`,
+`touchpen0c19_tables_20260716/`, historical `GROUND_TRUTH.md`, and
+`analyze_raw_corpus.py`. **Filesystem extraction command returned to the
+prompt without reported errors**; directory contents have not yet been
+independently enumerated after extraction. This is a verified *local
+historical Git-object* recovery, not evidence of the original Windows DLL.
+
+The operator separately ran `ls -lah` for
+`~/sl4a-analysis/`, `~/sl4a-analysis/ghidra-findings/`, and
+`~/sl4a-analysis/raw-corpus/`: all produced no output with stderr suppressed.
+A limited search for `TouchPenProcessor0C19.dll`, `HeatCore.dll`,
+`FINDINGS3.md`, or `*.etl` in `~/sl4a-analysis`,
+`~/Downloads` and `~/Documents` yielded no matches. This **does not**
+prove those files are absent from the Windows NTFS partition, other home
+folders or mounted devices. Do not request the 468 functions again.
+
+**Byte-size correction:** older audit text said 181,159 *bytes* for
+`GROUND_TRUTH.md`; that was the decoded Unicode text's character count
+in a tool response. The Git object size is **182,732 bytes**. The difference
+is not a corruption indicator.
