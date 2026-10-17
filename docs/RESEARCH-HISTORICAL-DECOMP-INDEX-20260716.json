@@ -1,0 +1,2418 @@
+{
+  "schema": 1,
+  "recovered_on": "2026-10-17",
+  "source_repo": "avgbob/SL4A_TouchScreen",
+  "source_historical_commit": "c94c399618b23588c95711ab4449d9400036ffd0",
+  "source_directory": "docs/decomp/touchpen0c19_fullheat_20260716/functions",
+  "reason": "Historical decompiled Windows function exports removed from current default branch during 2026 documentation overhaul; entries available through immutable commit permalinks. Their Ghidra output is not independently validated as compiler source; respect licensing.",
+  "historical_counts": {
+    "directory_entries": 469,
+    "source_files": 468,
+    "other_files": [
+      "docs/decomp/touchpen0c19_fullheat_20260716/functions/index.tsv"
+    ]
+  },
+  "key_functions": [
+    {
+      "addr": "180601690",
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/180601690_FUN_180601690.c",
+      "sha": "76723e8825d06f2b25c2a4e3f1b853024ee93036",
+      "size": 7426
+    },
+    {
+      "addr": "180606370",
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/180606370_FUN_180606370.c",
+      "sha": "b45f9db30f6ec3f282713e9231d8b8c174408532",
+      "size": 5949
+    },
+    {
+      "addr": "180600820",
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/180600820_FUN_180600820.c",
+      "sha": "017e9c6644d8f9fc806e972910e9b9e5b184f5d0",
+      "size": 3374
+    },
+    {
+      "addr": "180600c40",
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/180600c40_FUN_180600c40.c",
+      "sha": "982fd637201fa7751f50d303e3c0d74ed05022fc",
+      "size": 15926
+    },
+    {
+      "addr": "1806025c0",
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1806025c0_FUN_1806025c0.c",
+      "sha": "b4c5135b1ef153f70a00938a156a395def1fc71f",
+      "size": 2489
+    },
+    {
+      "addr": "180607a20",
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/180607a20_FUN_180607a20.c",
+      "sha": "3113a8e4419b757d1241022c19250edd0d90f7a3",
+      "size": 2522
+    },
+    {
+      "addr": "180608430",
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/180608430_FUN_180608430.c",
+      "sha": "e1e2bc895690637dac8d0cd71444b5f82151cf5d",
+      "size": 6156
+    },
+    {
+      "addr": "1805fba00",
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1805fba00_FUN_1805fba00.c",
+      "sha": "b984af9609557c87d4f35ef767cdee12b9a395db",
+      "size": 7236
+    },
+    {
+      "addr": "1805fd230",
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1805fd230_FUN_1805fd230.c",
+      "sha": "3e78dab23843fc913b574e97bec739012242b4fc",
+      "size": 11324
+    }
+  ],
+  "files": [
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1805d0ee0_FUN_1805d0ee0.c",
+      "sha": "bbcc417e51521a3ed8bc32704e85849dc175c551",
+      "size": 1599
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1805d1430_FUN_1805d1430.c",
+      "sha": "8afdd58e0ce4e63154d2e81702f0a2b374d64c78",
+      "size": 13633
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1805d1cc0_FUN_1805d1cc0.c",
+      "sha": "4c13f6f7e31752075ce0ef8cda57232ad761e2f2",
+      "size": 2219
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1805d1e50_FUN_1805d1e50.c",
+      "sha": "70cc64ff5fd05b9de2408a31f834397dd9838cac",
+      "size": 16525
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1805d2950_FUN_1805d2950.c",
+      "sha": "e79177899cd5dc60d9fa07a4161a25124d621bd6",
+      "size": 1845
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1805d2aa0_FUN_1805d2aa0.c",
+      "sha": "f3ae932712302e6e5cf737965907990aeffa27b8",
+      "size": 8714
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1805d3170_FUN_1805d3170.c",
+      "sha": "c4854dcab50cecc176d58c7d6c66ff18dd1d39f8",
+      "size": 1635
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1805d32c0_FUN_1805d32c0.c",
+      "sha": "a85fee85ab7c27dd225f34a56713b1bf74d01067",
+      "size": 1458
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1805d33d0_FUN_1805d33d0.c",
+      "sha": "beb06b341ad718a6bf7d5b9529e970f4fbf93e1b",
+      "size": 2875
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1805d3640_FUN_1805d3640.c",
+      "sha": "0d36a5229ce440243f9e0127bedf8c5e03c11ff6",
+      "size": 6412
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1805d3a70_FUN_1805d3a70.c",
+      "sha": "50217a40d4f36a3978c7559a089655ff54436ced",
+      "size": 8595
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1805d4000_FUN_1805d4000.c",
+      "sha": "c367836e695635889826ff3fe11b3f562ba6f1cb",
+      "size": 1295
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1805d40a0_FUN_1805d40a0.c",
+      "sha": "12cdd3c622938a925e4c0cf3c45de6ef67986251",
+      "size": 1124
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1805d4400_FUN_1805d4400.c",
+      "sha": "2541df1a15a5810f3a3c403dd3b52444f3b3adbd",
+      "size": 1267
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1805d4700_FUN_1805d4700.c",
+      "sha": "b452b721c49865d5f6cd038e82549b99f37e5d1e",
+      "size": 1550
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1805d4830_FUN_1805d4830.c",
+      "sha": "1c6f180e615eee4ab25e2986ef9fd720b242c5f9",
+      "size": 13269
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1805d5130_FUN_1805d5130.c",
+      "sha": "6f55a8eee62969a761166bcff4353874299c9485",
+      "size": 783
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1805d5210_FUN_1805d5210.c",
+      "sha": "f6cb43a85019370b9be8e1970066471f44e48279",
+      "size": 6018
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1805d54f0_FUN_1805d54f0.c",
+      "sha": "f614fa61f8df4248d3252a53f9461084c3912ed2",
+      "size": 5170
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1805d5810_FUN_1805d5810.c",
+      "sha": "2821b65ffd8b28d2bd5d07a86e3164e1a3020ca3",
+      "size": 3317
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1805d5a90_FUN_1805d5a90.c",
+      "sha": "b4ed38fa141c610b3a6bb150a10f9f94b6e0e7da",
+      "size": 1937
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1805d5bc0_FUN_1805d5bc0.c",
+      "sha": "010c8a003e961e38995c4bacab4419b979b2653a",
+      "size": 3945
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1805d5e60_FUN_1805d5e60.c",
+      "sha": "00867c7f5320a84ffaaddfcada4b0f6fbf776fcb",
+      "size": 2598
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1805d6230_FUN_1805d6230.c",
+      "sha": "b8109affd77505bed4b5947f78e32cbf6dc14d46",
+      "size": 3608
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1805d64f0_FUN_1805d64f0.c",
+      "sha": "9386639a474604640dd9f3b99b7e9372b7cba346",
+      "size": 979
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1805d6580_FUN_1805d6580.c",
+      "sha": "2b1c4628d43a11cc5ba5764eb5e90bf107046888",
+      "size": 4138
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1805d67d0_FUN_1805d67d0.c",
+      "sha": "e95d9d9c112f231334da7d0504c527ac2f0fcbf2",
+      "size": 3531
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1805d69a0_FUN_1805d69a0.c",
+      "sha": "7f152de2f4c91087087b31f90c4b3e1d72d5c6e1",
+      "size": 2147
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1805d6ae0_FUN_1805d6ae0.c",
+      "sha": "097c72c93bea764d96f123463bac1acf8da5875a",
+      "size": 1200
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1805d6d30_FUN_1805d6d30.c",
+      "sha": "4719209b7ba4549b1d37a92a32ab7066922f0777",
+      "size": 1689
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1805d6e70_FUN_1805d6e70.c",
+      "sha": "2a4cc05655be616e888cdf3e60b582b7504768a1",
+      "size": 6456
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1805d7230_FUN_1805d7230.c",
+      "sha": "1481d9e7a809b9836351de3fd68f6c9bdc8290df",
+      "size": 5337
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1805d7580_FUN_1805d7580.c",
+      "sha": "6722d8f3f1e9eb1cbb7eb32eb3e1cff44284ba97",
+      "size": 4298
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1805d7a50_FUN_1805d7a50.c",
+      "sha": "6855bc7e752cac9d4cff5e00be44f78c177cc946",
+      "size": 608
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1805d7ad0_FUN_1805d7ad0.c",
+      "sha": "2dab2fe01644f0392efa3e22007396996ce4ddd3",
+      "size": 1612
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1805d7c50_FUN_1805d7c50.c",
+      "sha": "1e937639d031667d076b41816a0f63d92e1c55ff",
+      "size": 189
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1805d7c70_FUN_1805d7c70.c",
+      "sha": "094b560fa877cddc3ca3db751386fec0b63f0851",
+      "size": 192
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1805d7c90_FUN_1805d7c90.c",
+      "sha": "f3d1e58fcd33eedb19c26fb84faf722460599d52",
+      "size": 603
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1805d7d40_FUN_1805d7d40.c",
+      "sha": "9ed2abb01a0a3ee796c43764b485ce82e9eeabad",
+      "size": 730
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1805d7ef0_FUN_1805d7ef0.c",
+      "sha": "5103467e06ef64201be43751d85f41b8f07f03f5",
+      "size": 1275
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1805d8130_FUN_1805d8130.c",
+      "sha": "b703ac3ab7fd9922d295d5ded96c7f68812e672d",
+      "size": 1123
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1805d8220_FUN_1805d8220.c",
+      "sha": "4fe3be8335ef19ae5abbdfc86398c99fd573c380",
+      "size": 12030
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1805d8990_FUN_1805d8990.c",
+      "sha": "a01b9605c4eb20c4302ff415f2fb4629329cdfc9",
+      "size": 1975
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1805d8b10_FUN_1805d8b10.c",
+      "sha": "80c454fcb8be7e7290f95ce8549b82ad185f82a3",
+      "size": 16520
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1805d9910_FUN_1805d9910.c",
+      "sha": "d8ad60893ada259d69d7c80ae4e2e74bc19ed444",
+      "size": 2067
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1805d9a70_FUN_1805d9a70.c",
+      "sha": "856da3071eca9f866b631cc583dd797609dc981b",
+      "size": 1851
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1805d9c10_FUN_1805d9c10.c",
+      "sha": "38afe73b9e425974a9e85e40802d3d15d7135591",
+      "size": 611
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1805d9c70_FUN_1805d9c70.c",
+      "sha": "67d9b022b54535282cbb7cf3b0863fd1d24ee82f",
+      "size": 3629
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1805d9e80_FUN_1805d9e80.c",
+      "sha": "19051bc5883f8cf12f8c3cd2cb250426b196475d",
+      "size": 5688
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1805da210_FUN_1805da210.c",
+      "sha": "5d0847a0cc7ef61e52a3c020034336a061a34b20",
+      "size": 3213
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1805da460_FUN_1805da460.c",
+      "sha": "8d8d0bc4efed8db7657c1bf2542f6c265451cdf0",
+      "size": 6406
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1805da8e0_FUN_1805da8e0.c",
+      "sha": "1addb2880a3f4c9f77e8b12e48f978a4175d2014",
+      "size": 477
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1805da950_FUN_1805da950.c",
+      "sha": "a7bbab6cee3c2f04ddb07066462de5ae564a9f2f",
+      "size": 683
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1805daa00_FUN_1805daa00.c",
+      "sha": "0242c42ebcc5bdc55130c87353aa1c361680a07c",
+      "size": 648
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1805daa70_FUN_1805daa70.c",
+      "sha": "8e42e00b19105e364750c4b3d5edfbd5f0bcccbf",
+      "size": 3397
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1805dad00_FUN_1805dad00.c",
+      "sha": "995eb1686d3c601e14d01b3cca422d89a7c7e833",
+      "size": 3642
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1805db140_FUN_1805db140.c",
+      "sha": "62172bc974b9427ba77b711bec7179674d3ee563",
+      "size": 12940
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1805db800_FUN_1805db800.c",
+      "sha": "5fefb5996b72f132330b79ec7bc85ffa8b3255a4",
+      "size": 641
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1805db990_FUN_1805db990.c",
+      "sha": "39ab0d8131a31d446c4a40aa9b3feab2ec130420",
+      "size": 1489
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1805dbab0_FUN_1805dbab0.c",
+      "sha": "601fffa48042e91d35acea23de8eebd95ab6d336",
+      "size": 3093
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1805dbc70_FUN_1805dbc70.c",
+      "sha": "672a2c53c5dc3f8f083465b4dd6b54de34c612ba",
+      "size": 2554
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1805dbf30_FUN_1805dbf30.c",
+      "sha": "7c3b9f57ed1952723fb479fee9645239665fd6a5",
+      "size": 3241
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1805dc260_FUN_1805dc260.c",
+      "sha": "29ec3c568aa5a980eb8d5ece7864c68044193a53",
+      "size": 1877
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1805dc390_FUN_1805dc390.c",
+      "sha": "6c02cd6b0d29369771d7b58fd4fb06776aca0e8a",
+      "size": 1339
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1805dc470_FUN_1805dc470.c",
+      "sha": "4fb786c9787cb04fc2ea503de6085d05848f2050",
+      "size": 7828
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1805dc9a0_FUN_1805dc9a0.c",
+      "sha": "52e587d7ab6239fa5f609b47571dac90d9a42ada",
+      "size": 1908
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1805dcad0_FUN_1805dcad0.c",
+      "sha": "4b0c379ba3d103f971abdaa8b3d1ebf8be747a4e",
+      "size": 8753
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1805dd070_FUN_1805dd070.c",
+      "sha": "63fe88f58b1b2fc5768e1040fb625a5e92af0abc",
+      "size": 6594
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1805dd4d0_FUN_1805dd4d0.c",
+      "sha": "83f4f568c6543a58ce52d5e7bc31f6c2f560f3db",
+      "size": 9826
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1805ddb50_FUN_1805ddb50.c",
+      "sha": "7b30b1f9f36d0793a1279efed66f4a4af3e72cee",
+      "size": 1802
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1805ddcb0_FUN_1805ddcb0.c",
+      "sha": "7e935eca3d22e48f04f15f5640cab52782aea738",
+      "size": 2105
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1805de130_FUN_1805de130.c",
+      "sha": "d1ca6ef92e24f46cb68adb41c006d215b13a9b23",
+      "size": 977
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1805de210_FUN_1805de210.c",
+      "sha": "771b664e83fc8d50b57e26c6dfaa8b4b04c3272a",
+      "size": 3269
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1805de4b0_FUN_1805de4b0.c",
+      "sha": "fc12a5a22ba72fee632fe51bea4c75b2b3676b8d",
+      "size": 2291
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1805de620_FUN_1805de620.c",
+      "sha": "a955690b548ce8f93e50971f3f642343ec647f50",
+      "size": 1702
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1805de760_FUN_1805de760.c",
+      "sha": "a3781e3c36ff1a5a171f2f3f65583336956dcb38",
+      "size": 4834
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1805ded10_FUN_1805ded10.c",
+      "sha": "6d9df713cf59cf7ed279787e92964f9b48fdfbca",
+      "size": 2595
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1805def30_FUN_1805def30.c",
+      "sha": "d26030d32c330bd424dcde4cf92f11e8c91becf2",
+      "size": 15368
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1805df8f0_FUN_1805df8f0.c",
+      "sha": "377e1a109b7ad7510a0760576d0bcf4e38c7f231",
+      "size": 429
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1805df920_FUN_1805df920.c",
+      "sha": "6da0f968a23bec854ce134008e606c24ca05d852",
+      "size": 1240
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1805dfa40_FUN_1805dfa40.c",
+      "sha": "f43f1e11c78509952ce0080bb76e251a87149646",
+      "size": 11170
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1805e01c0_FUN_1805e01c0.c",
+      "sha": "36b9fa945fc8ba6e6d9cfa60a2ac38cb6b63ed7f",
+      "size": 7672
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1805e0700_FUN_1805e0700.c",
+      "sha": "8f766f611398352b833860fd815dbc0affea2317",
+      "size": 7807
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1805e0cb0_FUN_1805e0cb0.c",
+      "sha": "0e0777f75987958d64b27bddb1ad7fd210d9c06b",
+      "size": 4776
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1805e1010_FUN_1805e1010.c",
+      "sha": "b8ff413e491137e2bae08575d84ca8c7c452d879",
+      "size": 3573
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1805e12b0_FUN_1805e12b0.c",
+      "sha": "70bbea1efda92734cc4b54b9a1cfb15a45c59331",
+      "size": 10218
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1805f4110_FUN_1805f4110.c",
+      "sha": "324f5624b9087c5e61731a7c2e44f0cd091b0043",
+      "size": 1326
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1805f4230_FUN_1805f4230.c",
+      "sha": "70fbf348b7e5831a7d5d3fe64d2173b319b5c59d",
+      "size": 1138
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1805f4550_FUN_1805f4550.c",
+      "sha": "713c871ee5071e2951ea35c8c07ddfb06f318994",
+      "size": 3416
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1805f4790_FUN_1805f4790.c",
+      "sha": "cfe8dd6474ebdbab2f76eb70f687a5940ee47c45",
+      "size": 3454
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1805f49d0_FUN_1805f49d0.c",
+      "sha": "bb8af3e35148fc7c4dfc4ee845810eafb933ee12",
+      "size": 146
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1805f49e0_FUN_1805f49e0.c",
+      "sha": "76cdd6835708bfe1740a74729072c64bd9341c5c",
+      "size": 214
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1805f4e30_FUN_1805f4e30.c",
+      "sha": "1fed67d421f69615d7fed99300dc52e9c790327b",
+      "size": 5535
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1805f50e0_FUN_1805f50e0.c",
+      "sha": "ab93505616e6050ea0830f07a4703ef90e53a0e1",
+      "size": 2353
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1805f5260_FUN_1805f5260.c",
+      "sha": "7dec59a48fa9d2ebf35514076631b40673914a98",
+      "size": 5535
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1805f5510_FUN_1805f5510.c",
+      "sha": "3aa9f58e6114f24e456ed45a5ae11e733e6d2534",
+      "size": 2260
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1805f56b0_FUN_1805f56b0.c",
+      "sha": "5470ce882bcf3cd33bd0b6cbdf4836d4056be571",
+      "size": 600
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1805f5730_FUN_1805f5730.c",
+      "sha": "b643538f3f5f7b23ffc7fcca5f80984bdc26ef06",
+      "size": 437
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1805f5870_FUN_1805f5870.c",
+      "sha": "e2e73f8ae9283db5dbb57c790847c15cfcd5dd7b",
+      "size": 2174
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1805f5c20_FUN_1805f5c20.c",
+      "sha": "354f4518175c7b0f4a8777acc134b69fef9669e4",
+      "size": 961
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1805f5d00_FUN_1805f5d00.c",
+      "sha": "d973b68417c50dc32fe4f87f5f79660ffa1a50ac",
+      "size": 6752
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1805f60b0_FUN_1805f60b0.c",
+      "sha": "3f1bc881930eabd6f0c609215b8447bb0e3f0cc3",
+      "size": 1672
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1805f61e0_FUN_1805f61e0.c",
+      "sha": "6dae5e24db01a5da20fc1f43032700e80f29b4d5",
+      "size": 2223
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1805f6420_FUN_1805f6420.c",
+      "sha": "12f9edfd5892d13f29044e003ae374403375b534",
+      "size": 5662
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1805f6720_FUN_1805f6720.c",
+      "sha": "8a80b55c8ab219a802813c4b1b5a0df1f6220660",
+      "size": 3593
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1805f6980_FUN_1805f6980.c",
+      "sha": "59819a82958d10caf44311f5a1c67fcc359c0b36",
+      "size": 1528
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1805f6dc0_FUN_1805f6dc0.c",
+      "sha": "b4c69eb98040e641cf11a6471d0fcae269684909",
+      "size": 14750
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1805f7810_FUN_1805f7810.c",
+      "sha": "60a8ba771eb80e2335521367c4849a8fb159b8ba",
+      "size": 1898
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1805f7940_FUN_1805f7940.c",
+      "sha": "63d110313f247bca2c6546bf1f03b92871eb9e0f",
+      "size": 9387
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1805f7da0_FUN_1805f7da0.c",
+      "sha": "285c2af06745b3f38797e55514f0f66c65ab6aa4",
+      "size": 838
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1805f7e30_FUN_1805f7e30.c",
+      "sha": "c13ba2c898ab07e8c04dff7b1e41db3544890f56",
+      "size": 3081
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1805f80e0_FUN_1805f80e0.c",
+      "sha": "8e9cc089716236281152060fbf228d5f0eedd160",
+      "size": 10431
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1805f8630_FUN_1805f8630.c",
+      "sha": "63f0b89305234b4912171899a405399fcaac6516",
+      "size": 1551
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1805f8770_FUN_1805f8770.c",
+      "sha": "89ed0ca8045ff524d63b35eaf643fd8df68f8164",
+      "size": 2744
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1805f8a10_FUN_1805f8a10.c",
+      "sha": "a88ac4403aa97f8e7bad28e3b4a7ddc43572c4e8",
+      "size": 2310
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1805f8bb0_FUN_1805f8bb0.c",
+      "sha": "fe6c8767d84d7a6a8d87a6b5bf381a098271b322",
+      "size": 1870
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1805f8d20_FUN_1805f8d20.c",
+      "sha": "33802bdbb214afaac07223c90d21e0b6546f3953",
+      "size": 9288
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1805f93e0_FUN_1805f93e0.c",
+      "sha": "e91ac8bd429c5bf12217b69a269993d03f68ed7a",
+      "size": 3019
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1805f96b0_FUN_1805f96b0.c",
+      "sha": "6f429c1bc48b943a49704608fdb746699797dfe2",
+      "size": 3473
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1805f99f0_FUN_1805f99f0.c",
+      "sha": "fe48b9796c3981795ccf983d13d826a515b33d62",
+      "size": 3742
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1805f9cd0_FUN_1805f9cd0.c",
+      "sha": "a8efa42ead5aaf66578cdac4890593253cbe8550",
+      "size": 2275
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1805f9ec0_FUN_1805f9ec0.c",
+      "sha": "4333809d234bb279e4e8a9da1f66994748bd7e04",
+      "size": 6617
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1805fa370_FUN_1805fa370.c",
+      "sha": "e706daa23457d9015a863911ea7ffdbb2a821ce0",
+      "size": 4530
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1805fa6d0_FUN_1805fa6d0.c",
+      "sha": "d8e2bf5998a89d72714e66b59a58f3b860c19761",
+      "size": 6627
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1805faa50_FUN_1805faa50.c",
+      "sha": "b973c17696d0b8cafe4f985e21038703d29e89bd",
+      "size": 2304
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1805fb220_FUN_1805fb220.c",
+      "sha": "ac3e2969bd6666f7c3520b091000d1d0f400530a",
+      "size": 3400
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1805fb3c0_FUN_1805fb3c0.c",
+      "sha": "5c4b0073564fb0187e795423975e229499967e5c",
+      "size": 1861
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1805fb660_FUN_1805fb660.c",
+      "sha": "3c6b085150afebef14865450a0b945cb5d3519e4",
+      "size": 1909
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1805fb7e0_FUN_1805fb7e0.c",
+      "sha": "6ad3af5a9a4a82f2d4983246b9c30def6b236dd4",
+      "size": 1948
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1805fb960_FUN_1805fb960.c",
+      "sha": "4e1fae94f02e4a613ca0a1dd4b9d0e6221d70194",
+      "size": 1050
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1805fba00_FUN_1805fba00.c",
+      "sha": "b984af9609557c87d4f35ef767cdee12b9a395db",
+      "size": 7236
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1805fbfd0_FUN_1805fbfd0.c",
+      "sha": "1c0a2395a8f0f8310ffd7f3824ffc8808a6765d7",
+      "size": 1037
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1805fc050_FUN_1805fc050.c",
+      "sha": "4811855e2852b9d769696bcdefc6edd2155138bb",
+      "size": 5925
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1805fc3a0_FUN_1805fc3a0.c",
+      "sha": "76f3f552530bcdf1fac34d1f6bc66c6c31c2c7cc",
+      "size": 3243
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1805fc5a0_FUN_1805fc5a0.c",
+      "sha": "f09757415dd6b31d9cbc309e400b8ef12aa92295",
+      "size": 2813
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1805fc750_FUN_1805fc750.c",
+      "sha": "12d733280c8ba1e595d65bd6e96bd3b3c4615737",
+      "size": 5978
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1805fcb20_FUN_1805fcb20.c",
+      "sha": "1d6bad2d19fe5c6a7a59ba5fdbedc1b0e73c6874",
+      "size": 1736
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1805fcc30_FUN_1805fcc30.c",
+      "sha": "f17a24120bf00df04105cb84ed5ab65534906d87",
+      "size": 2848
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1805fce90_FUN_1805fce90.c",
+      "sha": "df5dd9d4d9e70ad0b77b8ae7d4b78578e909cb15",
+      "size": 2275
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1805fd090_FUN_1805fd090.c",
+      "sha": "cfc3d818d955000fe9e24db40f61ad2d2ad0ae1c",
+      "size": 2190
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1805fd230_FUN_1805fd230.c",
+      "sha": "3e78dab23843fc913b574e97bec739012242b4fc",
+      "size": 11324
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1805fd970_FUN_1805fd970.c",
+      "sha": "8b195ed4824d2d97a62aff456f0f1442572c1724",
+      "size": 3371
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1805fdbf0_FUN_1805fdbf0.c",
+      "sha": "85bc42d3774fb4b3080738e324189497ce239b1c",
+      "size": 3370
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1805fddb0_FUN_1805fddb0.c",
+      "sha": "630e0790684f3bd7c0a2a3c373cf0640dd3e7660",
+      "size": 666
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1805fde60_FUN_1805fde60.c",
+      "sha": "8a6db7e6dec00834d917c502dd9f34a1fbbd0a3e",
+      "size": 4103
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1805fe0e0_FUN_1805fe0e0.c",
+      "sha": "68d1027c208c068bf8d104970bb024553e3a18bc",
+      "size": 1549
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1805fe480_FUN_1805fe480.c",
+      "sha": "c4512dbc2bbda80f7c8b5d1152db523310effdfe",
+      "size": 1543
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1805fe5e0_FUN_1805fe5e0.c",
+      "sha": "29488de88d277ab289949f31bb04e98db30d031b",
+      "size": 8962
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1805feb70_FUN_1805feb70.c",
+      "sha": "962a1ff677bf18bfdb11977cc27ffeaa608bf2c8",
+      "size": 2460
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1805fedb0_FUN_1805fedb0.c",
+      "sha": "db18f53549f1f57c42fac7c6f0da7b42d2f3fd98",
+      "size": 8232
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1805ff370_FUN_1805ff370.c",
+      "sha": "a1aebc5f5614ac2fca6898db2048c79a3e4a57dc",
+      "size": 5241
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1805ffd00_FUN_1805ffd00.c",
+      "sha": "208bdcac5ff28df226051a122f9f04c5410d9c92",
+      "size": 9211
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1806003b0_FUN_1806003b0.c",
+      "sha": "9cf82113193ed693d64d689f0be850f5b7f85e76",
+      "size": 6176
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/180600820_FUN_180600820.c",
+      "sha": "017e9c6644d8f9fc806e972910e9b9e5b184f5d0",
+      "size": 3374
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/180600ad0_FUN_180600ad0.c",
+      "sha": "555d0a09b68feee1aaf6a431a9134d46d9cf1980",
+      "size": 1594
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/180600c40_FUN_180600c40.c",
+      "sha": "982fd637201fa7751f50d303e3c0d74ed05022fc",
+      "size": 15926
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/180601690_FUN_180601690.c",
+      "sha": "76723e8825d06f2b25c2a4e3f1b853024ee93036",
+      "size": 7426
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/180601c10_FUN_180601c10.c",
+      "sha": "d3bb558491b40a31194af6f8bdc89b8661f8e18f",
+      "size": 1904
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/180601dd0_FUN_180601dd0.c",
+      "sha": "d584f53ee74a745c688c1331134eff2b3ce951d2",
+      "size": 10791
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1806025c0_FUN_1806025c0.c",
+      "sha": "b4c5135b1ef153f70a00938a156a395def1fc71f",
+      "size": 2489
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/180602770_FUN_180602770.c",
+      "sha": "d1c7b091023cc712f893bf47b301e6a012b0df38",
+      "size": 4900
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/180602a90_FUN_180602a90.c",
+      "sha": "3e4d22bd80e83cd63e649db05ff908f67cb80260",
+      "size": 5186
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/180602e60_FUN_180602e60.c",
+      "sha": "a2ae2cc0d10759b37e50455743a7d7ca2a57ba31",
+      "size": 8449
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/180603510_FUN_180603510.c",
+      "sha": "1eb901bf575e16aba01e4b7b8b5965398aca78bd",
+      "size": 4048
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1806037b0_FUN_1806037b0.c",
+      "sha": "bb8538d99ef42eba3042b6f90b2f3e4873834e4d",
+      "size": 1624
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/180603890_FUN_180603890.c",
+      "sha": "72785b9ab0888737b716d2e6c5b4b62316f42aa9",
+      "size": 1900
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/180603a20_FUN_180603a20.c",
+      "sha": "9de545ac23438955c83f3bb6fe71790c60809dda",
+      "size": 6622
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/180603f70_FUN_180603f70.c",
+      "sha": "d77944fefdd129d95a9ee992823bf94415d0e1d7",
+      "size": 2993
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1806041c0_FUN_1806041c0.c",
+      "sha": "5a64b812127998820df7fe09c0ac7ee97f772b9a",
+      "size": 2085
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1806042f0_FUN_1806042f0.c",
+      "sha": "2d40aaa00f52686398f1cb10fc7b6b5ff71c943a",
+      "size": 3394
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/180604540_FUN_180604540.c",
+      "sha": "3b8e1132ffb7e3da3ea75623337cb1ddbd96fb7a",
+      "size": 4360
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1806047b0_FUN_1806047b0.c",
+      "sha": "66caae79c340de5b2f96f8507ccda38ac42deceb",
+      "size": 5192
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/180604ab0_FUN_180604ab0.c",
+      "sha": "2010e119734e1457953e181dc578a336478f630c",
+      "size": 1793
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/180604bd0_FUN_180604bd0.c",
+      "sha": "8bf0c03725088c728c68ce1543d022927517b930",
+      "size": 6903
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/180604fe0_FUN_180604fe0.c",
+      "sha": "6bfcecd230f554d4b5e147e3b9438a1151560a76",
+      "size": 7749
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/180605470_FUN_180605470.c",
+      "sha": "231ad1c301a0f44218557c43544fada7d2748950",
+      "size": 1147
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/180605550_FUN_180605550.c",
+      "sha": "8ca4ead85505c4523be36cc4979914bc90a727ea",
+      "size": 1336
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/180605680_FUN_180605680.c",
+      "sha": "0634c78987fedb9aabadc2e80c44d4816c4a2422",
+      "size": 3659
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/180605960_FUN_180605960.c",
+      "sha": "5cab0e9b6f6a3140f5101103eab417e77cef70ad",
+      "size": 5218
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/180605cf0_FUN_180605cf0.c",
+      "sha": "49b2b31c3a43a20c297a33e8ebecd69a43700a3e",
+      "size": 4587
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/180606040_FUN_180606040.c",
+      "sha": "fe5835486a1fecff95cb88370a25855febfe13bc",
+      "size": 4287
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/180606370_FUN_180606370.c",
+      "sha": "b45f9db30f6ec3f282713e9231d8b8c174408532",
+      "size": 5949
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1806067d0_FUN_1806067d0.c",
+      "sha": "31ac7fb45ce7ec9faebd491dc0a2cbee7b26b21b",
+      "size": 11294
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/180607050_FUN_180607050.c",
+      "sha": "58d8ff92499fba6ef0245e3424966b2bcad39e36",
+      "size": 1841
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1806071c0_FUN_1806071c0.c",
+      "sha": "dfad32a68da3708d26aec3a58ba20efb9c148af1",
+      "size": 2314
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1806073b0_FUN_1806073b0.c",
+      "sha": "828aa4c8f08c6825cd769826ca413dab17443e1b",
+      "size": 3213
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/180607660_FUN_180607660.c",
+      "sha": "9605fe1a7b99ff7016d5abd7834c6539e4847ea9",
+      "size": 4441
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/180607a20_FUN_180607a20.c",
+      "sha": "3113a8e4419b757d1241022c19250edd0d90f7a3",
+      "size": 2522
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/180607c60_FUN_180607c60.c",
+      "sha": "19f4036244459486814c3d70b5a47170b9ab4067",
+      "size": 5284
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/180608000_FUN_180608000.c",
+      "sha": "1123b490441345301f6073971e79dd7ac922c1fc",
+      "size": 6672
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/180608430_FUN_180608430.c",
+      "sha": "e1e2bc895690637dac8d0cd71444b5f82151cf5d",
+      "size": 6156
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/180608900_FUN_180608900.c",
+      "sha": "1b2ed87e3e43ef70f4da50d4cb4624a21355f816",
+      "size": 6568
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/180608c60_FUN_180608c60.c",
+      "sha": "696b2f417985e09ccd8cc4688cc78c8a9bf5e295",
+      "size": 2671
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/180608eb0_FUN_180608eb0.c",
+      "sha": "9d17f0270e2da6d7ad0a804402605fed4202542d",
+      "size": 2064
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/180609070_FUN_180609070.c",
+      "sha": "51ff5cdb8b583349d4909bcbb9242c60641b6673",
+      "size": 1378
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1806091c0_FUN_1806091c0.c",
+      "sha": "bbcdd1020102bc6e8519e5319fe638e88afbbc5c",
+      "size": 1019
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1806092b0_FUN_1806092b0.c",
+      "sha": "dd4f224abe156b98612fddd451082b1c0a2d6a66",
+      "size": 2114
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/180609480_FUN_180609480.c",
+      "sha": "1699349f10acf1f33229b52360f02f24e2d4024d",
+      "size": 551
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1806094e0_FUN_1806094e0.c",
+      "sha": "eb31d718108f85aa26d5895435972008762f8a6a",
+      "size": 9972
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/180609cb0_FUN_180609cb0.c",
+      "sha": "75df23c262512098d44981fc7736d4511c24e4a4",
+      "size": 3809
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/180609f40_FUN_180609f40.c",
+      "sha": "7aea2af6d294bf4096148af3bb356ec2237bf1f3",
+      "size": 3920
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/18060a1f0_FUN_18060a1f0.c",
+      "sha": "0af9d3201849b770c90aca8cc648e2283569551f",
+      "size": 4343
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/18060a550_FUN_18060a550.c",
+      "sha": "fc622217b12ecac9e99020be08b29752d1de0b91",
+      "size": 2622
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/18060a790_FUN_18060a790.c",
+      "sha": "9bfe70db5265d261a8f2bdc612af1d93bf2cea63",
+      "size": 881
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/18060a850_FUN_18060a850.c",
+      "sha": "662b070a6e12dbbee1c944e139046931e83fc573",
+      "size": 6224
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/18060acd0_FUN_18060acd0.c",
+      "sha": "3bcc8f6fe4c30cf2f60b31de3c1c8d4469ca5e18",
+      "size": 3598
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/18060af60_FUN_18060af60.c",
+      "sha": "8bf040d6b053a38d59017d6e62422e190e1e2b8d",
+      "size": 3017
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/18060b2f0_FUN_18060b2f0.c",
+      "sha": "78412edfd1cfdefac9ced7860710dc2c97549ec9",
+      "size": 3734
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/18060b570_FUN_18060b570.c",
+      "sha": "1fcde5b3fbd92058c9ae2ffd484f230d061c7c26",
+      "size": 2899
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/18060b7c0_FUN_18060b7c0.c",
+      "sha": "f95950f1d43ebe82316d0c6d6a2f1f28c1c241ff",
+      "size": 3307
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/18060ba50_FUN_18060ba50.c",
+      "sha": "650a40477256f49711b9c95f8f57f5b83af08e7f",
+      "size": 2377
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/18060c0c0_FUN_18060c0c0.c",
+      "sha": "0c2a1c99db77bb86b3e5a5485b4d9b8b9d9d108a",
+      "size": 3410
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/18060c310_FUN_18060c310.c",
+      "sha": "b1cbaaf0439a5acaf4b0f5d2537c44fdaf2a1711",
+      "size": 2267
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/18060c460_FUN_18060c460.c",
+      "sha": "8f2619fd26047701703eae4337cafb014df59ef8",
+      "size": 1629
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/18060c5b0_FUN_18060c5b0.c",
+      "sha": "a79f1fa9a73ecb82c41ea58a5b4b858a7c915b59",
+      "size": 1185
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/18060c6b0_FUN_18060c6b0.c",
+      "sha": "0112f1d546c2f925673ec4db437ec82092df2aea",
+      "size": 392
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/18060c710_FUN_18060c710.c",
+      "sha": "217012bed561474ff497be84c2796d1ebcd13360",
+      "size": 4880
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/18060ca60_FUN_18060ca60.c",
+      "sha": "5bced5d237c5f4047ef9b7f8dba59533fec070bb",
+      "size": 3301
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/18060ccb0_FUN_18060ccb0.c",
+      "sha": "b4ea4808626f81c6c2b4f01961a3c5f33d03ed03",
+      "size": 2882
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/18060ced0_FUN_18060ced0.c",
+      "sha": "cac183ce81a8b3370b988db1879e9c0ff22df23f",
+      "size": 3330
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/18060d150_FUN_18060d150.c",
+      "sha": "e1fe72fdd603acd075b1f056e25ed4c5254814a7",
+      "size": 1404
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/18060d280_FUN_18060d280.c",
+      "sha": "06745e4b4a9617c7db6803ad80a03ca56313e1ac",
+      "size": 636
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/18060d340_FUN_18060d340.c",
+      "sha": "d9686641519aca3d9b6c12019f0ad927196bf4b5",
+      "size": 468
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/18060d430_FUN_18060d430.c",
+      "sha": "1d467c5e529022c9819c56fef64f4d20b1f0b249",
+      "size": 1413
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/18060d610_FUN_18060d610.c",
+      "sha": "bc278faaa6de6bf7f32b6b164a3cdbe0177ce6ba",
+      "size": 2154
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/18060dbf0_FUN_18060dbf0.c",
+      "sha": "e248833452b2cc858741c9d58d4d2b70288dd95e",
+      "size": 12549
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/18060e550_FUN_18060e550.c",
+      "sha": "97a993951f50ac6022867570bbdfb00a397aa53c",
+      "size": 2005
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/18060e690_FUN_18060e690.c",
+      "sha": "4919ad0c1effc4ca0b48a642bd27de99f0d72618",
+      "size": 2262
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/18060e820_FUN_18060e820.c",
+      "sha": "92230e3a4e5f54f4992c237a16b808d9f90d7eb7",
+      "size": 3371
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/18060eae0_FUN_18060eae0.c",
+      "sha": "412daccf978e79f3541e7482162913ece1b5d2fb",
+      "size": 3877
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/18060edd0_FUN_18060edd0.c",
+      "sha": "822be121343ef7968f0a7bac76c2a4fdd5cfcd6d",
+      "size": 2682
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/18060efc0_FUN_18060efc0.c",
+      "sha": "93682f9833c5ec7b0202a3fa6a171eef8a0e2408",
+      "size": 1377
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/18060f0d0_FUN_18060f0d0.c",
+      "sha": "7778b8988aa8bc67bc2eb07525a2cef29b05ab5d",
+      "size": 1492
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/18060f200_FUN_18060f200.c",
+      "sha": "5eee072d0cee7f6dc765c2637847b94aff568fe4",
+      "size": 1926
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/18060f390_FUN_18060f390.c",
+      "sha": "7f83a0d52c046fcf8bddb644a2e16901b7a5cb0e",
+      "size": 1644
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/18060f4e0_FUN_18060f4e0.c",
+      "sha": "31904bc3abdf338a3933d8ab7c945d0822f4864c",
+      "size": 1866
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/18060f740_FUN_18060f740.c",
+      "sha": "6fd3aa69b96cccf88373df96000dd8d5283031b1",
+      "size": 2822
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/18060f9d0_FUN_18060f9d0.c",
+      "sha": "4cc5ca6ba1777bc3ecea8e140e49e7cdef57e9f4",
+      "size": 1763
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/18060fb30_FUN_18060fb30.c",
+      "sha": "decee2ad50620920533f3b7a59770adabfe3a8aa",
+      "size": 636
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/18060fd10_FUN_18060fd10.c",
+      "sha": "db3dd25179f730c7c64f0423270b6f826e71f49e",
+      "size": 901
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/18060ff50_FUN_18060ff50.c",
+      "sha": "f0a106ae78b411f169f76d26d696b9939152f030",
+      "size": 481
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/180625d60_FUN_180625d60.c",
+      "sha": "6fe607e1f7ba21c30b44a8898361998e5a7a22d8",
+      "size": 29016
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/180627cb0_FUN_180627cb0.c",
+      "sha": "020cad60b9d790c76610e61ae39a18fa3f5e45c2",
+      "size": 1342
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/180627dd0_FUN_180627dd0.c",
+      "sha": "a2d04c5a3478bfab32814f739207d4049b08ef5a",
+      "size": 1121
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/180628040_FUN_180628040.c",
+      "sha": "7b094eefa681167dea6f740bceb4db43592d96ef",
+      "size": 3454
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/180628280_FUN_180628280.c",
+      "sha": "ad2c2f7cd9d3db8eabba1b9d219e2e4df9da4ea2",
+      "size": 3454
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1806284c0_FUN_1806284c0.c",
+      "sha": "a8b3030b3cb1ce2abb2431da04b67f5cf4108012",
+      "size": 338
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/180628510_FUN_180628510.c",
+      "sha": "631f025f705eb4adb73444ff599463764a016a26",
+      "size": 146
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/180628520_FUN_180628520.c",
+      "sha": "e122761edfa0a53f4e9904ad095641f46defa9ff",
+      "size": 5535
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1806287d0_FUN_1806287d0.c",
+      "sha": "6093b3bc663ae1ff5d430142e25f24f80c64968e",
+      "size": 2458
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/180628960_FUN_180628960.c",
+      "sha": "27b551b091d39721e2026b9571db4d585be9345a",
+      "size": 5535
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/180628c10_FUN_180628c10.c",
+      "sha": "ec26e984735272bb0e6850dcba78fdc5331bf43c",
+      "size": 2260
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/180668ed0_FUN_180668ed0.c",
+      "sha": "87f592abb958758153f3cf6ced6b6b38bf806cf6",
+      "size": 1953
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/180669040_FUN_180669040.c",
+      "sha": "4ba48d084b88539c263fdddf56cbc99accb0f968",
+      "size": 1211
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/180669140_FUN_180669140.c",
+      "sha": "5e225d9538f7e09d04ec9f00a0269b9b028bba02",
+      "size": 4875
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1806694f0_FUN_1806694f0.c",
+      "sha": "ed1b2d823bcb464487dc2bca933619764391c461",
+      "size": 1746
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/180669680_FUN_180669680.c",
+      "sha": "ab1a5c2cc8573489a445c55ba2723373082814d4",
+      "size": 2777
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/180669860_FUN_180669860.c",
+      "sha": "d0b01dfc5859f229a95de2e83e2d7abf0886f41f",
+      "size": 3677
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/180669b70_FUN_180669b70.c",
+      "sha": "c81db802e5e96d7128f150dd69e3eb40f7f382ff",
+      "size": 4367
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/180669f00_FUN_180669f00.c",
+      "sha": "cc0bfafb3ac4cc4c0f4fe293400814d8953e3a24",
+      "size": 1963
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/18066a0e0_FUN_18066a0e0.c",
+      "sha": "34f73b2af1c17840558547ebd35741cb13fe7681",
+      "size": 5708
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/18066a500_FUN_18066a500.c",
+      "sha": "e0e58a2e3a89313cf887e49261161f213c1e9e6c",
+      "size": 1221
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/18066a580_FUN_18066a580.c",
+      "sha": "bd390041fd815e7caa838daa2a675ff8d9bfa0e5",
+      "size": 1220
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/18066a690_FUN_18066a690.c",
+      "sha": "20c102a67dc28ffa543e0a640207d98fdd5dbd08",
+      "size": 965
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/18066a730_FUN_18066a730.c",
+      "sha": "fcdf70bc51cd7dd8f1551027d8b1b271ef1452d6",
+      "size": 962
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/18066a800_FUN_18066a800.c",
+      "sha": "2a47608509cdc6004341175ddaad604116796a3d",
+      "size": 962
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/18066a8d0_FUN_18066a8d0.c",
+      "sha": "58f6459a270cde0db4d3df105c1f3d16857db1bf",
+      "size": 2751
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/18066ab40_FUN_18066ab40.c",
+      "sha": "e97bf951a258b7eb1db2c4b03d1df70b50ba90b0",
+      "size": 1130
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/18066ac10_FUN_18066ac10.c",
+      "sha": "e6140bec5397f51c18383d32ff0aaba98492e6fa",
+      "size": 3464
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/18066ae50_FUN_18066ae50.c",
+      "sha": "7f80cf709e7a8f53bd0110fcaa0b66217d1feaaa",
+      "size": 2277
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/18066b030_FUN_18066b030.c",
+      "sha": "ef18a25be6779279be61258125a56e7f38baef8a",
+      "size": 866
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/18066b760_FUN_18066b760.c",
+      "sha": "14bf9a85e04e0aeed7e0cdbfca70ed3ace789b94",
+      "size": 545
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/18066b7d0_FUN_18066b7d0.c",
+      "sha": "864244307ef7300281dcb4cb36c399a414e5ec03",
+      "size": 1755
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/18066b8f0_FUN_18066b8f0.c",
+      "sha": "08334e7c1f20bac6741e6f1726b346adaa93201e",
+      "size": 971
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/18066b9c0_FUN_18066b9c0.c",
+      "sha": "33d1ea8a0d11b64b0e500836ad7d663e5f5d155d",
+      "size": 5387
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/18066bcf0_FUN_18066bcf0.c",
+      "sha": "094cc7b0eb49e860194424ce8e5dac390461bc47",
+      "size": 425
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/18066bd60_FUN_18066bd60.c",
+      "sha": "5f6043fc92e0d9f8e9100457ce59dd89f3930a84",
+      "size": 9276
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/18066caf0_FUN_18066caf0.c",
+      "sha": "91f52c5bf9ace1084525adcb5ccac706af869419",
+      "size": 2998
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/18066d0c0_FUN_18066d0c0.c",
+      "sha": "eef3f6b94cb21c24102c4f719fd753221759c0d0",
+      "size": 1234
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/18066d400_FUN_18066d400.c",
+      "sha": "cf58ae2627ac4731b3057c5aab9fb3ff44a19143",
+      "size": 1563
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/18066dcb0_FUN_18066dcb0.c",
+      "sha": "1dca46c42c5575ae55cd3374cea27b173661fdd7",
+      "size": 11470
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/18066e590_FUN_18066e590.c",
+      "sha": "8eeff184e7ed1cfe26e7debe7018871afec0b527",
+      "size": 7362
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/18066edc0_FUN_18066edc0.c",
+      "sha": "ac7b137633c29cea9630ee601667a3850b96f020",
+      "size": 5063
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/180671430_FUN_180671430.c",
+      "sha": "956a0ec4f769c79a8061f20e4e116ae8041672d7",
+      "size": 1846
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/180671520_FUN_180671520.c",
+      "sha": "751a22ffc297336a6c05a807d56c2cb9b36f30e1",
+      "size": 3892
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/180671800_FUN_180671800.c",
+      "sha": "5500a68c8091b1783145f078478085b5aa6e4418",
+      "size": 3801
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/180672d50_FUN_180672d50.c",
+      "sha": "7566ce628d816802baff311298ecec72db814ff7",
+      "size": 2142
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/180672f10_FUN_180672f10.c",
+      "sha": "99e4f8e2b965a3bed8b88fc353764affa59ffafe",
+      "size": 4390
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1806732b0_FUN_1806732b0.c",
+      "sha": "7d358b72bda182e68c46ea8074a5b52cbd0cfb0d",
+      "size": 1817
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/180673440_FUN_180673440.c",
+      "sha": "f298310c13db0a610ebf8ecca1243308d7e09223",
+      "size": 2779
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/180673640_FUN_180673640.c",
+      "sha": "4becbc924bd3387adbb49a29473b49c2b16d9a02",
+      "size": 1552
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/180673790_FUN_180673790.c",
+      "sha": "52be615de2daebbd4c2bce5d2b32869deb5c9684",
+      "size": 2346
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/180673980_FUN_180673980.c",
+      "sha": "ecd63eb87a23fb7f70bdd143e74c4df5ef0c5639",
+      "size": 3609
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/180673bf0_FUN_180673bf0.c",
+      "sha": "4fafd7badc61753c17511949afa872af3ca00549",
+      "size": 4900
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/180674030_FUN_180674030.c",
+      "sha": "5478c6a7a854c9dae259491490d5226a9b409e82",
+      "size": 7141
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1806745e0_FUN_1806745e0.c",
+      "sha": "e46aa204ab058a080515321cd166e7aa07d67d2f",
+      "size": 7277
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/180674bb0_FUN_180674bb0.c",
+      "sha": "8e64582fded3a668ca63e8c491bae99ca14b7869",
+      "size": 3722
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/180674ec0_FUN_180674ec0.c",
+      "sha": "f987ebc3ec93877df35913a1673701dd3c645eeb",
+      "size": 973
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/180674fa0_FUN_180674fa0.c",
+      "sha": "c5f3f3bdeda544c8fc909778a460b85a1a459510",
+      "size": 1362
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/180675360_FUN_180675360.c",
+      "sha": "5b24f3ee411c5f9bdd6a6b32aaaa85570ecf23b8",
+      "size": 1226
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/180675460_FUN_180675460.c",
+      "sha": "3b772c2b4519be3b9e5352075effad1cbfc67184",
+      "size": 2404
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/180675960_FUN_180675960.c",
+      "sha": "3c83c4eee45823471215012eebdbf04e9cff1161",
+      "size": 2558
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/180675b80_FUN_180675b80.c",
+      "sha": "2a8b65e818885c49ac5c9e8b6ebbf0e4516b1611",
+      "size": 2238
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/180675d30_FUN_180675d30.c",
+      "sha": "323f85c18f51d53960cec6eebc5e707bcf873629",
+      "size": 3159
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/180675fc0_FUN_180675fc0.c",
+      "sha": "f1d54eb716ad679a2e9f56d4f5b1db37dc9590f5",
+      "size": 2227
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/180676180_FUN_180676180.c",
+      "sha": "9258fb7025b60c08f2f407a099258e47e300d070",
+      "size": 1256
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1806762a0_FUN_1806762a0.c",
+      "sha": "1d3ddd46e5fb8698b87f2810b8b637ecf96e39e0",
+      "size": 1898
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/180676a20_FUN_180676a20.c",
+      "sha": "b9f935d3b00bc77f3606b0d3b6b6fcc6c5006dab",
+      "size": 2719
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/180676c60_FUN_180676c60.c",
+      "sha": "e821a7f8064daf5fc014891bfc89ea0e371807c7",
+      "size": 4620
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/180677030_FUN_180677030.c",
+      "sha": "32f47a9168d452a4ee83178d748fbaa40d4aae4e",
+      "size": 9092
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/180677790_FUN_180677790.c",
+      "sha": "a2a0c77d33010215655731e17943dd5fd8a530fd",
+      "size": 7131
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/180677d20_FUN_180677d20.c",
+      "sha": "ad68089d5fea967c474142fb59f4caaa8373de7c",
+      "size": 4823
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/180678680_FUN_180678680.c",
+      "sha": "37018ba5e65bbc797fca5493e6fb25226c7b4436",
+      "size": 411
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/180678850_FUN_180678850.c",
+      "sha": "4e529d54256bfc38230856e5dc0e81c2931c0eb4",
+      "size": 950
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/180678900_FUN_180678900.c",
+      "sha": "3d8159d608c22ac3e4a575bc3a925a676522f113",
+      "size": 188
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/180678b10_FUN_180678b10.c",
+      "sha": "c6a3702683b12a794901e2350ff20b6ae54f6940",
+      "size": 2607
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/180678cb0_FUN_180678cb0.c",
+      "sha": "55fa9dc33b967fc41b58c0d3bde6a9d48367cda6",
+      "size": 861
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/180679780_FUN_180679780.c",
+      "sha": "0d37ea7bd6da531d886d0d0a20a4acfd928f3268",
+      "size": 2238
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1806799b0_sentry.c",
+      "sha": "0e273c81752d9bbb1d783ed10fb2d9b93a3156ce",
+      "size": 1458
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/18067a870_FUN_18067a870.c",
+      "sha": "86dfd4de3bdf9e5b2b07f9797ad3a358af2199c8",
+      "size": 1947
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/18067b990_FUN_18067b990.c",
+      "sha": "ea2daf67c3478cfcfd2005bd36015c96e66f70e2",
+      "size": 945
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/18067ba50_FUN_18067ba50.c",
+      "sha": "e52e37b02e974ff1e7c4b2db1a2218574cc0091d",
+      "size": 668
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/18067bb40_FUN_18067bb40.c",
+      "sha": "f3548df6b5730ac86fcc20a02dd9df0e20e150be",
+      "size": 3540
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/18067bd10_FUN_18067bd10.c",
+      "sha": "84624bd660b0790b946a9728a420d2b78007e24c",
+      "size": 3777
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/18067bf80_FUN_18067bf80.c",
+      "sha": "13517be751cdf6bf64cb4064c87c609c8d195665",
+      "size": 2893
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/18067c810_FUN_18067c810.c",
+      "sha": "0748bb431b0eca2f36f1bbf0aa331df8bcf7c047",
+      "size": 812
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/180681420_FUN_180681420.c",
+      "sha": "6b065d1a15269faf7873c495dd5b1040fa75c0bf",
+      "size": 495
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/180681970_FUN_180681970.c",
+      "sha": "13e744c47d02a87dbd45761ba56f26983830d772",
+      "size": 1240
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/180681ab0_FUN_180681ab0.c",
+      "sha": "5258e8f9a062573d78cbeb8635b6eaca83b75436",
+      "size": 2715
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/180681ce0_FUN_180681ce0.c",
+      "sha": "1742fc853c802289091ca43f3c0113137216ebb7",
+      "size": 795
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/180681d80_FUN_180681d80.c",
+      "sha": "16eb862270d0df44d6288bdd35a0742c44fbf92a",
+      "size": 6461
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/180682280_FUN_180682280.c",
+      "sha": "1aff46126520210ee9fdf57f76cd03eec2939cee",
+      "size": 1647
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1806823e0_FUN_1806823e0.c",
+      "sha": "1c953f35dce4971c221d70a9bae9393f67df9218",
+      "size": 1614
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/180682520_FUN_180682520.c",
+      "sha": "b34453393edee9055bbf0d122f905dbe1a6dc7b2",
+      "size": 1648
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/180682640_FUN_180682640.c",
+      "sha": "129127c41a9657d7e4c7269ee6050e1352a022b9",
+      "size": 1902
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/180683a60_FUN_180683a60.c",
+      "sha": "c42307b048e9c54d60998e27cdf57270525ab441",
+      "size": 832
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/180684000_FUN_180684000.c",
+      "sha": "52b38d9e86ef4b7fb80e79cf4a61b6ca3ed5aa3a",
+      "size": 1210
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1806840c0_FUN_1806840c0.c",
+      "sha": "0ceb87e19698fa9674e8d672ea3c5bcfadf13a9f",
+      "size": 2238
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1806844c0_FUN_1806844c0.c",
+      "sha": "3076c4bb3cb2d30bd6db08b42e68669337a191a8",
+      "size": 549
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/180684c90_FUN_180684c90.c",
+      "sha": "28c171bacafbbc0e64e9cc9405c6a9aa80aecdc1",
+      "size": 1549
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/180684dd0_FUN_180684dd0.c",
+      "sha": "c5067d4707ba8360df40fce457cefc8f141f0862",
+      "size": 755
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1806852d0_FUN_1806852d0.c",
+      "sha": "a92c33e752519dadfd7015dfb6abaf9cad9280a1",
+      "size": 3810
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/180685570_FUN_180685570.c",
+      "sha": "c742f3a46eede65505063288bbffdcd41007fa70",
+      "size": 4194
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1806858e0_FUN_1806858e0.c",
+      "sha": "86aca7f3db83dfcd8bc477608221411f45d5faf9",
+      "size": 5443
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/180685d10_FUN_180685d10.c",
+      "sha": "71ddd8409070677abd1b014fca437e3b0f2c07cb",
+      "size": 3454
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/180685f60_FUN_180685f60.c",
+      "sha": "5cbce36603fa3c74378419ab85013e721b69c376",
+      "size": 189
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/180685f90_FUN_180685f90.c",
+      "sha": "54e6c98ed722cf6e6acae14710c438cc88b1aded",
+      "size": 5535
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/180686240_FUN_180686240.c",
+      "sha": "bab6905fdfaf6f93439573a216b45b9e11c322a8",
+      "size": 2435
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1806890a0_FUN_1806890a0.c",
+      "sha": "ca74d154de69716d4d224323f6035d3456d4803b",
+      "size": 3524
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/180689330_FUN_180689330.c",
+      "sha": "c0cdc983c2c4f1795ab998706f7f5af8a8c104f3",
+      "size": 8278
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1806899e0_FUN_1806899e0.c",
+      "sha": "b10727d0df7ef0bdf73db1248236b86bee125fd7",
+      "size": 16753
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/18068a760_FUN_18068a760.c",
+      "sha": "bfbb85b2315a1bdcecb55e5e8fd90adb64904931",
+      "size": 19023
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/18068b5e0_FUN_18068b5e0.c",
+      "sha": "ee90827aa6ffbb23ee6f3629ea18bf2e5cc27922",
+      "size": 5754
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/18068ba30_FUN_18068ba30.c",
+      "sha": "68d4cb43b69e1058d280af72030601626f5a383d",
+      "size": 565
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/18068beb0_FUN_18068beb0.c",
+      "sha": "10b790e290f97958e250cb957c1bfc1e3dd4e779",
+      "size": 1205
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/18068d620_FUN_18068d620.c",
+      "sha": "7c8251c2bf8590d7a39a60d350fe51530c474f4d",
+      "size": 23121
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/18068e990_FUN_18068e990.c",
+      "sha": "b5ea71a03be6ea2bebddd9784bf7253629b8851b",
+      "size": 4989
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/18068ecf0_FUN_18068ecf0.c",
+      "sha": "0348b9aad3da402611ec7c21f9183fd62abab677",
+      "size": 1890
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/18068eeb0_FUN_18068eeb0.c",
+      "sha": "25d3a0bb1df6b1fd44a33f14cd258296541a70cc",
+      "size": 979
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/18068efa0_FUN_18068efa0.c",
+      "sha": "569566490e858cc9029ef3d04c4d151b3114c957",
+      "size": 1017
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/18068f080_FUN_18068f080.c",
+      "sha": "5e1d72a2c9088f853a46a26dff3279eb61f846b0",
+      "size": 3985
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/18068f380_FUN_18068f380.c",
+      "sha": "892602db93c0cb1c46796e6d8e13d1b8f4a3cfe2",
+      "size": 5246
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/18068f580_FUN_18068f580.c",
+      "sha": "ff4bb7808d6451d0849b5b401769a1efdc4b12ad",
+      "size": 1394
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/18068f6b0_FUN_18068f6b0.c",
+      "sha": "0694f23301c613bb45eb7fe3f2ed86f01edea653",
+      "size": 4636
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/18068fa60_FUN_18068fa60.c",
+      "sha": "42ee19c787278f52ac1282d5e9f97b3bed193c38",
+      "size": 2326
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/18068fc50_FUN_18068fc50.c",
+      "sha": "94eb0824461cb456695b2560bb09c829aae10030",
+      "size": 2355
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/18068fe50_FUN_18068fe50.c",
+      "sha": "de0799bb6432a61fa3efd6cd81dc7254354b5d7b",
+      "size": 2074
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/180690000_FUN_180690000.c",
+      "sha": "2e6546921c9f62d8caa15c524834d972b9f4091e",
+      "size": 1789
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/180690190_FUN_180690190.c",
+      "sha": "0795df32fb8ff6b9e7f9dd8090f18bec4abe9b52",
+      "size": 2173
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1806903c0_FUN_1806903c0.c",
+      "sha": "6a061770419f4ac643df52795ab358d7dac14a51",
+      "size": 545
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/180692270_FUN_180692270.c",
+      "sha": "641cf74257a6398dc4aa17a7fbee2403de2e708e",
+      "size": 1465
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/180692900_HandleSystemContextMessageDisplayChange.c",
+      "sha": "581d9c6c9025805a434aa9370f337e013365cf0d",
+      "size": 5456
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/180692d00_HandleSystemContextMessageInputStitching.c",
+      "sha": "297fc440b86d534716e1a023a2667a91474a12be",
+      "size": 10223
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/180693490_HandleSystemContextMessageHingeAngle.c",
+      "sha": "d5366976610e71b5836ab6d806b5acc4fe870bf3",
+      "size": 4610
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/180693820_HandleSystemContextMessageRegionConfig.c",
+      "sha": "2fccbe3b2c570522f584d2afd35ef814a4954ade",
+      "size": 3570
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/180693ac0_HandleRegionConfigMessage.c",
+      "sha": "3c9de846920dbb2d4676bfec5d802e3105700a5f",
+      "size": 7642
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/180694050_FUN_180694050.c",
+      "sha": "56a7affaa5e4821a7d1356f6cd26c2553918e03a",
+      "size": 1688
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1806941f0_FUN_1806941f0.c",
+      "sha": "aed261d7d7daa7485a1e6fac6956d752de9f23e2",
+      "size": 1688
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/180694390_FUN_180694390.c",
+      "sha": "45f98ed2c8ebc6f93cf23615433f6ee09b47a3e2",
+      "size": 5991
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/180694900_FUN_180694900.c",
+      "sha": "4e7653c91423e8f7d9395127b6b73610467d4198",
+      "size": 1345
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/180694a20_FUN_180694a20.c",
+      "sha": "0de9f3f01994757c2278e069ebc4e7e00358ede6",
+      "size": 257
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/180694a30_FUN_180694a30.c",
+      "sha": "bce82b2f261b6b35f93fd36b619353d5d9de394d",
+      "size": 365
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/180694a80_FUN_180694a80.c",
+      "sha": "42fa42d194b2561cefa60483825a90ada838eea5",
+      "size": 3279
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/180694d60_FUN_180694d60.c",
+      "sha": "776292b74be022bcce5eb896467a312a0128d362",
+      "size": 3417
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/180695060_GetProcessorCapabilities.c",
+      "sha": "7cdb22b79933050b94b29edcdbd1a6f7d998dc91",
+      "size": 6053
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/180695510_OnDeviceAttached.c",
+      "sha": "32b2379b99abdc4566ae309d79b966b4ce55e883",
+      "size": 2170
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1806956b0_OnDeviceDetached.c",
+      "sha": "7e126b9efa5a8b5bc5203a1286f85c95e2d31b76",
+      "size": 1382
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1806957b0_OnSystemContextMessage.c",
+      "sha": "3bd6fedf38e190b4ffff42a790877627a6bcea20",
+      "size": 4040
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/180695ad0_OnDeviceReset.c",
+      "sha": "7fe3bce8db5db9fa58dac9d3af2f29dd9412c215",
+      "size": 1402
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1806964ea_calloc.c",
+      "sha": "26557c643f93b22b009a1b917a6e474849cb5f95",
+      "size": 344
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1806964f6_free.c",
+      "sha": "66a083fa712851a039a3d6f7d05c254a075b1d47",
+      "size": 283
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/180696502_strcpy_s.c",
+      "sha": "67799f965fdde2d1474d3036c62a69c0f01888f6",
+      "size": 376
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/180696520___security_check_cookie.c",
+      "sha": "5fb4928384d4c5ee87dbe32dd63702de03b11229",
+      "size": 521
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/180696544_operator_new.c",
+      "sha": "33945d59114549500e305099edcdc793ea71d403",
+      "size": 723
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1806969a0__onexit.c",
+      "sha": "ede08450a4bd911a9ff80e0322d9d3abba8c96cb",
+      "size": 725
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1806969f0_atexit.c",
+      "sha": "62d55f628dbd7b54941b4e6eaa377e6557223237",
+      "size": 327
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/180696a08_free.c",
+      "sha": "146d8fd1bf31babcf833a6c5f927c919dd5fad72",
+      "size": 284
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/180696a10___raise_securityfailure.c",
+      "sha": "5212d7fe36983d4edea9ec68c7e2243286a14987",
+      "size": 673
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/180696a50___report_gsfailure.c",
+      "sha": "df3a2e1d79a887bf95ad5ce8f979809beaf8cf99",
+      "size": 1213
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/180696b24_capture_previous_context.c",
+      "sha": "fc6a6c3fd5e99aa9a35c4dd50678fe37cf5abad2",
+      "size": 881
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/180696c70__Init_thread_footer.c",
+      "sha": "9e3f0a4da324faa5220dce399218f287b15e0276",
+      "size": 589
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/180696cd0__Init_thread_header.c",
+      "sha": "db3b9a649267a5b73797f2de8b9bfea1e3b11a9c",
+      "size": 843
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/180696d38__Init_thread_notify.c",
+      "sha": "f768b62a6b04e50f921ab3fa6ba72a85c23fe9b3",
+      "size": 729
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/180696d5c__Init_thread_wait.c",
+      "sha": "38681f27e349ce3f47ef20fc0507710aac649884",
+      "size": 773
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/180696dbc__eh_vector_constructor_iterator_.c",
+      "sha": "f53699df9ddf0bb91cd94a545a3c6a14bc22fe73",
+      "size": 745
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1806971dc_FUN_1806971dc.c",
+      "sha": "ffb5234a639e57416024f9f50b2f4b3d3510b13b",
+      "size": 221
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/180697238_FUN_180697238.c",
+      "sha": "026e8d27ef0fdb32fac070c3f2afa5b54733c5a3",
+      "size": 238
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/180697258_FUN_180697258.c",
+      "sha": "414528578e03911430a04e9d898036c1093acc8a",
+      "size": 253
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/180697278_FUN_180697278.c",
+      "sha": "13dd9ce4df9a136e006ac24872f363e4c2be87df",
+      "size": 253
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1806976f0_FUN_1806976f0.c",
+      "sha": "87a03aabea117f59838fff1c528e7e3c6961fc3f",
+      "size": 222
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/18069770c_FUN_18069770c.c",
+      "sha": "299eedc39a313ccb26774d5b9ab9901bd0af4f64",
+      "size": 224
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/180697728__Xtime_get_ticks.c",
+      "sha": "490e8811d9cd86f6c846dc91a74d3795490eba89",
+      "size": 409
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/180697794_FUN_180697794.c",
+      "sha": "e8e956742a158b92f40d000f7736847d25e9e29e",
+      "size": 388
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/18069789c_FUN_18069789c.c",
+      "sha": "eaf94e983e4274ce67e0b1ddec8df9a4c0956e35",
+      "size": 389
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1806978e4_FUN_1806978e4.c",
+      "sha": "c4d75cd9f1b734e4bd47f2f8b8f225d3ceda16ef",
+      "size": 275
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/18069792c_FUN_18069792c.c",
+      "sha": "4412d800e485368fafbe46ffd020b28ce8aaacfb",
+      "size": 275
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/18069799c__Lockit.c",
+      "sha": "45b343d10eda7b4150593b204598ac2242e0269a",
+      "size": 534
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/180697a1c___Lockit.c",
+      "sha": "15da9d4e50b3adfffaead351681476e60fe45501",
+      "size": 533
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/180697a50_FUN_180697a50.c",
+      "sha": "0786993a263c529ead1345d7e58c8d4bf1ba10e5",
+      "size": 292
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/180697a5c_operator_.c",
+      "sha": "81007b7a075b6a101d5f8eb480c6962e118d52dc",
+      "size": 947
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/180697b4c__Facet_Register.c",
+      "sha": "be5a1ffa738a3df02cf3fcef2caaab9366abd1bf",
+      "size": 523
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/180697b84_FUN_180697b84.c",
+      "sha": "ff8dc8f6342eb8ed7145cd4e68c022b074f84648",
+      "size": 121
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/180697b8c__Init.c",
+      "sha": "0850ec4e298bd72abd09c2574fd30a4722dfe135",
+      "size": 867
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/180697cb4__Locinfo_ctor.c",
+      "sha": "9001176d9c62a44769d92f9a715c133b52f9301f",
+      "size": 862
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/180697d20_FUN_180697d20.c",
+      "sha": "fb7ef2590e249563e62bc33181c7b26887d97fe2",
+      "size": 213
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/180697d3c__New_Locimp.c",
+      "sha": "b746cff21f1d332bc6e0e832972d0e09e8079c1e",
+      "size": 864
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/180697dac__Setgloballocale.c",
+      "sha": "b9c3a90159750de42ff79624c26d7160eefb8d38",
+      "size": 422
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/180697e54___uncaught_exception.c",
+      "sha": "794a32d26bf87fb5ba318fe8bab92b6437700f6c",
+      "size": 271
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/180697e84_FUN_180697e84.c",
+      "sha": "098be673302165c1571dfd462107f5b6b0231e84",
+      "size": 1965
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/18069824c__Addstd.c",
+      "sha": "fdeff28c2afdd85271140e87dba4b9318f782869",
+      "size": 838
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/1806982c4__Ios_base_dtor.c",
+      "sha": "b6ab4f538f87866c2734f6ca9270ed2bb09cc22a",
+      "size": 891
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/18069833c_FUN_18069833c.c",
+      "sha": "487f2767436fda1938f2b338ea04f1b30b4950bc",
+      "size": 916
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/18069855c_EnterCriticalSection.c",
+      "sha": "93de51122829d3b90c416b43da42ab6298d7153e",
+      "size": 366
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/180698564_LeaveCriticalSection.c",
+      "sha": "80b78824cdc18bad3c4f5c2abda9300515bb8436",
+      "size": 366
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/18069856c_FUN_18069856c.c",
+      "sha": "02cc2a76c546349061dfe3bbe13d66d846467dc8",
+      "size": 374
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/18069889c_IsProcessorFeaturePresent.c",
+      "sha": "12dee2e6e41d59af869d910d468cfcea8e882a31",
+      "size": 397
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/180698fe0___std_exception_copy.c",
+      "sha": "9b27757675d5698eeb73ced23cae71134def9bc1",
+      "size": 837
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/180699124_FUN_180699124.c",
+      "sha": "d45ebca1d87a9377666da8bc690dc6b796bf71be",
+      "size": 1358
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/180699220_FUN_180699220.c",
+      "sha": "22f7d51c973814ab814dfda15be5e0cca397e3d3",
+      "size": 5251
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/180699430_FUN_180699430.c",
+      "sha": "25f3dc7baabc45adbbf648b5ffc72eca5031ae5e",
+      "size": 306
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/180699450_FUN_180699450.c",
+      "sha": "4388daffb85249c6feae15dc6fed2b1d1f27d61c",
+      "size": 13718
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/18069b321__callnewh.c",
+      "sha": "e08daf1e0123cf3cb4324a45f769ba4cf46235d1",
+      "size": 324
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/18069b327_malloc.c",
+      "sha": "af5e346e0072ac181ceda89c96d358f4ac571deb",
+      "size": 323
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/18069b345__register_onexit_function.c",
+      "sha": "bb9603ce7ff39b81ca272ceb088e29232ff7bc8b",
+      "size": 322
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/18069b351__crt_atexit.c",
+      "sha": "73e00a160a29db4128614c778d6fd07f454224a7",
+      "size": 280
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/18069b369__lock_locales.c",
+      "sha": "196084387031fecd19f05d151d686d6bc662eb1e",
+      "size": 286
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/18069b36f__unlock_locales.c",
+      "sha": "3e3fc62a989c798394ab6c1e8a3f89da4011f29d",
+      "size": 292
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/18069b375_setlocale.c",
+      "sha": "91d903c848e2daca41b999b743664d7fc55a9b53",
+      "size": 359
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/18069b37b___pctype_func.c",
+      "sha": "b09cf6fa95f83ff08d99b4758c12cd4ba7aee6fe",
+      "size": 335
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/18069b387__wcsdup.c",
+      "sha": "9fd2d2cca5efd4c375c05a5e44b34d92dbf0166d",
+      "size": 332
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/18069b38d____lc_locale_name_func.c",
+      "sha": "6d76a06c38725269ec52e9b73927db44addd04dd",
+      "size": 369
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/18069b393____lc_codepage_func.c",
+      "sha": "ae35a93c2d94293b2d6f0dadacebc150e1b7cdaa",
+      "size": 343
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/18069b3c3_abort.c",
+      "sha": "791712cf00bbbbc54c6d954bf2bd13c3e899eb3d",
+      "size": 332
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/18069b4e0__alloca_probe.c",
+      "sha": "5c10ca9e20654403b4e0f4f7220f02cb07c0927e",
+      "size": 684
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/18069b537_atan.c",
+      "sha": "ee6e64b40f266deb06f6cafb4eac57a39cf137fd",
+      "size": 309
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/18069b543_atanf.c",
+      "sha": "9d9e94a24fc11954f29de4d7e5da9db5e74fc79f",
+      "size": 309
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/18069b549_ceilf.c",
+      "sha": "5a346ef2efcf497b83540cb332e248ce3f35f820",
+      "size": 309
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/18069b54f_cos.c",
+      "sha": "cf876c7b170b417ccdeaaf69ada993232b3437a7",
+      "size": 306
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/18069b555_exp.c",
+      "sha": "e42a80f323a9633797607ebc34f9469099de65b7",
+      "size": 306
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/18069b55b_expf.c",
+      "sha": "cd15544700ad0a85071ce0b1332e9365dc69b27a",
+      "size": 306
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/18069b561_floorf.c",
+      "sha": "e0f1823759f72bea376ea895542222659907b22b",
+      "size": 312
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/18069b573_sin.c",
+      "sha": "aaf70db50352913f90067df928ce12be0dca50d0",
+      "size": 306
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/18069b579_sqrt.c",
+      "sha": "54354780d90ee62dc78a98c077dd82f7159e255a",
+      "size": 309
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/18069b57f_sqrtf.c",
+      "sha": "b59131fd954a9d8d43002b33aa81b07a4c33b6a3",
+      "size": 310
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/18069b58b_tan.c",
+      "sha": "b756ce1d7ec295ea75d4813b622b90ae3088009f",
+      "size": 306
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/18069b5a0_FUN_18069b5a0.c",
+      "sha": "c5cb822b5dae995b1c6972127a467ea5168781c9",
+      "size": 7336
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/18069b5c0_FUN_18069b5c0.c",
+      "sha": "7513debd21fa4ebcb2d30ec1d2f8b7643c78fefc",
+      "size": 5254
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/18069ba50__guard_dispatch_icall.c",
+      "sha": "8c54e353020f98e07efb37837b18ec90f153d494",
+      "size": 392
+    },
+    {
+      "path": "docs/decomp/touchpen0c19_fullheat_20260716/functions/index.tsv",
+      "sha": "a13f7031215bb4481dff027fae962929613bf201",
+      "size": 33010
+    }
+  ]
+}
