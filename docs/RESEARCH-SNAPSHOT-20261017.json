@@ -1,0 +1,1809 @@
+{
+  "schema": 1,
+  "audit_date": "2026-10-17",
+  "source_ref": "avgbob/SL4A_TouchScreen:main",
+  "source_head": "c081075492feae4146510cf0d364b23fd0a394eb",
+  "total_git_tree_entries": 389,
+  "tracked_blobs": [
+    {
+      "path": ".github/DISCUSSION_TEMPLATE/show-and-tell.yml",
+      "size": 2380,
+      "git_blob_sha": "9729d067dcd2dca0c76af98bd3faae91e4d77aef"
+    },
+    {
+      "path": ".github/ISSUE_TEMPLATE/config.yml",
+      "size": 486,
+      "git_blob_sha": "923f1090755124742d57da5062f597938f4a7208"
+    },
+    {
+      "path": ".github/ISSUE_TEMPLATE/hardware-test.yml",
+      "size": 3862,
+      "git_blob_sha": "4b8198f92c88c7e317a61c15cbf1b395a4c23789"
+    },
+    {
+      "path": ".github/workflows/ci.yml",
+      "size": 3231,
+      "git_blob_sha": "25e3685a3197edb77c078203525158eb3a5db1fe"
+    },
+    {
+      "path": ".gitignore",
+      "size": 1933,
+      "git_blob_sha": "6c37262aaf001e4e60a7c537ea91dc1056cc336e"
+    },
+    {
+      "path": ".verify/FINDINGS.md",
+      "size": 50701,
+      "git_blob_sha": "9a9d6ff8bf8b99153f8e170b79a8b234db88e291"
+    },
+    {
+      "path": ".wiki/Architecture.md",
+      "size": 8895,
+      "git_blob_sha": "63ff11b3bcb27af0cd4a58aeac06ea1f5d61579d"
+    },
+    {
+      "path": ".wiki/Build-and-Install.md",
+      "size": 7525,
+      "git_blob_sha": "18429b65851cd51b69bd6cae4ef8841a31d0935e"
+    },
+    {
+      "path": ".wiki/Building-Usage-and-Troubleshooting.md",
+      "size": 4301,
+      "git_blob_sha": "3298acadf4788546b0d2dab71323772daac5ab7e"
+    },
+    {
+      "path": ".wiki/Config-Table.md",
+      "size": 11299,
+      "git_blob_sha": "765271ec07cb9aee4af6100e4a42f0f9d515d74a"
+    },
+    {
+      "path": ".wiki/Further-Reading.md",
+      "size": 2684,
+      "git_blob_sha": "7eefb92b8aef4ee83df61c558f939140d5529b86"
+    },
+    {
+      "path": ".wiki/Hardware.md",
+      "size": 5474,
+      "git_blob_sha": "57eac9525197755a118e3fda33b87dd67775baa8"
+    },
+    {
+      "path": ".wiki/Home.md",
+      "size": 6013,
+      "git_blob_sha": "80aa3f630d426af356568afcf170e9496fdf54c0"
+    },
+    {
+      "path": ".wiki/Multi-touch-Experimental.md",
+      "size": 4857,
+      "git_blob_sha": "81bd857ff8e4fc859a03a2dbeb76c2b90d74580c"
+    },
+    {
+      "path": ".wiki/Pipeline.md",
+      "size": 10029,
+      "git_blob_sha": "3d925c741e9e6117f88036e9848a54fff71235f3"
+    },
+    {
+      "path": ".wiki/Protocol.md",
+      "size": 7963,
+      "git_blob_sha": "df51501d8c14e4fb969b01792ce4f6d3c68277f7"
+    },
+    {
+      "path": ".wiki/Report-Descriptor.md",
+      "size": 3384,
+      "git_blob_sha": "22248591e84cfc9e306011ec6a8aea65cbbf6821"
+    },
+    {
+      "path": ".wiki/Reverse-Engineering.md",
+      "size": 4574,
+      "git_blob_sha": "162c2eab7bf1bf16cfc6e36e7247ef65366f3de4"
+    },
+    {
+      "path": ".wiki/Standard-Touch-Mode.md",
+      "size": 1721,
+      "git_blob_sha": "0ee9c4f4bf9e04101a6712cab45630669292edcc"
+    },
+    {
+      "path": ".wiki/Wire-Protocol.md",
+      "size": 5621,
+      "git_blob_sha": "b2b841ce7de7cfa22403e4bba7bea176682d0449"
+    },
+    {
+      "path": ".wiki/_Sidebar.md",
+      "size": 508,
+      "git_blob_sha": "2f3be6f458ec20006d8b26aa8e7f33dd381d61b5"
+    },
+    {
+      "path": "CHANGELOG.md",
+      "size": 88135,
+      "git_blob_sha": "9efc998ca4248b90f5c73c5ed380a1a3353a4448"
+    },
+    {
+      "path": "LICENSE",
+      "size": 15616,
+      "git_blob_sha": "07c2f7d7824a94c6f5c18d326cc08154a91bc8ed"
+    },
+    {
+      "path": "README.md",
+      "size": 15520,
+      "git_blob_sha": "c7af57b7d53ca7e9a84a0383534e68970f1ec8a8"
+    },
+    {
+      "path": "VERSION",
+      "size": 6,
+      "git_blob_sha": "943f9cbc4ec7ee28e6febd1d4451df4c39bcb193"
+    },
+    {
+      "path": "captures/id5-20260718/frames/raw-slot-0.v0",
+      "size": 4304,
+      "git_blob_sha": "5320c3e86f7042e4e5735052d39733fd7859df92"
+    },
+    {
+      "path": "captures/id5-20260718/frames/raw-slot-1.v0",
+      "size": 4304,
+      "git_blob_sha": "79c38858ab0a292a732738fe4029d51d1f5d3471"
+    },
+    {
+      "path": "captures/id5-20260718/frames/raw-slot-2.v0",
+      "size": 4304,
+      "git_blob_sha": "2177e348161e2060a0071ab5ca33cee978bddcde"
+    },
+    {
+      "path": "captures/id5-20260718/frames/raw-slot-3.v0",
+      "size": 4304,
+      "git_blob_sha": "cef2c10f94d50f064e8148eab10bb3016b62ec82"
+    },
+    {
+      "path": "captures/id5-20260718/frames/raw-slot-4.v0",
+      "size": 4304,
+      "git_blob_sha": "3ef548952582af7134c6a0e30cee2f10ba4a43ab"
+    },
+    {
+      "path": "captures/id5-20260718/frames/raw-slot-5.v0",
+      "size": 4304,
+      "git_blob_sha": "dfb539903a740c24f2378acf79b11e97b1be191b"
+    },
+    {
+      "path": "captures/id5-20260718/frames/raw-slot-6.v0",
+      "size": 4304,
+      "git_blob_sha": "73750574b35de30255b811b801e34053db001036"
+    },
+    {
+      "path": "captures/id5-20260718/frames/raw-slot-7.v0",
+      "size": 4304,
+      "git_blob_sha": "fd470ea473b405e10ba6e97c9734ffdd3bfc0448"
+    },
+    {
+      "path": "captures/id5-20260718/isolated_set_status",
+      "size": 149,
+      "git_blob_sha": "8bf7a3dfc7ee969de4b78a9dbb3847a5c112f56d"
+    },
+    {
+      "path": "captures/id5-20260718/raw_capture_status",
+      "size": 513,
+      "git_blob_sha": "d3579782eda103b29111a21a5aa6e09c5d12aa9d"
+    },
+    {
+      "path": "captures/id5-20260718/spi-hid.conf",
+      "size": 243,
+      "git_blob_sha": "622e0f920edb84c0ac225e140fe044d6758d538f"
+    },
+    {
+      "path": "captures/touchcap/guida.txt",
+      "size": 2342,
+      "git_blob_sha": "953b1247c7f0a399192256449619ee9334fe083c"
+    },
+    {
+      "path": "captures/touchcap/touchcap.csv",
+      "size": 1383,
+      "git_blob_sha": "ac1e514e820647e2ae2c5737e0c582d1a8d1da7e"
+    },
+    {
+      "path": "captures/wintrace/00_enumerate.cmd",
+      "size": 1060,
+      "git_blob_sha": "3444c21c9f2fcffba19751a5f85e7137b581968b"
+    },
+    {
+      "path": "captures/wintrace/02_export.cmd",
+      "size": 814,
+      "git_blob_sha": "16d1eba6270d5edda479b5733f0283632ad20930"
+    },
+    {
+      "path": "captures/wintrace/03_decode_full.cmd",
+      "size": 1508,
+      "git_blob_sha": "130ac6e373250d9fac31d59e947e84cc814a97af"
+    },
+    {
+      "path": "captures/wintrace/CANDIDATI_INIT_SEQUENCE.txt",
+      "size": 22128,
+      "git_blob_sha": "30ef396b74e9a0c53c81356b68ff3591b954aa76"
+    },
+    {
+      "path": "captures/wintrace/FPDT.rw",
+      "size": 1359,
+      "git_blob_sha": "b662a45a1021906ba83edd4a2339c759cafc3bac"
+    },
+    {
+      "path": "captures/wintrace/HidSpiProtocolSpec.pdf",
+      "size": 1250272,
+      "git_blob_sha": "0793efcc7732a9d32e6b5a2292e77ca1db50b96e"
+    },
+    {
+      "path": "captures/wintrace/LEGGIMI-COSA-FARE.txt",
+      "size": 4391,
+      "git_blob_sha": "38d63a048da0c86fae8a5eeab04b472f72b20068"
+    },
+    {
+      "path": "captures/wintrace/README.md",
+      "size": 3672,
+      "git_blob_sha": "b904111aa704bcef26798390bed0a13d0c49a727"
+    },
+    {
+      "path": "captures/wintrace/Screenshot 2026-07-08 001647.png",
+      "size": 212767,
+      "git_blob_sha": "d5ca23bc457e7cd0cee2056b2e6d127cf4135d1c"
+    },
+    {
+      "path": "captures/wintrace/SurfaceHidBoot.wprp",
+      "size": 1798,
+      "git_blob_sha": "371a100046e14aa801b9b71cfece452aab8e3209"
+    },
+    {
+      "path": "captures/wintrace/analisi_MSHW0231.md",
+      "size": 4151,
+      "git_blob_sha": "c3501c7782aa6b882f340ea46c54f3d4f1ce7ce0"
+    },
+    {
+      "path": "captures/wintrace/capture_runtime.cmd",
+      "size": 1604,
+      "git_blob_sha": "a849b71a4d26349c57bb0ffa7b3c14bd0aaf303d"
+    },
+    {
+      "path": "captures/wintrace/capture_sleep_resume.cmd",
+      "size": 1860,
+      "git_blob_sha": "a863ff10554fab401def16ab9e9e616c2747c6c4"
+    },
+    {
+      "path": "captures/wintrace/decode_etl_linux.py",
+      "size": 3776,
+      "git_blob_sha": "b3fc057b353de655c62378a55854bc2c2b1a2fa2"
+    },
+    {
+      "path": "captures/wintrace/fine extn driver.txt",
+      "size": 8472,
+      "git_blob_sha": "6f89993a65b41db545e83ae4a67fcc0653da555d"
+    },
+    {
+      "path": "captures/wintrace/hiddump.py",
+      "size": 3420,
+      "git_blob_sha": "b625771fbf8cc4d8c798468b24ce1bfd343a8275"
+    },
+    {
+      "path": "captures/wintrace/log.txt",
+      "size": 3142,
+      "git_blob_sha": "b4edc7e78d8d3c5e405243bdd35c654bdf8e51ac"
+    },
+    {
+      "path": "captures/wintrace/mshw0231_report_descriptor.txt",
+      "size": 10607,
+      "git_blob_sha": "b56fddaeea5ea00d3d35c657c5a5191f095e715b"
+    },
+    {
+      "path": "captures/wintrace/providers.txt",
+      "size": 8531,
+      "git_blob_sha": "cf0630cf20a0df0762343342a9eedcc77dd4b69e"
+    },
+    {
+      "path": "captures/wintrace/providers_test.txt",
+      "size": 1134,
+      "git_blob_sha": "26dffb1cba367c4e29bebda0d957eb44a9aba408"
+    },
+    {
+      "path": "captures/wintrace/speriamolog.txt",
+      "size": 17846,
+      "git_blob_sha": "24fb0ded530e24b7f195fe0c52a012f0978301bd"
+    },
+    {
+      "path": "captures/wintrace/surface_boot_auto_summary.txt",
+      "size": 11981,
+      "git_blob_sha": "a3a92f434b5296746b19d4af709f68284f41f7b3"
+    },
+    {
+      "path": "captures/wintrace/surface_init.csv",
+      "size": 9055161,
+      "git_blob_sha": "5b2a049276506a5e1538fb3ef43953afc7faddfe"
+    },
+    {
+      "path": "captures/wintrace/surface_init_summary.txt",
+      "size": 10063,
+      "git_blob_sha": "22e153e79975fff7b6a91d4020d9495a2108208a"
+    },
+    {
+      "path": "captures/wintrace/surface_touch.csv",
+      "size": 19514888,
+      "git_blob_sha": "9c4a2a90f4b44ca255cf2c74b5098ccbaba193a5"
+    },
+    {
+      "path": "captures/wintrace/surface_touch_summary.txt",
+      "size": 10048,
+      "git_blob_sha": "cb2dc50fe6f00c618f07c43c01c298924688961b"
+    },
+    {
+      "path": "captures/wintrace/test_acpi_full.txt",
+      "size": 2087,
+      "git_blob_sha": "7853ea5d288b5829fd04a39bb7c825f7a8c620c0"
+    },
+    {
+      "path": "captures/wintrace/touch_boot.wprp",
+      "size": 4220,
+      "git_blob_sha": "b1728040b2d3b3ef85f9464c6303bab419fe598d"
+    },
+    {
+      "path": "captures/wintrace/touch_boot_full.txt",
+      "size": 37273,
+      "git_blob_sha": "609479ad5fde42a2304e2d334dc33563d5daeae6"
+    },
+    {
+      "path": "captures/wintrace/touch_runtime_full.txt",
+      "size": 37392,
+      "git_blob_sha": "c2f320973697a88264f76b4ebc0e2f26502e80b0"
+    },
+    {
+      "path": "captures/wintrace/touch_spb_transactions.txt",
+      "size": 6623988,
+      "git_blob_sha": "565893d513f81facd1908e523fcad25a2c51fec8"
+    },
+    {
+      "path": "docs/ACTIVATION.md",
+      "size": 5350,
+      "git_blob_sha": "e6a19e24cafaeff89213d82c523685afc1db4e14"
+    },
+    {
+      "path": "docs/AMDI0060_CONTRACT.md",
+      "size": 4498,
+      "git_blob_sha": "1580128c8dd56e817958051d1f385113ffd019e6"
+    },
+    {
+      "path": "docs/AMDSPI_DECOMP.md",
+      "size": 8820,
+      "git_blob_sha": "411c86693ea24bce8aa098a4cb3ae8b181e31d1f"
+    },
+    {
+      "path": "docs/BLINDED_SESSION_LOG.md",
+      "size": 3386,
+      "git_blob_sha": "416c8eb98a9c3fe3436e0b307283ce918470d8d1"
+    },
+    {
+      "path": "docs/COMPATIBILITY.md",
+      "size": 4690,
+      "git_blob_sha": "4f5007cbf1429bf1187d510b4522f89a2aef2076"
+    },
+    {
+      "path": "docs/CONFIG_TABLE.md",
+      "size": 5366,
+      "git_blob_sha": "eeb5b9e128d32e70d5dd0299c674e722cabf78a6"
+    },
+    {
+      "path": "docs/CONTACT_ABI.md",
+      "size": 3221,
+      "git_blob_sha": "22efcac3570b559858e086862173e5d7e8353758"
+    },
+    {
+      "path": "docs/ETW_CSV_FORMAT.md",
+      "size": 4706,
+      "git_blob_sha": "5a4a7d844a3faf8a55fbf700a91087c92ae27a0e"
+    },
+    {
+      "path": "docs/EVIDENCE.md",
+      "size": 4971,
+      "git_blob_sha": "6491b461e81d806aa00c26dcf0d9a8e101cd3890"
+    },
+    {
+      "path": "docs/EXTN-INF.md",
+      "size": 3854,
+      "git_blob_sha": "8cb42d23cc2dc56bfd2a2a5b3f546246ea08435d"
+    },
+    {
+      "path": "docs/FRAME-MATRIX.md",
+      "size": 7562,
+      "git_blob_sha": "c8b8b03b4a5003ef6448bcc841038d4d60bdce95"
+    },
+    {
+      "path": "docs/FREEZE.md",
+      "size": 2174,
+      "git_blob_sha": "004bd881d313ee953625088269583745e427b249"
+    },
+    {
+      "path": "docs/GATE2-CAPTURE.md",
+      "size": 6611,
+      "git_blob_sha": "46943b57bebd7d52ffa4d3b7e91e6b16e513ea37"
+    },
+    {
+      "path": "docs/GATE3-ARCH-A.md",
+      "size": 6996,
+      "git_blob_sha": "13d834885f3f5db0a5f16e24e0960de519a9330a"
+    },
+    {
+      "path": "docs/GATE3-AUDIT.md",
+      "size": 12377,
+      "git_blob_sha": "f4faee15628bce141da53a30701c4bd77184b3b3"
+    },
+    {
+      "path": "docs/GATE5-QUALIFICATION.md",
+      "size": 6312,
+      "git_blob_sha": "32ab856cbdc8a8072e8b0095cddeddae17584d73"
+    },
+    {
+      "path": "docs/GOLDEN-SM.md",
+      "size": 5551,
+      "git_blob_sha": "ed99461cbb2ca4f8407cf88322a6eade173a4f50"
+    },
+    {
+      "path": "docs/HARDWARE-TESTING-HUB.md",
+      "size": 1874,
+      "git_blob_sha": "568b89b4e2cce0d43966e886b873080c5e3d978f"
+    },
+    {
+      "path": "docs/HARDWARE_QUALIFICATION_TRACKER.md",
+      "size": 11011,
+      "git_blob_sha": "69232099b3bcf021256398f64881cf8a7e3d1820"
+    },
+    {
+      "path": "docs/HARDWARE_VALIDATION.md",
+      "size": 8838,
+      "git_blob_sha": "bdddd3496378f39a2f654ee26c83402afea4ce11"
+    },
+    {
+      "path": "docs/HIDSPI_PROTOCOL.md",
+      "size": 9262,
+      "git_blob_sha": "6d1226422a9342b2cad3a75a281ffcbb33797b61"
+    },
+    {
+      "path": "docs/PARAMETERS.md",
+      "size": 9551,
+      "git_blob_sha": "92a225fe4475e6eea08e09eb56f0db48c02bbf2b"
+    },
+    {
+      "path": "docs/PIPELINE.md",
+      "size": 6235,
+      "git_blob_sha": "c306ca2bf6a9ea0a93754c61d06610c4fc504133"
+    },
+    {
+      "path": "docs/QUICKSTART.md",
+      "size": 3493,
+      "git_blob_sha": "02ad8cea254886e4d9b39780ab4dd2445dae51c3"
+    },
+    {
+      "path": "docs/RECOVERY-MATRIX.md",
+      "size": 5505,
+      "git_blob_sha": "e17ac614ae20afb2409e8e7dfb305ebd9ff943be"
+    },
+    {
+      "path": "docs/REFACTOR_ROADMAP.md",
+      "size": 20963,
+      "git_blob_sha": "acafdd79caa67b9ee947497515775cf440018f56"
+    },
+    {
+      "path": "docs/ROLLBACK.md",
+      "size": 6046,
+      "git_blob_sha": "707d8090c82184d890a27f686faf05eff889a0be"
+    },
+    {
+      "path": "docs/SL4_MSI_Mining_Report.md",
+      "size": 7604,
+      "git_blob_sha": "85308dfa58acbe8d25da3ced8b827db369411b41"
+    },
+    {
+      "path": "docs/SPI_REGISTERS.md",
+      "size": 5040,
+      "git_blob_sha": "198670967fda836b4436d8b799580e8cb2c66040"
+    },
+    {
+      "path": "docs/STANDARD-SET5-MULTITOUCH.md",
+      "size": 4588,
+      "git_blob_sha": "3cacff433bbac80d1841a5004b552085733c3c1a"
+    },
+    {
+      "path": "docs/SUPPORT.md",
+      "size": 5025,
+      "git_blob_sha": "4c71767037b4661fe5a0a41a0126cc51776dea80"
+    },
+    {
+      "path": "docs/TESTERS-WANTED.md",
+      "size": 2793,
+      "git_blob_sha": "0dee996940185c076d90ba626c6a02560ab5255c"
+    },
+    {
+      "path": "docs/TESTING.md",
+      "size": 6291,
+      "git_blob_sha": "148377da96ced504c552dfef33cfe578d8320d35"
+    },
+    {
+      "path": "docs/TOOL-COLLECTION-PLAN.md",
+      "size": 3067,
+      "git_blob_sha": "3dde2c86db42f3bde1f685260a0b4f8acd75d717"
+    },
+    {
+      "path": "docs/TRACKER-REORDER.md",
+      "size": 5666,
+      "git_blob_sha": "9f4a42162980c8f9bbbadd9747138f66ca2acbb0"
+    },
+    {
+      "path": "docs/UPSTREAM-RECONCILIATION.md",
+      "size": 19550,
+      "git_blob_sha": "a2aca30bbdc30e18eb6049ebe455f161387a1e17"
+    },
+    {
+      "path": "docs/WINDOWS-ALIGNMENT.md",
+      "size": 4509,
+      "git_blob_sha": "ee15d5f182bc9e0961d0b746e72215556607b407"
+    },
+    {
+      "path": "docs/acpi/apic.dat",
+      "size": 190,
+      "git_blob_sha": "1dcfa8b723e9b26978c982cff3ff5c9a31e2f9db"
+    },
+    {
+      "path": "docs/acpi/bgrt.dat",
+      "size": 56,
+      "git_blob_sha": "10ad0e5bbbea6ecba01b3aa323f402bf29c994e1"
+    },
+    {
+      "path": "docs/acpi/cdit.dat",
+      "size": 41,
+      "git_blob_sha": "2e0b60216a486927f7588e6eeae4ba8f1d187de0"
+    },
+    {
+      "path": "docs/acpi/crat.dat",
+      "size": 2944,
+      "git_blob_sha": "45c3bbf87f3a9767aed2cfe6b9df0f7b51c7c76b"
+    },
+    {
+      "path": "docs/acpi/dsdt.dat",
+      "size": 14311,
+      "git_blob_sha": "14c34868bc24d7d0bf5db99f42fef33d974da704"
+    },
+    {
+      "path": "docs/acpi/dsdt.dsl",
+      "size": 147599,
+      "git_blob_sha": "435912849c372edec7da019753ca84f73af410fc"
+    },
+    {
+      "path": "docs/acpi/facp.dat",
+      "size": 276,
+      "git_blob_sha": "f331f90a0a0b46efb9a33d92e46799568a16bcb9"
+    },
+    {
+      "path": "docs/acpi/facs.dat",
+      "size": 64,
+      "git_blob_sha": "810572b090405bfe0c3b19d23a42d51380a32724"
+    },
+    {
+      "path": "docs/acpi/fpdt.dat",
+      "size": 52,
+      "git_blob_sha": "d0433a1c00d36af8ad17eef9b1afca07c0530e71"
+    },
+    {
+      "path": "docs/acpi/hpet.dat",
+      "size": 56,
+      "git_blob_sha": "6bc462fb4bd704ab8b19dd479ad13614aa6d50d3"
+    },
+    {
+      "path": "docs/acpi/ivrs.dat",
+      "size": 327,
+      "git_blob_sha": "4343666c2c9c22df2145aecb8d8d6d6a903150af"
+    },
+    {
+      "path": "docs/acpi/mcfg.dat",
+      "size": 60,
+      "git_blob_sha": "bdfd1539ec896909c5ad2803700999bf0cccc33a"
+    },
+    {
+      "path": "docs/acpi/msdm.dat",
+      "size": 85,
+      "git_blob_sha": "53cbb254578f453f3897c49482af16054ed57851"
+    },
+    {
+      "path": "docs/acpi/ssdt1.dat",
+      "size": 29206,
+      "git_blob_sha": "5af1dc93f47cf1bae93680edc567dd342822ac6c"
+    },
+    {
+      "path": "docs/acpi/ssdt1.dsl",
+      "size": 192716,
+      "git_blob_sha": "15124fbee1e2acf42cb1a7605f67d8005c298b5b"
+    },
+    {
+      "path": "docs/acpi/ssdt10.dat",
+      "size": 141,
+      "git_blob_sha": "1977266ef23167cb62585d24c63982eae26b301b"
+    },
+    {
+      "path": "docs/acpi/ssdt10.dsl",
+      "size": 3743,
+      "git_blob_sha": "fe9d4d32ebf620d73adbf3e5874ec368a9449024"
+    },
+    {
+      "path": "docs/acpi/ssdt11.dat",
+      "size": 2213,
+      "git_blob_sha": "dd81937e2827e46ca6f19d64797abbdb5ee5842b"
+    },
+    {
+      "path": "docs/acpi/ssdt11.dsl",
+      "size": 12419,
+      "git_blob_sha": "9f945c14b38ed726d33f76654dd703310e929901"
+    },
+    {
+      "path": "docs/acpi/ssdt2.dat",
+      "size": 599,
+      "git_blob_sha": "9a1eba32ba393db493613647c709eee9d8fc9d9d"
+    },
+    {
+      "path": "docs/acpi/ssdt2.dsl",
+      "size": 4644,
+      "git_blob_sha": "24157c7244ae068d1fbeb98c162ba438647aca07"
+    },
+    {
+      "path": "docs/acpi/ssdt3.dat",
+      "size": 1396,
+      "git_blob_sha": "4cdd06d3a2f6e67068892d3023fe085299dc716d"
+    },
+    {
+      "path": "docs/acpi/ssdt3.dsl",
+      "size": 10999,
+      "git_blob_sha": "a9582d8c9d239b631f9af698e93b4d6d718e6680"
+    },
+    {
+      "path": "docs/acpi/ssdt4.dat",
+      "size": 16008,
+      "git_blob_sha": "725ab5ac3e4545a4ea3cee73ac38eae7a19e11a9"
+    },
+    {
+      "path": "docs/acpi/ssdt4.dsl",
+      "size": 3073,
+      "git_blob_sha": "de0842593d4c93c369ad5421842bdc4ec2feba1c"
+    },
+    {
+      "path": "docs/acpi/ssdt5.dat",
+      "size": 13042,
+      "git_blob_sha": "c6c9f3d2473e9bc38d246dcf4e663956810508b1"
+    },
+    {
+      "path": "docs/acpi/ssdt5.dsl",
+      "size": 78069,
+      "git_blob_sha": "75d26c7b734374d02ed6f1ce97b9e53a51f66569"
+    },
+    {
+      "path": "docs/acpi/ssdt6.dat",
+      "size": 439,
+      "git_blob_sha": "22f435b89fc90e1323c4a01b6f46490c04156003"
+    },
+    {
+      "path": "docs/acpi/ssdt6.dsl",
+      "size": 1733,
+      "git_blob_sha": "34d0ad200c50d98e19dfc902ffb28c0eb7d0a86d"
+    },
+    {
+      "path": "docs/acpi/ssdt7.dat",
+      "size": 262,
+      "git_blob_sha": "10b1621c89095eef91222bc14e1c340e47f45bcb"
+    },
+    {
+      "path": "docs/acpi/ssdt7.dsl",
+      "size": 12086,
+      "git_blob_sha": "3750c78be687fb867b9fffc7c50ced70bc73b58c"
+    },
+    {
+      "path": "docs/acpi/ssdt8.dat",
+      "size": 826,
+      "git_blob_sha": "d6d68ef9ed677939b867adc98b5f41dee8241e6e"
+    },
+    {
+      "path": "docs/acpi/ssdt8.dsl",
+      "size": 208667,
+      "git_blob_sha": "c9a8f569ddc63d35754790aa65fd18985015436c"
+    },
+    {
+      "path": "docs/acpi/ssdt9.dat",
+      "size": 1132,
+      "git_blob_sha": "2c775e8dce29bf154344f48bf568d285d477c019"
+    },
+    {
+      "path": "docs/acpi/ssdt9.dsl",
+      "size": 4599,
+      "git_blob_sha": "7eb073d100ee5b8e77728b89aba2498193bbe71e"
+    },
+    {
+      "path": "docs/acpi/tpm2.dat",
+      "size": 52,
+      "git_blob_sha": "c8b8afd7afa5695079b934109128b6f134c8b586"
+    },
+    {
+      "path": "docs/acpi/vfct.dat",
+      "size": 54404,
+      "git_blob_sha": "afeaef7bc6100de04314264c8ad03e82521a64b6"
+    },
+    {
+      "path": "docs/acpi/wsmt.dat",
+      "size": 40,
+      "git_blob_sha": "5ba19d6d727a1d51f4116ab5cbe4aa74f1b0f34a"
+    },
+    {
+      "path": "docs/decomp/HEATCORE_REPORT_TABLE.md",
+      "size": 1486,
+      "git_blob_sha": "1aa73faa0b911f2b37bc0280df65ff1aa9ae2783"
+    },
+    {
+      "path": "docs/decomp/MULTITOUCH_STATIC_DECOMP.md",
+      "size": 12433,
+      "git_blob_sha": "84807ed3fac728f1de922e6434ec2941b43ea001"
+    },
+    {
+      "path": "docs/decomp/SURFACE_TRACKER_DECOMP.md",
+      "size": 8441,
+      "git_blob_sha": "a38f51cae6f50e83fa53b7c2617abc2a586b7840"
+    },
+    {
+      "path": "docs/releases/v1.7.0.md",
+      "size": 3100,
+      "git_blob_sha": "d8b9a587d5fb577fbcaf19ac8c8f897c0728949d"
+    },
+    {
+      "path": "docs/releases/v1.7.1.md",
+      "size": 3238,
+      "git_blob_sha": "d3a2cb6381aece1d2352a5f4d891f40d82882d05"
+    },
+    {
+      "path": "driver/Kbuild",
+      "size": 317,
+      "git_blob_sha": "25d06881d226fa251726f5906fc44a7b71d09107"
+    },
+    {
+      "path": "driver/Makefile",
+      "size": 257,
+      "git_blob_sha": "8e351c41789e21430ffd8ce5c9d994a523ea8869"
+    },
+    {
+      "path": "driver/dkms.conf",
+      "size": 2543,
+      "git_blob_sha": "3fdef6b70017b070dd53e48879bc9256e425a85f"
+    },
+    {
+      "path": "driver/hardcoded_rd.h",
+      "size": 5883,
+      "git_blob_sha": "3a5c688b0875f7f763d2b43c4c04bc2e3aecde0c"
+    },
+    {
+      "path": "driver/mshw0231-raw-constants.h",
+      "size": 9674,
+      "git_blob_sha": "7bd23f33b2f68cb39e831146ae6457a5cf2a4926"
+    },
+    {
+      "path": "driver/mshw0231-raw.c",
+      "size": 82739,
+      "git_blob_sha": "aee6dad78f99245b37d1328e86fff9a5d3f91571"
+    },
+    {
+      "path": "driver/mshw0231-raw.h",
+      "size": 696,
+      "git_blob_sha": "a33e79993585d035efb0707f4b320043643429a1"
+    },
+    {
+      "path": "driver/spi-amd.c",
+      "size": 31210,
+      "git_blob_sha": "8f8d090d05015ef20b2911866b33a10b5c07a9fd"
+    },
+    {
+      "path": "driver/spi-amd.h",
+      "size": 637,
+      "git_blob_sha": "69f7021d7eb5419426e254f56092fb509301a9fe"
+    },
+    {
+      "path": "driver/spi-hid-capimg.c",
+      "size": 2653,
+      "git_blob_sha": "0a2fa5b582a00534246573387097e23592c0f4ad"
+    },
+    {
+      "path": "driver/spi-hid-capimg.h",
+      "size": 730,
+      "git_blob_sha": "85f8bca4811ef9a1c7ec9777fe9b15542ef206a2"
+    },
+    {
+      "path": "driver/spi-hid-core.c",
+      "size": 207649,
+      "git_blob_sha": "54b0f39316804ba2e30612b292ce127dfdab3975"
+    },
+    {
+      "path": "driver/spi-hid-core.h",
+      "size": 19356,
+      "git_blob_sha": "5a17f559c3f2b6ddf642a13f15537dc98df3b16f"
+    },
+    {
+      "path": "driver/spi-hid-protocol.h",
+      "size": 10024,
+      "git_blob_sha": "737eaf49c8485d0200a63e1b9d8ebc6b0442f9d4"
+    },
+    {
+      "path": "driver/spi-hid-wire-frames.h",
+      "size": 16454,
+      "git_blob_sha": "79fe3ab017aa6cd0baafc609e306022b8ef74956"
+    },
+    {
+      "path": "driver/spi-hid_trace.h",
+      "size": 4063,
+      "git_blob_sha": "82aacf40a1d0e04dd995f91562698f14f91b1228"
+    },
+    {
+      "path": "driver/trace.c",
+      "size": 95,
+      "git_blob_sha": "e2215d1d9469ffd80e2d90fd22f28be9a47a59e2"
+    },
+    {
+      "path": "evidence/.gitignore",
+      "size": 14,
+      "git_blob_sha": "d6b7ef32c8478a48c3994dcadc86837f4371184d"
+    },
+    {
+      "path": "evidence/windows/SOURCE-HASHES.md",
+      "size": 794,
+      "git_blob_sha": "20f490d6b26fc75e6fd7731b525c3fcc6d8e90e4"
+    },
+    {
+      "path": "evidence/windows/SurfaceDigitizerHidSpiExtnPackage.inf",
+      "size": 2220,
+      "git_blob_sha": "96f677d0f3725aeaeaaa7716a97ab8441456f9af"
+    },
+    {
+      "path": "evidence/windows/SurfaceTouchPenProcessorUpdate_13.inf",
+      "size": 2309,
+      "git_blob_sha": "4ea068f18a15b32cd4790af0cbe8d3f0c98aff3e"
+    },
+    {
+      "path": "evidence/windows/amdspi.inf",
+      "size": 2061,
+      "git_blob_sha": "e71b92080fb455209da4fea686b1db68c09b3095"
+    },
+    {
+      "path": "evidence/windows/gate2/ATTEMPT-2026-09-22-PROVIDER-COVERAGE-REJECTED.md",
+      "size": 2873,
+      "git_blob_sha": "cbbca0838a62c70bf9e8afd587452b6683ab1ac8"
+    },
+    {
+      "path": "evidence/windows/gate2/ATTEMPT-2026-09-22-REJECTED.md",
+      "size": 1638,
+      "git_blob_sha": "44bf02a386428c849f8dd8535df8d488d276d0f9"
+    },
+    {
+      "path": "evidence/windows/gate2/README.md",
+      "size": 807,
+      "git_blob_sha": "033f218e55da60f3226e01c720f30c36d6a00cee"
+    },
+    {
+      "path": "evidence/windows/gate2/windows-golden.jsonl",
+      "size": 4287,
+      "git_blob_sha": "a97f1fbc0acc22358b057e127ae60c217567efb7"
+    },
+    {
+      "path": "evidence/windows/hidspi_km.inf",
+      "size": 3232,
+      "git_blob_sha": "383a48089876b89bc8bc0646355d93d34d4283e7"
+    },
+    {
+      "path": "tests/Makefile",
+      "size": 18956,
+      "git_blob_sha": "54fb1e680a417d6fc26b187dd4c0bfc7839e6007"
+    },
+    {
+      "path": "tests/binattr_signature_test.py",
+      "size": 4888,
+      "git_blob_sha": "683142c9def82e23c66ec28aa4c558e863d28893"
+    },
+    {
+      "path": "tests/boot_binding_safety_test.py",
+      "size": 2286,
+      "git_blob_sha": "2830482b03fc9c1f46dbb63a701e5b2ed5cfb6e8"
+    },
+    {
+      "path": "tests/c590_atan2_host_test.c",
+      "size": 4989,
+      "git_blob_sha": "9d872590f88bccc86ea20d9272758f8b018ffa74"
+    },
+    {
+      "path": "tests/capimg_decoder_host_test.c",
+      "size": 15991,
+      "git_blob_sha": "759e13a509bfddbc4370ae823955f4539b82891a"
+    },
+    {
+      "path": "tests/diagnostic_bundle_contract_test.py",
+      "size": 4039,
+      "git_blob_sha": "1c7ccc57af8b03021594afcb79c3d71ab8053679"
+    },
+    {
+      "path": "tests/diagnostic_bundle_frame_test.py",
+      "size": 3611,
+      "git_blob_sha": "3fcbf8a83c4fbd38c0b73e69bbeb3c53500aad31"
+    },
+    {
+      "path": "tests/driver_source_sanity_test.py",
+      "size": 87109,
+      "git_blob_sha": "1b5bcbf3ec692090f87c8499d53cacfe451deacc"
+    },
+    {
+      "path": "tests/fch-test/Makefile",
+      "size": 158,
+      "git_blob_sha": "1a094414514b235072719f599e0729dcbd318867"
+    },
+    {
+      "path": "tests/fch-test/fch_test.c",
+      "size": 18133,
+      "git_blob_sha": "53c2d75549179b1d0705a18cc5ecd71183d8be3d"
+    },
+    {
+      "path": "tests/fixtures/raw-replay/README.md",
+      "size": 3751,
+      "git_blob_sha": "ee7ff9155d566c6ff0006cfe87f193596ff753ea"
+    },
+    {
+      "path": "tests/fixtures/raw-replay/baseline_00.bin",
+      "size": 3456,
+      "git_blob_sha": "132b708a62e607e72f5c128b1233862cf7f4b3f8"
+    },
+    {
+      "path": "tests/fixtures/raw-replay/baseline_01.bin",
+      "size": 3456,
+      "git_blob_sha": "b1a52e6e2a4285a57824acc6c9ebd93b50d73727"
+    },
+    {
+      "path": "tests/fixtures/raw-replay/baseline_02.bin",
+      "size": 3456,
+      "git_blob_sha": "0a34ff3579943170981e80fdaf326a78ce4281c5"
+    },
+    {
+      "path": "tests/fixtures/raw-replay/baseline_03.bin",
+      "size": 3456,
+      "git_blob_sha": "f204f963163e0b86ea24c4e19edb6b76d568c8d5"
+    },
+    {
+      "path": "tests/fixtures/raw-replay/baseline_04.bin",
+      "size": 3456,
+      "git_blob_sha": "008214c8d321fac56625a5aefbc4784002dcd385"
+    },
+    {
+      "path": "tests/fixtures/raw-replay/baseline_05.bin",
+      "size": 3456,
+      "git_blob_sha": "364d54199274bab820cd2f45b76d3823c6e675d7"
+    },
+    {
+      "path": "tests/fixtures/raw-replay/baseline_06.bin",
+      "size": 3456,
+      "git_blob_sha": "3ed8cd12890a361f87af42922914a5c991c416a2"
+    },
+    {
+      "path": "tests/fixtures/raw-replay/baseline_07.bin",
+      "size": 3456,
+      "git_blob_sha": "4d5b29600d8ff1d7d9fc6c32d34066946d16e0dd"
+    },
+    {
+      "path": "tests/fixtures/raw-replay/baseline_08.bin",
+      "size": 3456,
+      "git_blob_sha": "b0ff8ee771bdd8c13a5d21183d65b8001a76853e"
+    },
+    {
+      "path": "tests/fixtures/raw-replay/baseline_09.bin",
+      "size": 3456,
+      "git_blob_sha": "967b61ecf3f26801b58cf4b108548c823f02b937"
+    },
+    {
+      "path": "tests/fixtures/raw-replay/baseline_10.bin",
+      "size": 3456,
+      "git_blob_sha": "4ce8c700874ca0055365bfa7dd21f4d510bf70ee"
+    },
+    {
+      "path": "tests/fixtures/raw-replay/baseline_11.bin",
+      "size": 3456,
+      "git_blob_sha": "ba2450be04e4a128e25dba6e7064a70a2ad2fcb2"
+    },
+    {
+      "path": "tests/fixtures/raw-replay/baseline_12.bin",
+      "size": 3456,
+      "git_blob_sha": "86e1907669e0d9fca41d31d2e5883554d4c26f5d"
+    },
+    {
+      "path": "tests/fixtures/raw-replay/baseline_13.bin",
+      "size": 3456,
+      "git_blob_sha": "ac7a701e8805af523c2baafc162a4b39cf61914e"
+    },
+    {
+      "path": "tests/fixtures/raw-replay/baseline_14.bin",
+      "size": 3456,
+      "git_blob_sha": "fdf0e28f5e42467dacd965971feba548618d0f20"
+    },
+    {
+      "path": "tests/fixtures/raw-replay/baseline_15.bin",
+      "size": 3456,
+      "git_blob_sha": "7822d19635829a1798cf1c40961ace59ad3fb824"
+    },
+    {
+      "path": "tests/fixtures/raw-replay/baseline_16.bin",
+      "size": 3456,
+      "git_blob_sha": "f787a075e12ad8070e717bf0809ec90bd2b2dd4f"
+    },
+    {
+      "path": "tests/fixtures/raw-replay/baseline_17.bin",
+      "size": 3456,
+      "git_blob_sha": "62a5d22e536f9de00209b2a841ad51edbf130f39"
+    },
+    {
+      "path": "tests/fixtures/raw-replay/baseline_18.bin",
+      "size": 3456,
+      "git_blob_sha": "08879ed18310c214bb65a91039aed8616785d0e6"
+    },
+    {
+      "path": "tests/fixtures/raw-replay/baseline_19.bin",
+      "size": 3456,
+      "git_blob_sha": "12f35fa30740cdd52c8c309a0ade0cf3796fd478"
+    },
+    {
+      "path": "tests/fixtures/raw-replay/baseline_20.bin",
+      "size": 3456,
+      "git_blob_sha": "06ee978d057f7a867a48e433d264f7810fd84bfc"
+    },
+    {
+      "path": "tests/fixtures/raw-replay/baseline_21.bin",
+      "size": 3456,
+      "git_blob_sha": "236e0b31b120d7a4fb8003d1aeffd0d982644f7c"
+    },
+    {
+      "path": "tests/fixtures/raw-replay/baseline_22.bin",
+      "size": 3456,
+      "git_blob_sha": "8ca43ff4008a004c1db0a539b48e937a583828c9"
+    },
+    {
+      "path": "tests/fixtures/raw-replay/baseline_23.bin",
+      "size": 3456,
+      "git_blob_sha": "d1e5495e85d454ab20ef0884e37860567d9b5b26"
+    },
+    {
+      "path": "tests/fixtures/raw-replay/baseline_24.bin",
+      "size": 3456,
+      "git_blob_sha": "0ba9b79895fee0cbf5e802bf084935b5d16fa15e"
+    },
+    {
+      "path": "tests/fixtures/raw-replay/baseline_25.bin",
+      "size": 3456,
+      "git_blob_sha": "1dd40991936e7f520bcc7d2d78656171b28c7e11"
+    },
+    {
+      "path": "tests/fixtures/raw-replay/baseline_26.bin",
+      "size": 3456,
+      "git_blob_sha": "edd3d05be7aa36a14446f87d232a84f8fe938ce6"
+    },
+    {
+      "path": "tests/fixtures/raw-replay/baseline_27.bin",
+      "size": 3456,
+      "git_blob_sha": "4ba37db26f4e105c7b1c67236fd8b2c8fe3e2866"
+    },
+    {
+      "path": "tests/fixtures/raw-replay/baseline_28.bin",
+      "size": 3456,
+      "git_blob_sha": "1ce78d2e41ab12e558a3df37bc94af8dab68a4b2"
+    },
+    {
+      "path": "tests/fixtures/raw-replay/baseline_29.bin",
+      "size": 3456,
+      "git_blob_sha": "43be2bcbc4b36c6b0494784859e2665267bab43b"
+    },
+    {
+      "path": "tests/fixtures/raw-replay/generate_fixtures.py",
+      "size": 6343,
+      "git_blob_sha": "832903777e09262addac3a09cb89d9b75c826d9c"
+    },
+    {
+      "path": "tests/fixtures/raw-replay/move_00.bin",
+      "size": 3456,
+      "git_blob_sha": "239235e223f4d9585243ab36fc1fbfbaa389fef9"
+    },
+    {
+      "path": "tests/fixtures/raw-replay/move_01.bin",
+      "size": 3456,
+      "git_blob_sha": "a049bf8940813e9119297ee3f37a57cca36085bf"
+    },
+    {
+      "path": "tests/fixtures/raw-replay/move_02.bin",
+      "size": 3456,
+      "git_blob_sha": "64d576f8df7da235c3bf9a730e41bdd3641badd5"
+    },
+    {
+      "path": "tests/fixtures/raw-replay/move_03.bin",
+      "size": 3456,
+      "git_blob_sha": "0eb639b9b29e26fdf966a34181da1e1356d43ac5"
+    },
+    {
+      "path": "tests/fixtures/raw-replay/move_04.bin",
+      "size": 3456,
+      "git_blob_sha": "23e36085039abfcf9a68908da79765b1bc33d7bb"
+    },
+    {
+      "path": "tests/fixtures/raw-replay/move_05.bin",
+      "size": 3456,
+      "git_blob_sha": "b879f677130724452e8d832b5b70c72e90c58716"
+    },
+    {
+      "path": "tests/fixtures/raw-replay/move_06.bin",
+      "size": 3456,
+      "git_blob_sha": "5a52e40289e673817a7755b8802ad6035e9e611f"
+    },
+    {
+      "path": "tests/fixtures/raw-replay/move_07.bin",
+      "size": 3456,
+      "git_blob_sha": "7fcdb32a661d5fbcb3dd8e921e7f321cc78a7101"
+    },
+    {
+      "path": "tests/fixtures/raw-replay/move_08.bin",
+      "size": 3456,
+      "git_blob_sha": "51e97f45a23eaddd8022ee32cfba4f5a922a6e27"
+    },
+    {
+      "path": "tests/fixtures/raw-replay/move_09.bin",
+      "size": 3456,
+      "git_blob_sha": "abdbb22e1c003a30b90a12dcee0b4e98d13d77ca"
+    },
+    {
+      "path": "tests/fixtures/raw-replay/move_10.bin",
+      "size": 3456,
+      "git_blob_sha": "a4279ed7745599e9eb98636995b203a0ba249611"
+    },
+    {
+      "path": "tests/fixtures/raw-replay/move_11.bin",
+      "size": 3456,
+      "git_blob_sha": "2b08f571a9e3bd1443d0093bf9e18b1a5f118823"
+    },
+    {
+      "path": "tests/fixtures/raw-replay/move_12.bin",
+      "size": 3456,
+      "git_blob_sha": "543e7c65b75f249929cbc86f84a4455fab07ca44"
+    },
+    {
+      "path": "tests/fixtures/raw-replay/move_13.bin",
+      "size": 3456,
+      "git_blob_sha": "efd3a3ff7c647513ff9fcf08c7673bd78444c3c4"
+    },
+    {
+      "path": "tests/fixtures/raw-replay/move_14.bin",
+      "size": 3456,
+      "git_blob_sha": "ee879f2ef0b328eca37fcc77229b6b12a0430c8c"
+    },
+    {
+      "path": "tests/fixtures/raw-replay/move_15.bin",
+      "size": 3456,
+      "git_blob_sha": "d555125413fa5251b0dd41651990219cc160de14"
+    },
+    {
+      "path": "tests/fixtures/raw-replay/touch_1finger.bin",
+      "size": 3456,
+      "git_blob_sha": "05da968ce93f62fc65dc62d5a9dc8dafe19f4e12"
+    },
+    {
+      "path": "tests/fixtures/raw-replay/touch_2finger_close.bin",
+      "size": 3456,
+      "git_blob_sha": "3785351cfa5e679fc56bd30cdf88d7b6f6a8c04c"
+    },
+    {
+      "path": "tests/fixtures/raw-replay/touch_2finger_far.bin",
+      "size": 3456,
+      "git_blob_sha": "cbfb6af70c6f3028f9047febd6f708088590b920"
+    },
+    {
+      "path": "tests/fixtures/raw-replay/touch_3finger.bin",
+      "size": 3456,
+      "git_blob_sha": "2ec630f3cb2525b018031f323d6c0e734eef12b8"
+    },
+    {
+      "path": "tests/fixtures/raw-replay/touch_4finger.bin",
+      "size": 3456,
+      "git_blob_sha": "9172bae249d72f64f79c974bccb081878e902aa8"
+    },
+    {
+      "path": "tests/fixtures/raw-replay/touch_5finger.bin",
+      "size": 3456,
+      "git_blob_sha": "c08d11697552059fdde00cc47fc0a95839b9a04f"
+    },
+    {
+      "path": "tests/fixtures/replay/v1/manifest.json",
+      "size": 3541,
+      "git_blob_sha": "a9a073ea13a235f8ec2ae9b67eed87270c58252e"
+    },
+    {
+      "path": "tests/gate4_activation_source_test.py",
+      "size": 2470,
+      "git_blob_sha": "272b8916c11613d9050f4b2fb58eda3a172986f1"
+    },
+    {
+      "path": "tests/gate5_data_drain_race_source_test.py",
+      "size": 1544,
+      "git_blob_sha": "31290e47d28286d1f036c3f2c2d689cec79eac85"
+    },
+    {
+      "path": "tests/gate5_installer_profile_source_test.py",
+      "size": 2657,
+      "git_blob_sha": "9abfda56fc28bde6f36df7104f74334b3bedf28c"
+    },
+    {
+      "path": "tests/gate5_mode1_input_source_test.py",
+      "size": 1993,
+      "git_blob_sha": "f7ae119fa139f12e75ef3950c22d784137fc0c66"
+    },
+    {
+      "path": "tests/hardcoded_descriptor_pin_test.py",
+      "size": 2560,
+      "git_blob_sha": "94c305b5c60834bf5fe759666d840c7f4c9719d7"
+    },
+    {
+      "path": "tests/hardware_evidence_contract_test.py",
+      "size": 3700,
+      "git_blob_sha": "276a3068227e316e34513b9343a2163634039bec"
+    },
+    {
+      "path": "tests/header_read_bounds_test.py",
+      "size": 1672,
+      "git_blob_sha": "45c6901a148880ad45b59934085af4df861b5b80"
+    },
+    {
+      "path": "tests/heatmap_pure_test.c",
+      "size": 10195,
+      "git_blob_sha": "65f87da7fdbf370525a23a70ee9b170d7dd17204"
+    },
+    {
+      "path": "tests/hunt_sandbox_test.sh",
+      "size": 26233,
+      "git_blob_sha": "d2939f270501e230d10ce37019db0c737a647f06"
+    },
+    {
+      "path": "tests/installer_recovery_contract_test.py",
+      "size": 22573,
+      "git_blob_sha": "5b95a1d14899020a34b8641e78693d854366f85c"
+    },
+    {
+      "path": "tests/isolated_set_safety_test.py",
+      "size": 1749,
+      "git_blob_sha": "8df80475ab2ff70c7314441e77e787defa646917"
+    },
+    {
+      "path": "tests/linux-compat/linux/errno.h",
+      "size": 665,
+      "git_blob_sha": "ea006597d8a5ccb6fa1cfeb14e3b60031b4561f6"
+    },
+    {
+      "path": "tests/linux-compat/linux/input.h",
+      "size": 2937,
+      "git_blob_sha": "439e052dfe2cc292e860e149f6a8363207879e12"
+    },
+    {
+      "path": "tests/linux-compat/linux/input/mt.h",
+      "size": 506,
+      "git_blob_sha": "8dc04449086015ad898b993d8b756f8d022766e6"
+    },
+    {
+      "path": "tests/linux-compat/linux/jiffies.h",
+      "size": 692,
+      "git_blob_sha": "0f6dcaa60f02b42c626edc9b3352a3aabd7af7a3"
+    },
+    {
+      "path": "tests/linux-compat/linux/kernel.h",
+      "size": 1292,
+      "git_blob_sha": "c79ac959b52f329205abc14de79c209fd55875e9"
+    },
+    {
+      "path": "tests/linux-compat/linux/math.h",
+      "size": 685,
+      "git_blob_sha": "8fabf5fc19077651349907bb80e1ddac7202fce3"
+    },
+    {
+      "path": "tests/linux-compat/linux/module.h",
+      "size": 862,
+      "git_blob_sha": "3f6899d19d24cdd999e2738564d4dd83e0c6f7bb"
+    },
+    {
+      "path": "tests/linux-compat/linux/slab.h",
+      "size": 348,
+      "git_blob_sha": "74e8334be4e041af4344d34a53847fa94e40b7d9"
+    },
+    {
+      "path": "tests/linux-compat/linux/string.h",
+      "size": 339,
+      "git_blob_sha": "c0df168f981c536592a18826842c1f18e0de9904"
+    },
+    {
+      "path": "tests/linux-compat/linux/types.h",
+      "size": 332,
+      "git_blob_sha": "35ef387441a4211f8d7e047cfc132ed11e455b84"
+    },
+    {
+      "path": "tests/linux-compat/linux/unaligned.h",
+      "size": 506,
+      "git_blob_sha": "8b8406fc80403eda3a894d3f9deb1355a985589b"
+    },
+    {
+      "path": "tests/linux-compat/raw-pipeline-stubs/mt_record.h",
+      "size": 1814,
+      "git_blob_sha": "615f1912d727701b02764f1a039fbcd3df177446"
+    },
+    {
+      "path": "tests/linux-compat/raw-pipeline-stubs/spi-hid-core.h",
+      "size": 5390,
+      "git_blob_sha": "13d4aec494055f21088cf5dc53dc33d9fa3d7e71"
+    },
+    {
+      "path": "tests/linux-compat/raw-pipeline-stubs/stubs.c",
+      "size": 4878,
+      "git_blob_sha": "fabe3d062592eb02da8fb5125e0474b3d08893f1"
+    },
+    {
+      "path": "tests/optional_contract.py",
+      "size": 422,
+      "git_blob_sha": "55ce218726b75ca62b6039f58f21f9c066500af3"
+    },
+    {
+      "path": "tests/panel_emulator_host_test.c",
+      "size": 34876,
+      "git_blob_sha": "a32d74dffdf7fc05ecb6345dca393c0415583858"
+    },
+    {
+      "path": "tests/panel_policy_ab_test.c",
+      "size": 4375,
+      "git_blob_sha": "de339829329aca9c4ef0d04965526853d7bd702e"
+    },
+    {
+      "path": "tests/plateau_host_test.c",
+      "size": 10189,
+      "git_blob_sha": "84fdbc0bd83b133dce8394b448d48d9739646fdb"
+    },
+    {
+      "path": "tests/post_set_timeline_test.py",
+      "size": 924,
+      "git_blob_sha": "677c2612f1c49d108b7bb0cbd4bd36c89f51b0ea"
+    },
+    {
+      "path": "tests/protocol_test.c",
+      "size": 18060,
+      "git_blob_sha": "390af15e9c6164a7c62aea1868bc1f473f7546e4"
+    },
+    {
+      "path": "tests/raw_capture_export_test.py",
+      "size": 637,
+      "git_blob_sha": "925a841d088c6d10d316578874dc49891551e359"
+    },
+    {
+      "path": "tests/raw_consumer_boundary_test.py",
+      "size": 2787,
+      "git_blob_sha": "9837788f9d8c6ad1c246d6ed8a65667d89f2de25"
+    },
+    {
+      "path": "tests/raw_corpus_test.py",
+      "size": 3489,
+      "git_blob_sha": "21050411bcf8674bcba520745fe2cb35d1d154d5"
+    },
+    {
+      "path": "tests/raw_pipeline_math_test.c",
+      "size": 19109,
+      "git_blob_sha": "98786efae4ce8aa650d19996d674f4e7a4b0c724"
+    },
+    {
+      "path": "tests/raw_pipeline_replay_test.c",
+      "size": 26704,
+      "git_blob_sha": "9c98f137ae51b57823a53d268ee7f3c7eb114f9f"
+    },
+    {
+      "path": "tests/raw_transition_safety_test.py",
+      "size": 1551,
+      "git_blob_sha": "f0753701a529b09d82a0bf132897b098f982b746"
+    },
+    {
+      "path": "tests/real_frame_replay_test.c",
+      "size": 37643,
+      "git_blob_sha": "3c980b5f13942617f757e6055c2c7476a4ba543e"
+    },
+    {
+      "path": "tests/replay_fixture_test.py",
+      "size": 2253,
+      "git_blob_sha": "bd50c977c4bb88e3745cf264a53e19525233efa8"
+    },
+    {
+      "path": "tests/secure_boot_installer_source_test.py",
+      "size": 3319,
+      "git_blob_sha": "9f48c3af07b0742210bd3c23b74c7f3d028bb2c0"
+    },
+    {
+      "path": "tests/sl4a_heat_host_test.py",
+      "size": 1532,
+      "git_blob_sha": "692f9757305e611a7b2c1894b929edc6ed1e5ce3"
+    },
+    {
+      "path": "tests/spi-test/Makefile",
+      "size": 24,
+      "git_blob_sha": "84b3130d920ba0d85722e4d7ac095c7f287ed829"
+    },
+    {
+      "path": "tests/spi-test/spi-cmd.c",
+      "size": 15674,
+      "git_blob_sha": "72e500d612f3929143e1a479e5d14b76eac13cd1"
+    },
+    {
+      "path": "tests/spi-test/spi_activate.c",
+      "size": 4160,
+      "git_blob_sha": "de8b764b80321a749c67016bc3d9c06688ca0dd6"
+    },
+    {
+      "path": "tests/spi-test/test.sh",
+      "size": 1349,
+      "git_blob_sha": "27b1fee70f935678fd73979a66dce30c1fdf0b13"
+    },
+    {
+      "path": "tests/spi_amd_ownership_safety_test.py",
+      "size": 1818,
+      "git_blob_sha": "9edb2da4e3269226ffee0044c11a8c5615f74846"
+    },
+    {
+      "path": "tests/surface_tracker_oracle_test.py",
+      "size": 2341,
+      "git_blob_sha": "9d30c2b9c7138dfa8c8bb4a245e7fb10353ca60c"
+    },
+    {
+      "path": "tests/test_script_suite.py",
+      "size": 410,
+      "git_blob_sha": "c918226a7015fe7e6d0375ac745f65ceccdef43a"
+    },
+    {
+      "path": "tests/tools_contract_test.py",
+      "size": 6330,
+      "git_blob_sha": "0a8df0b7621b472214c06826c295315697dbfa6e"
+    },
+    {
+      "path": "tests/tracker_coalescing_host_test.c",
+      "size": 10072,
+      "git_blob_sha": "b8a6e10eb503526f0ae3a273975a8dcf7f4b4745"
+    },
+    {
+      "path": "tests/v0_capimg_decoder_test.py",
+      "size": 1934,
+      "git_blob_sha": "5b3fdd9084ecda51fdd0ee50fb3578966c7860bb"
+    },
+    {
+      "path": "tests/wire_frames_test.c",
+      "size": 28871,
+      "git_blob_sha": "1878dc82419415d2425fb1d9c2e8b65ba206e888"
+    },
+    {
+      "path": "tools/bisect-raw-regression.sh",
+      "size": 2982,
+      "git_blob_sha": "1b285e1e390e09556535d73700a0b7ff5389323c"
+    },
+    {
+      "path": "tools/decode_v0_capimg.py",
+      "size": 3797,
+      "git_blob_sha": "50b1d0a699050a0923c0844befe551d10e111886"
+    },
+    {
+      "path": "tools/extract_raw_capture.py",
+      "size": 1937,
+      "git_blob_sha": "1fdae44717085da8e50b71c03aeb5f0299520a9d"
+    },
+    {
+      "path": "tools/ghidra/DecompileAll.java",
+      "size": 1961,
+      "git_blob_sha": "99534f4b6f704b76391856333f67960e93aaf7cc"
+    },
+    {
+      "path": "tools/ghidra/DecompileByAddress.java",
+      "size": 2064,
+      "git_blob_sha": "e1336d06132cdf6663e6793a9849c47dd144fff6"
+    },
+    {
+      "path": "tools/ghidra/DecompileByKeyword.java",
+      "size": 5668,
+      "git_blob_sha": "25377e299bac43b53008568d15330e232d0f6a0e"
+    },
+    {
+      "path": "tools/ghidra/DecompileByKeywordIndirect.java",
+      "size": 6668,
+      "git_blob_sha": "f6cf0a129e5842b9fc78b893c80927001d106567"
+    },
+    {
+      "path": "tools/ghidra/DumpPointerTable.java",
+      "size": 1433,
+      "git_blob_sha": "f9c98a55dcd8656c1a9928c182c746e1c9eba7fd"
+    },
+    {
+      "path": "tools/ghidra/DumpProviderCallers.java",
+      "size": 3463,
+      "git_blob_sha": "f2d8b4344157351f63ed683f57b6994a30c49cba"
+    },
+    {
+      "path": "tools/ghidra/DumpTlgProvider.java",
+      "size": 4141,
+      "git_blob_sha": "ce50250675ad16d7d0e406c356be669ef4e14891"
+    },
+    {
+      "path": "tools/ghidra/ListFunctionsByMnemonic.java",
+      "size": 1344,
+      "git_blob_sha": "71ba020dfbd53994d3766e5643389327a2ae6bcc"
+    },
+    {
+      "path": "tools/ghidra/ListFunctionsByScalar.java",
+      "size": 1812,
+      "git_blob_sha": "615ddae0d4b73820ddaea5fb770225f3c444b9c4"
+    },
+    {
+      "path": "tools/ghidra/ListGuidsNearEventRegister.java",
+      "size": 6707,
+      "git_blob_sha": "1774775c77c2fd88d62dbbd4aa1683fa7d76b794"
+    },
+    {
+      "path": "tools/ghidra/ListSymbols.java",
+      "size": 1231,
+      "git_blob_sha": "e8379cd5de9fc4ad6b885a79ff1eeee607814106"
+    },
+    {
+      "path": "tools/ghidra/LocateKeyword.java",
+      "size": 1479,
+      "git_blob_sha": "164f6ae8d884bfdfdb072042bf0ec13eb2f3efcf"
+    },
+    {
+      "path": "tools/ghidra/README.md",
+      "size": 7112,
+      "git_blob_sha": "f93da07987d9bd81029d28a5c92b5a6ef176320a"
+    },
+    {
+      "path": "tools/ghidra/RefsNearAddress.java",
+      "size": 3058,
+      "git_blob_sha": "ab5b8d415bcfecab92eaadd45a69275dc2a52f7b"
+    },
+    {
+      "path": "tools/hardware_evidence/README.md",
+      "size": 5993,
+      "git_blob_sha": "40e19f55511bcb451a4acf4f7943d0a8b43f3499"
+    },
+    {
+      "path": "tools/hardware_evidence/capture_beta_multitouch.sh",
+      "size": 3820,
+      "git_blob_sha": "f8de30a2814ad48958f908b54cb26e5a0b99a23a"
+    },
+    {
+      "path": "tools/hardware_evidence/capture_direct_touch.sh",
+      "size": 4713,
+      "git_blob_sha": "cb3c29f5774f1eb00678d04b1f8eaf2fb105106c"
+    },
+    {
+      "path": "tools/hardware_evidence/capture_linux_trace_bundle.sh",
+      "size": 9746,
+      "git_blob_sha": "232eabf320539963e070bdde7b5d19d9284fa119"
+    },
+    {
+      "path": "tools/hardware_evidence/capture_stylus.sh",
+      "size": 4761,
+      "git_blob_sha": "f60e4ab63431cc0ef5299b93657c2f3fbe4819da"
+    },
+    {
+      "path": "tools/hardware_evidence/collect.sh",
+      "size": 5647,
+      "git_blob_sha": "4539d33dd838cd60352aa434f5955d36f696f389"
+    },
+    {
+      "path": "tools/hardware_evidence/run_blinded_session.sh",
+      "size": 6253,
+      "git_blob_sha": "266e9039d4865f7d1bf70ad6ceefaf09d2c821b7"
+    },
+    {
+      "path": "tools/parse_spb_csv.py",
+      "size": 6424,
+      "git_blob_sha": "650ef46be5b4835bb1686bbd7e3a4e37a3d3ed3c"
+    },
+    {
+      "path": "tools/parse_spi.py",
+      "size": 16838,
+      "git_blob_sha": "d90bb424e1b313b0b5c897e9a45f73b4dd65cf4b"
+    },
+    {
+      "path": "tools/sl4a-touch.sh",
+      "size": 129763,
+      "git_blob_sha": "7b6cf7359dce8445dbd92f9a82c697aea7b2415f"
+    },
+    {
+      "path": "tools/surface_tracker.py",
+      "size": 12883,
+      "git_blob_sha": "2fce8b58dfddd3d8e043bbb70877c70da667acd5"
+    },
+    {
+      "path": "tools/surface_tracker_oracle.py",
+      "size": 1945,
+      "git_blob_sha": "5b18dff4a17f447a53589e07d8121ed644a4eeb9"
+    },
+    {
+      "path": "tools/touchtest.c",
+      "size": 2389,
+      "git_blob_sha": "aa8f5ad16f501fa9fccf5d3790f3616de2b40f7d"
+    },
+    {
+      "path": "tools/touchtest.py",
+      "size": 3571,
+      "git_blob_sha": "40c748368ec411a354eb2eb1cc5666c992c7ba43"
+    },
+    {
+      "path": "tools/touchviz.c",
+      "size": 3412,
+      "git_blob_sha": "e71ed46aa506d39dde0f3b22750e75b47c255f85"
+    },
+    {
+      "path": "tools/validate-tracker-pr4.sh",
+      "size": 3789,
+      "git_blob_sha": "f6d4e66656b385f4b61e17b78043940dfcefa41b"
+    },
+    {
+      "path": "tools/windows_capture/README.md",
+      "size": 5594,
+      "git_blob_sha": "20c404f5950c7d68c42b4e5b773278f5eb5bc89a"
+    },
+    {
+      "path": "tools/windows_capture/capture_runtime.cmd",
+      "size": 1526,
+      "git_blob_sha": "2fa98c7c98287f47f3d2be89456470fc2ea7a61d"
+    },
+    {
+      "path": "tools/windows_capture/capture_sleep_resume.cmd",
+      "size": 1860,
+      "git_blob_sha": "a863ff10554fab401def16ab9e9e616c2747c6c4"
+    },
+    {
+      "path": "tools/windows_capture/collect_touch_host.cmd",
+      "size": 348,
+      "git_blob_sha": "fb6dc956cdc106ccca35e745c4a4a0c48d17a1a8"
+    },
+    {
+      "path": "tools/windows_capture/collect_touch_host.ps1",
+      "size": 1843,
+      "git_blob_sha": "ea3712e078441cc1036df425c61b3b426452f0a3"
+    },
+    {
+      "path": "tools/windows_capture/decode_etl_linux.py",
+      "size": 3870,
+      "git_blob_sha": "6c7b19384c91656eb2c7a86360e3cecdd2f40b42"
+    },
+    {
+      "path": "tools/windows_capture/decode_gate2_evtx_windows.ps1",
+      "size": 7977,
+      "git_blob_sha": "2e2fcb563e7ad6f51af2ac5fbd1daced0d3d1849"
+    },
+    {
+      "path": "tools/windows_capture/decode_gate2_filtered.ps1",
+      "size": 8467,
+      "git_blob_sha": "789c8a534994ec8877b2852fbddbed77d92576b1"
+    },
+    {
+      "path": "tools/windows_capture/decode_gate2_stream_xml.ps1",
+      "size": 9455,
+      "git_blob_sha": "176f45720ac03f01e4dc47a7b5c5753898e330d4"
+    },
+    {
+      "path": "tools/windows_capture/decode_gate2_targeted.ps1",
+      "size": 7901,
+      "git_blob_sha": "c0ce5b42b4ce1494022de145cc5f4f859fe7c2ba"
+    },
+    {
+      "path": "tools/windows_capture/diagnose_gate2_boot.ps1",
+      "size": 3199,
+      "git_blob_sha": "fc4450cf1e665bd655b14ad820a920de4eae6d14"
+    },
+    {
+      "path": "tools/windows_capture/diagnose_wprp_nonpaged.ps1",
+      "size": 5649,
+      "git_blob_sha": "f98c4cb096102417541004606741f1ddc077cc44"
+    },
+    {
+      "path": "tools/windows_capture/dump_hid_report_descriptor.ps1",
+      "size": 7647,
+      "git_blob_sha": "203657f3ef339290e693450fac24a58ffc85c2f4"
+    },
+    {
+      "path": "tools/windows_capture/export_gate2_etl.ps1",
+      "size": 1494,
+      "git_blob_sha": "2c135ca8a40ed907c80de0d57095c334a1fbfce0"
+    },
+    {
+      "path": "tools/windows_capture/export_runtime.cmd",
+      "size": 646,
+      "git_blob_sha": "b60470691b647a61e307a4e55f0070bc532b4cf4"
+    },
+    {
+      "path": "tools/windows_capture/extract_gate2_compact.ps1",
+      "size": 10099,
+      "git_blob_sha": "151783fce339389b0810a927345d3f94e323f99f"
+    },
+    {
+      "path": "tools/windows_capture/extract_gate2_process_map.ps1",
+      "size": 4753,
+      "git_blob_sha": "5605804dac9e53f2678b99961b295bca81d16cc2"
+    },
+    {
+      "path": "tools/windows_capture/gate2_capture.ps1",
+      "size": 20073,
+      "git_blob_sha": "5d990f79c5f457175f1b4e438eb8d6a72c201cee"
+    },
+    {
+      "path": "tools/windows_capture/providers.txt",
+      "size": 8531,
+      "git_blob_sha": "cf0630cf20a0df0762343342a9eedcc77dd4b69e"
+    },
+    {
+      "path": "tools/windows_capture/touch_boot.wprp",
+      "size": 5192,
+      "git_blob_sha": "c4a5b4d7e475ce57efacb721d7b9badb48ba4364"
+    },
+    {
+      "path": "tools/windows_capture/validate_gate2_providers.ps1",
+      "size": 5576,
+      "git_blob_sha": "c1fb95213cc41dbf9992f6a686dfe3dbfb46528c"
+    },
+    {
+      "path": "traces/surface_boot_auto.csv",
+      "size": 29339823,
+      "git_blob_sha": "a46277ba81b6f4e8a343f66d8587e4b0998ec735"
+    },
+    {
+      "path": "traces/surface_init.csv",
+      "size": 9055161,
+      "git_blob_sha": "5b2a049276506a5e1538fb3ef43953afc7faddfe"
+    },
+    {
+      "path": "traces/surface_touch.csv",
+      "size": 19514888,
+      "git_blob_sha": "9c4a2a90f4b44ca255cf2c74b5098ccbaba193a5"
+    },
+    {
+      "path": "userspace/sl4a-heat/README.md",
+      "size": 1900,
+      "git_blob_sha": "fce28aa807057bd95e3cbb124abf8bb812c316ac"
+    },
+    {
+      "path": "userspace/sl4a-heat/sl4a_heat.py",
+      "size": 9795,
+      "git_blob_sha": "be619de36b21a88fc6a1460cee9f7f26237befb2"
+    }
+  ],
+  "byte_identical_git_blob_groups": [
+    {
+      "sha": "a863ff10554fab401def16ab9e9e616c2747c6c4",
+      "paths": [
+        "captures/wintrace/capture_sleep_resume.cmd",
+        "tools/windows_capture/capture_sleep_resume.cmd"
+      ]
+    },
+    {
+      "sha": "cf0630cf20a0df0762343342a9eedcc77dd4b69e",
+      "paths": [
+        "captures/wintrace/providers.txt",
+        "tools/windows_capture/providers.txt"
+      ]
+    },
+    {
+      "sha": "5b2a049276506a5e1538fb3ef43953afc7faddfe",
+      "paths": [
+        "captures/wintrace/surface_init.csv",
+        "traces/surface_init.csv"
+      ]
+    },
+    {
+      "sha": "9c4a2a90f4b44ca255cf2c74b5098ccbaba193a5",
+      "paths": [
+        "captures/wintrace/surface_touch.csv",
+        "traces/surface_touch.csv"
+      ]
+    }
+  ],
+  "reference_only_untracked": [
+    "docs/GROUND_TRUTH.md",
+    "tools/analyze_raw_corpus.py",
+    "touchpen0c19_fullheat_20260716/functions",
+    "heatcore_20260716/functions",
+    "ghidra-findings/FINDINGS3.md",
+    "C:\\gate2\\gate2.etl",
+    "windows TouchAndPen runtime processed-contact ETL"
+  ],
+  "notes": "Snapshot of pre-audit main, NOT a list of present files after this documentation commit. Presence in source tree != proof of final Windows contact output."
+}
