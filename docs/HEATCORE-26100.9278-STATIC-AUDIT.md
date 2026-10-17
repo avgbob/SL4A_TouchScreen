@@ -200,3 +200,104 @@ Do not claim `HeatCore.dll` was never located, or reuse the 2026-07
 HeatCore absolute address map on Windows build 26100.9278.
 Use this report **together with** `docs/WINDOWS-STACK-COMPLETENESS-20261017.md`
 and `docs/RESEARCH-INDEX.md`.
+
+
+## Follow-up 2026-10-17: traced two-stage field continuity and two 0x3C reporters
+
+These findings were obtained from an additional *fresh disassembly of the
+same user-uploaded, SHA-pinned DLL*, not from the July source addresses.
+Read-only `objdump -d -M intel` on VA ranges:
+`0x180034a80..0x180034a9d`,
+`0x180035140..0x1800352e2`,
+`0x1800352f0..0x18003548d`,
+`0x18003ac50..0x18003acad`, and the previously pinned
+`0x180034f60` and `0x180014900` ranges.
+
+### Exact contact-ID + state-bit data movement — type 1
+
+The pointer *input record* is **0x20 bytes**. These two separate instructions
+in the pointed reporter and the HID serializer have layout-compatible
+producer/consumer records, **but indirect runtime vtable dispatch between them
+has not yet been proven**.
+
+| Meaning (structural, not OS lifecycle semantics) | Source `0x20` | Intermediate `0x3A` | Serialized `0x21` |
+| --- | --- | --- | --- |
+| 16-bit identifier | `+0` | `+8` | `+1` |
+| low-three-bit state mask | `+2 & 7` | `+0x0A` | `+0` |
+| 32-bit A0 | `+4` | `+0x13` | `+3` |
+| 32-bit B0 | `+12` | `+0x23` | `+7` |
+| 32-bit C0 | `+20` | `+0x2B` | `+11` |
+| 32-bit A1 | `+8` | `+0x17` | `+15` |
+| 32-bit B1 | `+16` | `+0x27` | `+19` |
+| 32-bit C1 | `+24` | `+0x2F` | `+23` |
+| 16-bit D | `+28` | `+0x33` | `+27` |
+| zero-initialized 32-bit E | none | `+0x35` | `+29` |
+
+The reporter *duplicates* the source QWORD at +4 into intermediate
++0x0B and +0x13, and the source QWORD at +12 into intermediate
++0x1B and +0x23; only one instance of each is subsequently selected
+in the type-1 serializer. The exact serializer instruction RVAs are
+`0x1497e..0x149c4`; source record creation is `0x35040..0x350a4`.
+The source state bits are copied **without interpreting their lifetime
+or generating new IDs**.
+
+### Type-2 variant: second upstream layout and common flag logic
+
+Two distinct pointer-reporter routines generate **0x3C-byte** output
+records from **0x24-byte** source records with identical copy logic:
+
+* RVA `0x35140..0x352e2` (flag helper call RVA `0x35217`):
+  transmits via interface at `[this+0x18]`, vtable slot `+0x60`
+  (instruction RVA `0x3527b..0x3528a`).
+* RVA `0x352f0..0x3548d` (flag helper call RVA `0x353be`):
+  transmits via interface at `[this+0x20]+8`, vtable slot `+0x30`
+  (instruction RVA `0x35422..0x35435`).
+
+**The two output-interface choices are different; do not call them the
+same final host path without dynamically resolving the interface objects.**
+
+Both invoke **RVA `0x34a80..0x34a9d`** to normalize the *low byte*
+of a source 16-bit flag value: `return src_flag & 7`. The helper
+checks source bits 1, 2 and 4 at RVAs `0x34a87`, `0x34a8f`,
+`0x34a96` respectively, discarding all high bits.
+
+The type-2 `0x3C` serializer at `0x3ac50..0x3acad`
+maps source +0x3A WORD into compact `0x23` output +0x21. This
+extra intermediate WORD originates at the `0x24` source record's +0x14.
+The rest uses the same low-three-bit mask/identifier mapping as type 1,
+but the source C0/C1/D fields begin at +0x18/+0x1C/+0x20.
+
+### Specific implication for the persistent finger
+
+The precise location of **contact-state generation/clearing is still UPSTREAM**
+of these structural serializers, because both pointer-reporting variants
+**mask/copy** the three low-order state bits and the 16-bit identifier.
+The evidence does **not** establish whether bit 0=tip, bit 1=in-range,
+bit 2=confidence on this private ABI; naming them without an actual
+field schema or Windows contact trace would repeat previous speculative
+mistakes. Track code and OS contact IDs also remain distinct until linked.
+
+### Independent offline model and verification
+
+The analysis has a source-only, standalone Python test model for
+0x20→0x3A→0x21 and 0x24→0x3C→0x23 **byte-copy** paths.
+On the actual uploaded DLL (SHA pinned above), it verified **16
+instruction-signature landmarks** and passed **512 synthetic record vectors**:
+all 256 possible flag bytes for *both* formats; tests separately assert
+masked flags, preservation of the two-byte ID, data-field reorder, and zero
+reserved bytes. **This tests the modeled copy semantics, not proof that
+Windows routes each record through both routines or that real fingertips
+match Linux.** The exact tested script from this session is
+`heatcore_contact_pipeline_26100.py` (distributed as a user artifact).
+
+## Next required work after these ABI checks
+
+Resolve the **upstream caller/implementer** of the 0x20/0x24 record producers,
+then identify the semantic source of the low-three-bit mask and contact-ID
+assignment/clear. The presence of pointer method bodies in the DLL's
+`.rdata` method tables does not prove a direct call to those methods;
+notably there are no simple direct `call 0x180034f60` /
+`call 0x180014900` sites in the whole text disassembly. Dynamic/typed
+vtable reconstruction is still required. Validate with matching-gesture
+**OS-visible contact IDs/Tip/lift** against sensor captures before any
+Gate5 driver changes.
