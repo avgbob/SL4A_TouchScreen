@@ -1,7 +1,7 @@
 # Windows V2 pinch: physical-contact annotations (2026-10-17)
 
 The operator repeated the one-handed pinch in the guided V2 test.
-**Operator correction (subsequent message): one of the 13 M keypresses was incorrect; the operator has not identified which timestamp.** Preserve the raw event log exactly, but do NOT treat all 13 annotations as validated physical-contact evidence. The corrected count is **12 intentional marks**; of those, **11 or 12** had one Windows pointer depending on whether the accidental keypress was among the 12 one-pointer records or the single two-pointer record. Which marker to exclude remains unknown.
+**Correction resolved:** The only accidental M press was at 19:48:15.5399695 UTC, with two pointers correctly reported. All other 12 of 12 intentional M presses showed one reported pointer while the operator said two fingers were physically down. A separate V2 trial reproduced 5 of 5 additional intentional mismatches; see [repeat trial](WINDOWS-V2-REPEAT-PINCH-20261017.md).
 This trial supplies a new and important distinction: **two fingers were
 physically touching at multiple times when the test application reported
 only one active Windows pointer**. Earlier statements that Windows
@@ -13,8 +13,7 @@ tracked every pinch correctly are therefore superseded.
   capture-loss messages or pointer API errors.
 - Pinch stage: 780 samples at approximately 10 Hz: 550 with two
   application-visible contacts and 230 with one.
-- **13 raw M-key annotations**: **12 recorded one active ID** and one recorded two active IDs. The operator later identified **one accidental keypress** (timestamp unspecified), so **12 marks are intentional**, including **11–12 one-ID mismatches**. The exact corrected numerator is currently unresolved.
-- The longest continuous one-ID interval during the pinch stage
+- **13 raw M presses:** 12 one-pointer observations and one two-pointer observation. The operator identified the two-pointer press as accidental; therefore **12/12 valid M presses showed one pointer**. Second trial **5/5** likewise; 17/17 valid annotations across both trials.
   was approximately **12.5 seconds**, with a two-finger M marker inside.
 - Repeated OS-level UP and subsequent DOWN events assign different
   secondary pointer IDs during the pinch sequence.
