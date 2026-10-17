@@ -50,7 +50,7 @@ tracks but does not emulate Windows' HID hold/lift emissions.
 | Ten-history samples, gap >5 reset | Surface tracker decomp | Recovered structure and release behavior |
 | 3-frame birth / internal retention | Current Linux defaults | *Experimental* semantics; Windows hold quality gate not implemented |
 | Merge-group/status-7 annotations | `FUN_1806025c0` and `tools/surface_tracker_oracle.py` | Recovered local behavior only; no final HID contact semantics |
-| Finger validity, Mahalanobis classifier, gain adaptation | Windows DLL/runtime calibration | NOT implemented |
+| Windows class semantics and candidate classifier, gain adaptation | DLL decomp + August MSI correction | NOT implemented |
 | Windows virtual HID tracking-ID mapping | Windows HeatCore | Unknown; local IDs must not be treated as Windows IDs |
 
 **Important:** A Windows group annotation does **not** decide whether a finger is
@@ -98,3 +98,24 @@ See [AUDIT.md](AUDIT.md) for corrected bugs and unresolved release gates.
 The new comparator **requires complete frame coverage** by default; incomplete
 windows need explicit `--allow-partial`. A synthetic pass alone does not prove
 correct close-finger operation or Windows output equivalence.
+
+## Reusing the preserved Windows ETW data
+
+The tracked repository already includes three sizeable Windows SPB CSV exports.
+Rather than request new raw captures, use the offline extractor to rebuild
+replay input **from these preserved sources**:
+
+```sh
+python3 windows_evidence.py ../../traces/surface_touch.csv \
+  ../../traces/surface_init.csv ../../traces/surface_boot_auto.csv \
+  --output-dir /tmp/sl4a-windows-corpus --check-known-counts
+python3 replay.py /tmp/sl4a-windows-corpus/surface_touch/frames.txt > /tmp/sl4a-processed.jsonl
+```
+
+See [WINDOWS-EVIDENCE-INVENTORY.md](WINDOWS-EVIDENCE-INVENTORY.md). The
+July CSVs represent a historical 537+247+638 = **1422 raw frame corpus**;
+these numbers come from the existing source test ledger and still need to
+be reverified by executing extraction against the full CSV sources. They
+are **not processed Windows contacts**. The August MSI report corrects an
+important old assumption: `+0xD40..+0xD78` is structured nonfloat byte
+data, *not* the hypothesized zero 10x11 Mahalanobis matrix.
