@@ -51,6 +51,7 @@ public sealed class TouchModel {
    if(kind=="UP") Up++; else CaptureLost++;
   }
  }
+ public static int NativePointerSize(){return Marshal.SizeOf(typeof(PointerInfo));}
  public static void AssertSelfTest() {
   var a=new TouchModel();
   a.Apply("DOWN",1,new Point(20,20)); a.Apply("DOWN",2,new Point(200,20));
@@ -260,7 +261,7 @@ Add-Type -TypeDefinition $src -ReferencedAssemblies 'System.Windows.Forms','Syst
 if($SelfTest) {
     [TouchModel]::AssertSelfTest()
     if([IntPtr]::Size -eq 8) {
-        $size=[Runtime.InteropServices.Marshal]::SizeOf([PointerInfo])
+        $size=[TouchModel]::NativePointerSize()
         if($size -ne 96){throw "Win32 POINTER_INFO size wrong (expected 96, got $size)"}
         Write-Host "PASS: 64-bit Win32 POINTER_INFO is $size bytes"
     }
