@@ -24,14 +24,14 @@ function Assert-Assets {
 }
 function Assert-Admin {
   $id=[Security.Principal.WindowsIdentity]::GetCurrent()
-  $pr=New-Object Security.Principal.WindowsPrincipal($id)
+  $pr=[Security.Principal.WindowsPrincipal]::new($id)
   if(-not $pr.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
     throw 'Run Windows PowerShell as Administrator. No driver changes will occur.'
   }
 }
 function Run-Command {
-  param([string]$Exe,[string[]]$Args,[string]$Log)
-  $lines=& $Exe @Args 2>&1
+  param([string]$Exe,[string[]]$Argv,[string]$Log)
+  $lines=& $Exe @Argv 2>&1
   $exit=$LASTEXITCODE
   $lines | Out-File -LiteralPath $Log -Encoding utf8 -Width 1200
   if($exit -ne 0){throw "$Exe exited with $exit. See $Log"}
