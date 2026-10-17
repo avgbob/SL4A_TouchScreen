@@ -66,6 +66,8 @@ public sealed class PinchWindow : Form {
  const int UPDATE=0x245,DOWN=0x246,UP=0x247,ENTER=0x249,LEAVE=0x24a,LOST=0x24c;
  const uint TOUCH=2, INCONTACT=0x4, CANCELLED=0x400;
  [DllImport("user32.dll",SetLastError=true)] static extern bool GetPointerType(uint id,out uint type);
+ [DllImport("user32.dll")] static extern bool SetProcessDPIAware();
+ public static void TrySetDpiAware(){ try { SetProcessDPIAware(); } catch (EntryPointNotFoundException) {} }
  [DllImport("user32.dll",SetLastError=true)] static extern bool GetPointerInfo(uint id,out PointerInfo p);
  [DllImport("user32.dll",SetLastError=true)] static extern bool GetPointerTouchInfo(uint id,out PointerTouchInfo p);
  [DllImport("user32.dll",SetLastError=true)] static extern bool GetPointerFrameInfo(uint id,ref uint count,[Out] PointerInfo[] p);
@@ -297,6 +299,7 @@ if($SelfTest) {
 New-Item -ItemType Directory -Path $OutputFolder -Force | Out-Null
 Write-Host "Four stages; SPACE advances, M marks two real fingers when displayed count is wrong."
 Write-Host "Results: $OutputFolder"
+[PinchWindow]::TrySetDpiAware()
 [System.Windows.Forms.Application]::EnableVisualStyles()
 $form=New-Object PinchWindow($OutputFolder)
 try{[System.Windows.Forms.Application]::Run($form)}finally{$form.Dispose()}
