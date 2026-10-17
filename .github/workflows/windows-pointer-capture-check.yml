@@ -1,0 +1,38 @@
+name: Windows pointer logger compatibility
+
+on:
+  push:
+    paths:
+      - 'tools/windows_capture/capture_os_pointer_contacts.ps1'
+      - '.github/workflows/windows-pointer-capture-check.yml'
+  pull_request:
+    paths:
+      - 'tools/windows_capture/capture_os_pointer_contacts.ps1'
+      - '.github/workflows/windows-pointer-capture-check.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  windows-powershell-5:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Parse PowerShell 5.1 script (hard fail on syntax)
+        shell: powershell
+        run: |
+          $path = 'tools/windows_capture/capture_os_pointer_contacts.ps1'
+          $tokens = $null
+          $errors = $null
+          [void][System.Management.Automation.Language.Parser]::ParseFile(
+              (Resolve-Path $path).Path, [ref]$tokens, [ref]$errors)
+          if ($errors.Count -gt 0) {
+              $errors | Format-List * | Out-String | Write-Host
+              throw "$($errors.Count) PowerShell parse errors"
+          }
+          Write-Host "PASS: PowerShell 5.1 parser."
+      - name: Compile WinForms C# without opening a touch window
+        shell: powershell
+        run: |
+          powershell.exe -NoProfile -STA -ExecutionPolicy Bypass -File tools/windows_capture/capture_os_pointer_contacts.ps1 -CompileOnly
