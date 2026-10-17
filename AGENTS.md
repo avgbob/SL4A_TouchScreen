@@ -2,7 +2,8 @@
 
 **Before any driver, tracker, Windows-reverse-engineering, or hardware-test work**, read:
 
-1. [`docs/WINDOWS-STACK-COMPLETENESS-20261017.md`](docs/WINDOWS-STACK-COMPLETENESS-20261017.md) — **2026-10-17 complete Windows stack gap audit; original 0C19/0C18 DLL binaries and 262 MSI payload files were RECOVERED IN GIT HISTORY (not absent)**.
+1. [`docs/HEATCORE-26100.9278-STATIC-AUDIT.md`](docs/HEATCORE-26100.9278-STATIC-AUDIT.md) — **uploaded exact HeatCore 26100.9278, binary static assembly/code xrefs, field map for 0x3A -> 0x21, 0x20 -> 0x3A, fresh RVA map; OLD JULY VAs ARE INCOMPATIBLE**.
+2. [`docs/WINDOWS-STACK-COMPLETENESS-20261017.md`](docs/WINDOWS-STACK-COMPLETENESS-20261017.md) — **2026-10-17 complete Windows stack gap audit; original 0C19/0C18 DLL binaries and 262 MSI payload files were RECOVERED IN GIT HISTORY (not absent)**.
 2. [`docs/RESEARCH-HISTORICAL-RECOVERY.md`](docs/RESEARCH-HISTORICAL-RECOVERY.md) — **IMPORTANT: recovered 468 Windows Ghidra function bodies plus restored strict corpus analyzer from older Git commits**.
 2. [`docs/RESEARCH-INDEX.md`](docs/RESEARCH-INDEX.md) — authoritative orientation, verified facts, scope and next steps.
 3. [`docs/RESEARCH-CONTRADICTIONS.md`](docs/RESEARCH-CONTRADICTIONS.md) — superseded claims, known false statements, and unresolved evidence gaps.
