@@ -1,5 +1,61 @@
 # Windows capture kit — historical research reference
 
+## After the successful October 17 correlated capture — extract a small evidence ZIP
+
+The original coordinated recording **succeeded** and preserved
+`pinch-runtime.etl` (~222 MB) and `pinch-runtime.csv` (~657 MB).
+The first upload contained only manifest/coordinator logs;
+**the actual V2 pointer events and WPR CSV were not yet submitted**.
+Do not re-record the same gesture. See
+[confirmed capture metadata and remaining gates](../../docs/WINDOWS-CORRELATED-CAPTURE-STATUS-20261017.md).
+
+To extract validated raw sensor frames from the large CSV *locally*,
+open an ordinary Windows PowerShell window and paste:
+
+```powershell
+$desktop = [Environment]::GetFolderPath('Desktop')
+$run = Join-Path $desktop 'SL4A-Correlated-20261017-183111'
+$kit = Join-Path $desktop 'SL4A-Correlated-Kit'
+New-Item -ItemType Directory -Force -Path $kit | Out-Null
+
+$base = 'https://raw.githubusercontent.com/avgbob/SL4A_TouchScreen/main/tools/'
+foreach ($name in @('analyze_correlated_pinch.py',
+                    'build_pinch_evidence_bundle.py')) {
+    Invoke-WebRequest ($base + 'windows_capture/' + $name) -OutFile (Join-Path $kit $name)
+}
+Invoke-WebRequest ($base + 'decode_v0_capimg.py') -OutFile (Join-Path $kit 'decode_v0_capimg.py')
+
+if (Get-Command py -ErrorAction SilentlyContinue) {
+    & py -3 (Join-Path $kit 'build_pinch_evidence_bundle.py') --run-dir $run
+} elseif (Get-Command python -ErrorAction SilentlyContinue) {
+    & python (Join-Path $kit 'build_pinch_evidence_bundle.py') --run-dir $run
+} else {
+    throw 'Python 3 is required for offline extraction; no need to recapture the touchscreen.'
+}
+```
+
+The script checks manifest hashes, reconstructs `0x0C` SPI
+sensor frames by activity and direction, strictly decodes 72x48
+CapImg sections, and retains a coverage report even when
+no raw frames can be recovered. **It does not upload anything.**
+It packages (if present) `pointer/events.csv`, `samples.csv`,
+`SUMMARY.txt`, coordinator logs, provider counts, raw frame hashes,
+and compressed decoded frames into:
+
+`SL4A-Correlated-20261017-183111\offline-analysis\SL4A-correlated-evidence.zip`
+
+**Upload that ZIP here**, not the 657 MB WPR CSV or original ETL.
+Keep the originals on the Surface. The ZIP can itself contain
+touch positions and heatmaps; share it privately rather than
+committing it to public GitHub.
+
+The script requires Python 3.10+; the original recording does
+not need Python. The parser, missing-sensor-report handling,
+hash rejection, and ZIP contents have automated tests on
+[Windows correlated collector Actions](https://github.com/avgbob/SL4A_TouchScreen/actions/workflows/windows-pinch-correlated.yml).
+
+---
+
 ## New priority: paired WPR + guided V2 close-pinch capture (2026-10-17)
 
 Two separate user-confirmed V2 trials provide **17/17 intentional M
