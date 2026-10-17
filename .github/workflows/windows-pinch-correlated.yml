@@ -1,0 +1,63 @@
+name: Windows correlated pinch collector compatibility
+
+on:
+  push:
+    paths:
+      - 'tools/windows_capture/capture_pinch_correlated.ps1'
+      - 'tools/windows_capture/capture_os_pointer_contacts_v2.ps1'
+      - 'tools/windows_capture/touch_boot.wprp'
+      - '.github/workflows/windows-pinch-correlated.yml'
+  pull_request:
+    paths:
+      - 'tools/windows_capture/capture_pinch_correlated.ps1'
+      - 'tools/windows_capture/capture_os_pointer_contacts_v2.ps1'
+      - 'tools/windows_capture/touch_boot.wprp'
+      - '.github/workflows/windows-pinch-correlated.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  windows-static:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: PowerShell 5.1 parse and profile XML
+        shell: powershell
+        run: |
+          $paths = @(
+            'tools/windows_capture/capture_pinch_correlated.ps1',
+            'tools/windows_capture/capture_os_pointer_contacts_v2.ps1'
+          )
+          foreach ($p in $paths) {
+            $tok = $null
+            $errors = $null
+            [void][System.Management.Automation.Language.Parser]::ParseFile(
+              (Resolve-Path $p).Path, [ref]$tok, [ref]$errors)
+            if ($errors.Count -gt 0) {
+              $errors | ForEach-Object { Write-Host $_.ToString() }
+              throw "Parse errors in $p"
+            }
+          }
+          [xml]$wprp = Get-Content -Raw tools/windows_capture/touch_boot.wprp
+          if ($wprp.WindowsPerformanceRecorder.Profiles.EventProvider.Count -lt 4) {
+            throw 'Expected WPR provider definitions absent'
+          }
+          Write-Host 'PASS: Windows PowerShell 5.1 scripts and WPR profile XML parse'
+      - name: Non-elevated, non-tracing asset and GUID self-test
+        shell: powershell
+        run: |
+          powershell.exe -NoProfile -STA -ExecutionPolicy Bypass -File tools/windows_capture/capture_pinch_correlated.ps1 -Mode SelfTest
+      - name: Re-check V2 native structs and staggered lift
+        shell: powershell
+        run: |
+          powershell.exe -NoProfile -STA -ExecutionPolicy Bypass -File tools/windows_capture/capture_os_pointer_contacts_v2.ps1 -SelfTest
+      - name: Enforce non-destructive behavior
+        shell: powershell
+        run: |
+          $p = Get-Content -Raw tools/windows_capture/capture_pinch_correlated.ps1
+          if ($p -match '(?i)wpr\s+-cancel|Run-Command\s+[^\r\n]*\x27-cancel\x27') {
+            throw 'Collector must not cancel existing WPR sessions.'
+          }
+          Write-Host 'PASS: no WPR cancellation command'
