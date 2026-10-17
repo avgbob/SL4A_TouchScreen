@@ -57,3 +57,21 @@ jobs:
           stages = {stage: sum(x['stage'] == stage for x in rows) for stage in ('baseline', 'tracking')}
           print('Real captured heatmap replay:', stages)
           PY
+      - name: Analyze Windows sensor regions versus prototype candidates (NOT HID truth)
+        run: |
+          set -euo pipefail
+          python3 userspace/surface-processor/analyze_windows_proxy.py \
+            /tmp/sl4a-windows-corpus/surface_touch/frames.txt \
+            /tmp/sl4a-windows-touch-output.jsonl \
+            > /tmp/sl4a-windows-proxy-summary.json
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          m = json.loads(Path('/tmp/sl4a-windows-proxy-summary.json').read_text())
+          assert m['frames'] == 537
+          assert m['counts']['tracking_frames'] == 507
+          print('Sensor-region proxy totals (NOT Windows contacts):', m['counts'])
+          print('Candidate vs raw-region proxy:', m['candidate_versus_raw_proxy'])
+          print('Candidate histogram:', m['histograms']['prototype_candidates'])
+          print('Raw-region histogram:', m['histograms']['raw_qualified_regions'])
+          PY
