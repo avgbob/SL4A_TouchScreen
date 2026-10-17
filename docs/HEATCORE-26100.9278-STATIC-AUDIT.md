@@ -287,8 +287,7 @@ all 256 possible flag bytes for *both* formats; tests separately assert
 masked flags, preservation of the two-byte ID, data-field reorder, and zero
 reserved bytes. **This tests the modeled copy semantics, not proof that
 Windows routes each record through both routines or that real fingertips
-match Linux.** The exact tested script from this session is
-`heatcore_contact_pipeline_26100.py` (distributed as a user artifact).
+match Linux.** The source-only script is now **tracked in GitHub** as [tools/heatcore_contact_pipeline_26100.py](../tools/heatcore_contact_pipeline_26100.py), with synthetic-only CI at [.github/workflows/heatcore-contact-research.yml](../.github/workflows/heatcore-contact-research.yml). The exact private uploaded binary never enters the public repo. Local verification against the real DLL found 16 matching instruction fingerprints and 512 modeled flag/ID test vectors; remote Actions status is a separate question.
 
 ## Next required work after these ABI checks
 
