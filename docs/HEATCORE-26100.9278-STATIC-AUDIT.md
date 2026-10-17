@@ -300,3 +300,42 @@ notably there are no simple direct `call 0x180034f60` /
 vtable reconstruction is still required. Validate with matching-gesture
 **OS-visible contact IDs/Tip/lift** against sensor captures before any
 Gate5 driver changes.
+
+
+### Additional host frame validation / output-selection boundary
+
+`DedicatedThreadProcessorHost::FinalizeInternalContactFrame`
+function RVA **`0x2cf00..0x2d063`** (already name-anchored to the embedded
+`FinalizeInternalContactFrame` string) was inspected at instruction level:
+
+1. At `0x2cf2c`, checks **frame header `[frame+0]` is `0x28`**.
+   At `0x2cf39`, reads `[frame+0x20]` as the record count.
+2. Dispatches by `[frame+0x10]`:
+   `3` requires each 0x48-byte record's size-header QWORD equal 0x48
+   (`0x2cf3f..0x2cf55`);
+   `2` requires each 0x3C-byte record's size-header QWORD equal 0x3C
+   (`0x2cf61..0x2cf77`);
+   **other types** use the 0x3A record check
+   (`0x2cf7c..0x2cf8c`)—the fallback branch is not proof only type 1 exists.
+3. With valid records, calls an **indirect** interface predicate at
+   `[this+0x40]` vtable slot `+0x28` (`0x2cf96..0x2cfa8`).
+   The true branch sends via `[this+0x2a8]` vtable slot `+0x48`
+   (`0x2cfbb..0x2cfcf`). The false branch checks another
+   method at `[this+0x40]` vtable slot `+0x20`
+   (`0x2d001..0x2d013`) and uses a distinct helper `0x2f414`.
+   **The actual runtime interface types/targets and OS delivery
+   semantics are still unverified.**
+
+The [source-only regression model](../tools/heatcore_contact_pipeline_26100.py)
+has been extended to **25** exact binary opcode signatures (16 reporting
+landmarks + 9 host frame/dispatch landmarks). Local execution against the
+user-uploaded SHA-matched DLL passed **all 25**, plus all **512**
+synthetic record-copy flag/ID test vectors. Private binary bytes remain
+outside the public GitHub repository. The CI synthetic job is *not*
+equivalent to verifying the 25 original-binary signatures because
+the private DLL is intentionally absent from CI.
+
+**Practical debugging target:** The 0x28 frame-envelope + per-record-size
+validation can reject malformed frames, but contains no rule for whether
+contact bit 0/1/2 should clear after lift. The upstream source of the ID
+and state mask remains the outstanding behavioral issue.
