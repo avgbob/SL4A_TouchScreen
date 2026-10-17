@@ -1,5 +1,8 @@
 # Surface Laptop 4 AMD touchscreen — canonical research index
 
+> **Windows touch event oracle RECORDED (2026-10-17):** Real Windows `WM_POINTER` test produced **6,230 touch events** (5 DOWN, 5 UP, 6,210 UPDATE) across 5 pointer IDs, maximum 2 concurrent and all released. Last two-finger pair shows **291 continued updates / 2.914 seconds** on one remaining finger after the other lifted. [Provenance and boundaries](WINDOWS-OS-POINTER-ORACLE-20261017.md). **This is an OS-app pointer oracle, not synchronized with CapImg frames and not an internal HeatCore/HID Contact ID capture.** Earlier statements below that *no Windows OS output* had been observed are superseded, but the **synchronized raw/processed** gap remains.
+
+
 > **2026-10-17 uploaded HeatCore binary reverse engineering:** The user's exact 26100.9278 `HeatCore.dll` was uploaded and statically inspected. Code-bound `HeatHidInjectionProvider` starts at RVA `0x14900`, `HeatPointerInputReporter::ReportTouchContactFrame` at `0x34f60`. Its actual `0x3a` -> `0x21` field copy, `0x20` -> `0x3a` pointer record flags `1/2/4`, three output format branches, and PDB signature have been mapped. **Historical HeatCore function addresses do not match function starts in this build.** Two pointer reporter formats + the low-three-bit flag normalizer are now modeled with [512 synthetic regression vectors](../tools/heatcore_contact_pipeline_26100.py) and 16 exact-binary signatures; this is a **byte-copy model only**. [Exact binary static audit](HEATCORE-26100.9278-STATIC-AUDIT.md). Missing *analysis copy* is now also CLOSED.
 
 
