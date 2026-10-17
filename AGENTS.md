@@ -1,5 +1,8 @@
 # SL4A Surface touchscreen research handoff
 
+> **Operator correction (2026-10-17):** While physically pinching with two fingers the older Windows WM_POINTER test window sometimes showed **one active ID**. The CSV's uninterrupted 10.92-second *particular* two-ID section does not prove all pinches worked. The test could have a reporting bug or the actual Windows touch stack could drop a physical contact. **Do not claim all pinches succeeded**; V2 in [tools/windows_capture/capture_os_pointer_contacts_v2.ps1](tools/windows_capture/capture_os_pointer_contacts_v2.ps1) explicitly logs operator `M` annotations, message count and native frame count, and stage-specific contact timelines. Native frame view is another OS-layer measurement, not controller sensor truth.
+
+
 **Before any driver, tracker, Windows-reverse-engineering, or hardware-test work**, read:
 
 1. [`docs/HEATCORE-26100.9278-STATIC-AUDIT.md`](docs/HEATCORE-26100.9278-STATIC-AUDIT.md) — **uploaded exact HeatCore 26100.9278, binary static assembly/code xrefs, field map for 0x3A -> 0x21, 0x20 -> 0x3A, fresh RVA map; OLD JULY VAs ARE INCOMPATIBLE**.
