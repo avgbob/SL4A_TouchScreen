@@ -1,5 +1,8 @@
 # SL4A evidence contradictions, retractions, and research blockers
 
+> **2026-10-17 HeatCore uploaded and static ABI verified:** `HeatCore.dll` 26100.9278 **has been uploaded** (not merely located) and its `0x3a` input->`0x21` HID output and `0x20` input->`0x3a` pointer output mappings partly traced via exact uploaded disassembly. Old July HeatCore offsets **fall inside non-start addresses in current .pdata**; do not reuse them. See [HEATCORE-26100.9278-STATIC-AUDIT.md](HEATCORE-26100.9278-STATIC-AUDIT.md). Remaining gap is end-to-end OS-contact semantics and synced final Windows contact oracle, **not finding HeatCore.dll**.
+
+
 > **2026-10-17 inbox verification correction:** Original active Windows `HeatCore.dll`, `hidspi.sys`, `HidSpiCx.sys`, `amdspi.sys` **found, versioned and SHA-256 hashed**; see [WINDOWS-STACK-COMPLETENESS-20261017.md](WINDOWS-STACK-COMPLETENESS-20261017.md). The P0 blocker is **matching-build HeatCore decompilation and final OS contacts**, not locating these files. Earlier historical text stating that the Windows inbox files are unlocated is superseded.
 
 
