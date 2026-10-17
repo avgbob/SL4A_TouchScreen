@@ -1,5 +1,8 @@
 # Repeated Windows V2 one-handed pinch: contact-loss observations
 
+> **Next evidence step prepared:** [Windows correlated pinch capture protocol](WINDOWS-CORRELATED-PINCH-EXPERIMENT-20261017.md) with same-session V2 M markers and WPR SPI/TouchAndPen. Offline decoder insists on complete 0x0C CapImg frames; it will flag a trace with only provider metadata as insufficient. Windows CI passed, but the collector has not yet been run on this Surface.
+
+
 Date: 2026-10-17. **Second guided V2 trial** (separate from first).
 The user additionally confirmed that the **only erroneous M keypress in
 the first V2 trial** was at **2026-10-17T19:48:15.5399695Z**, the
