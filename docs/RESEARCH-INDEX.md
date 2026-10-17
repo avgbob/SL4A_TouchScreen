@@ -1,5 +1,8 @@
 # Surface Laptop 4 AMD touchscreen — canonical research index
 
+> **READY NEXT EXPERIMENT (2026-10-17):** [Coordinated Windows WPR+V2 pinch capture](WINDOWS-CORRELATED-PINCH-EXPERIMENT-20261017.md) collects **one time-overlapping session** of SPB/HID/TouchAndPen ETW and M-marked Windows OS pointers, with an offline strict `0x0C` heatmap coverage verifier and Windows CI tests. [User-facing one-command instructions](../tools/windows_capture/README.md). **Not yet executed on Surface hardware** and WPR provider enablement is not proof raw frames exist. Continue investigating the reported 17/17 missing second-pointer M annotations only after synchronized sensor capture.
+
+
 > **REPEATED V2 PINCH MISMATCH (2026-10-17):** Trial 1: **12/12 intentional M markers showed only one Windows pointer**, with the sole two-pointer M press (19:48:15.5399695Z) confirmed accidental. Trial 2: **5/5 intentional M markers showed one pointer**, totaling **17/17 valid observations** across two sessions. Secondary UP at <=100 OS screen px from another pointer in **23/27** pinch-stage releases combined (trial 1: 15/19; trial 2: 8/8). See [repeated pinch report](WINDOWS-V2-REPEAT-PINCH-20261017.md). The failure's originating processing layer remains unknown; do not interpret markers or OS screen distance as raw capacitive ground truth.
 
 
