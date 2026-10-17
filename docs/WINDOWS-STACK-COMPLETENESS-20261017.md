@@ -143,14 +143,14 @@ $names = @(
  'TouchPenProcessor0C19.dll','SurfaceHidMiniDriver.sys'
 )
 $systemRoots = @("$env:windir\System32", "$env:windir\System32\drivers")
-$found = foreach ($name in $names) {
+$found = @(foreach ($name in $names) {
  foreach ($dir in $systemRoots) {
   $p = Join-Path $dir $name
   if (Test-Path -LiteralPath $p -PathType Leaf) {
    Get-Item -LiteralPath $p
   }
  }
-}
+})
 # Only search DriverStore for names not found at the two direct locations.
 $missing = $names | Where-Object { $_ -notin @($found | ForEach-Object Name) }
 $store = "$env:windir\System32\DriverStore\FileRepository"
