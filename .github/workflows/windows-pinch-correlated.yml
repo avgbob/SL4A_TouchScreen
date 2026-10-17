@@ -9,6 +9,8 @@ on:
       - '.github/workflows/windows-pinch-correlated.yml'
       - 'tools/windows_capture/analyze_correlated_pinch.py'
       - 'tests/test_correlated_pinch_capture.py'
+      - 'tools/windows_capture/build_pinch_evidence_bundle.py'
+      - 'tests/test_build_pinch_evidence_bundle.py'
   pull_request:
     paths:
       - 'tools/windows_capture/capture_pinch_correlated.ps1'
@@ -68,5 +70,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Verify synthetic 0x0C sensor frames and missing-frame detection
-        run: python3 -m unittest discover -s tests -p 'test_correlated_pinch_capture.py' -v
+      - name: Verify synthetic sensor frames, hash integrity, and upload ZIP packaging
+        run: |
+          python3 -m unittest discover -s tests -p 'test_correlated_pinch_capture.py' -v
+          python3 -m unittest discover -s tests -p 'test_build_pinch_evidence_bundle.py' -v
