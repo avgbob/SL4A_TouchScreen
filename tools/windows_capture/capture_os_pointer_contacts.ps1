@@ -4,11 +4,17 @@
 # It does not modify drivers or devices; it writes a local CSV in the user's Desktop.
 # The pointer ID supplied by Windows WM_POINTER is NOT automatically the raw HID Contact ID.
 param(
-    [string]$CsvPath = (Join-Path ([Environment]::GetFolderPath('Desktop'))
-        ('sl4a-os-pointer-' + (Get-Date -Format 'yyyyMMdd-HHmmss') + '.csv'))
+    [string]$CsvPath = '',
+    [switch]$CompileOnly
 )
 
-if ([System.Threading.Thread]::CurrentThread.GetApartmentState() -ne 'STA') {
+$ErrorActionPreference = 'Stop'
+if ([string]::IsNullOrWhiteSpace($CsvPath)) {
+    $name = 'sl4a-os-pointer-' + (Get-Date -Format 'yyyyMMdd-HHmmss') + '.csv'
+    $CsvPath = Join-Path -Path ([Environment]::GetFolderPath('Desktop')) -ChildPath $name
+}
+
+if (-not $CompileOnly -and [System.Threading.Thread]::CurrentThread.GetApartmentState() -ne 'STA') {
     throw 'Launch in STA: powershell.exe -NoProfile -STA -ExecutionPolicy Bypass -File .\capture_os_pointer_contacts.ps1'
 }
 if ([System.IO.File]::Exists($CsvPath)) {
@@ -38,12 +44,10 @@ public sealed class Sl4aPointerCapture : Form
 
     readonly StreamWriter writer;
     readonly HashSet<uint> active = new HashSet<uint>();
-    readonly string outputPath;
     long count;
 
     public Sl4aPointerCapture(string path)
     {
-        outputPath = path;
         writer = new StreamWriter(path, false, System.Text.Encoding.UTF8);
         writer.AutoFlush = true;
         writer.WriteLine("UtcTimestamp,StopwatchTicks,Event,PointerId,PointerType,ScreenX,ScreenY,WParamHex");
@@ -122,6 +126,10 @@ public sealed class Sl4aPointerCapture : Form
 }
 '@
 Add-Type -TypeDefinition $code -ReferencedAssemblies 'System.Windows.Forms','System.Drawing' -ErrorAction Stop
+if ($CompileOnly) {
+    Write-Host 'PASS: Windows PowerShell parsed script and compiled WinForms pointer logger.'
+    return
+}
 Write-Host "Pointer CSV: $CsvPath"
 Write-Host "ESC closes the capture window. Keep original Windows drivers unchanged."
 $form = New-Object Sl4aPointerCapture($CsvPath)
