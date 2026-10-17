@@ -1,5 +1,8 @@
 # SL4A research source manifest and artifact locations
 
+> **Uploaded HeatCore original analyzed (2026-10-17):** `HeatCore.dll` version 26100.9278, SHA-256 `b295b095acf574007b894f841ef083e8cb06a72a256ee0bb75b4be80f2fcd5df`, has been uploaded and analyzed OFFLINE. See [HEATCORE-26100.9278-STATIC-AUDIT.md](HEATCORE-26100.9278-STATIC-AUDIT.md) for output contact layouts and corrected RVAs. No raw DLL bytes were added to this public repository. Original Windows processed contact events/IDs remain missing.
+
+
 > **Windows inbox files FOUND and SHA-256 verified on 2026-10-17:** `HeatCore.dll` 26100.9278, `hidspi.sys`/`HidSpiCx.sys` 26100.8972, and `amdspi.sys` 1.0.0.101; exact locations, sizes and hashes in [WINDOWS-STACK-COMPLETENESS-20261017.md](WINDOWS-STACK-COMPLETENESS-20261017.md). Earlier 'not located' statements below are superseded. HeatCore **decompilation** and final Windows contact trace remain open.
 
 
