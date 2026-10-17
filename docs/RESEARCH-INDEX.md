@@ -1,5 +1,8 @@
 # Surface Laptop 4 AMD touchscreen — canonical research index
 
+> **FIRST SAME-SESSION SENSOR-vs-OS PINCH RESULT (2026-10-17):** The user-provided verified coordinated ZIP contained **8,232 complete raw V0 0x0C CapImg frames** (72x48, 8-bit), **16,608 completed SPB transactions**, and the actual matching V2 pointer trace (7 DOWN/7 UP; 3 M physical two-finger/one-OS-ID observations). Near **each of the three M events**, a provisional clock match finds **one dominant connected CapImg region**, whereas wide-spaced two-finger holds show **two**; this is consistent across thresholds 150/165 in 50 frames around each marker. **No Surface TouchAndPen events were decoded**. See [detailed heatmap evidence and calibration caveats](WINDOWS-CORRELATED-HEATMAP-RESULT-20261017.md). This narrows investigation to peak overlap/upstream signal separation but does not establish a definitive root cause. No original raw trace/coordinates are committed.
+
+
 > **READY NEXT EXPERIMENT (2026-10-17):** [Coordinated Windows WPR+V2 pinch capture](WINDOWS-CORRELATED-PINCH-EXPERIMENT-20261017.md) collects **one time-overlapping session** of SPB/HID/TouchAndPen ETW and M-marked Windows OS pointers, with an offline strict `0x0C` heatmap coverage verifier and Windows CI tests. [User-facing one-command instructions](../tools/windows_capture/README.md). **Not yet executed on Surface hardware** and WPR provider enablement is not proof raw frames exist. Continue investigating the reported 17/17 missing second-pointer M annotations only after synchronized sensor capture.
 
 
