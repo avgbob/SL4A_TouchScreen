@@ -73,9 +73,9 @@ public sealed class PinchWindow : Form {
  [DllImport("user32.dll",SetLastError=true)] static extern bool GetPointerFrameInfo(uint id,ref uint count,[Out] PointerInfo[] p);
  static readonly string[] Steps={
   "1 OF 4: ONE FINGER. Drag one finger. Lift.",
-  "2 OF 4: TWO APART. Hold both on the glass 5 seconds.",
-  "3 OF 4: PINCH. Keep BOTH down, slowly open/close 3 times.",
-  "4 OF 4: LIFT. Two down; lift one; hold other for 3 seconds."
+  "2 OF 4: TWO APART. Hold 5 sec, then SPACE WITHOUT LIFTING.",
+  "3 OF 4: PINCH. SAME two fingers: slowly pinch 3 times, no lift.",
+  "4 OF 4: LIFT one only, hold second 3 seconds, then lift."
  };
  readonly TouchModel model=new TouchModel();
  readonly StreamWriter events, samples;
@@ -249,7 +249,7 @@ public sealed class PinchWindow : Form {
   using(var green=new SolidBrush(Color.FromArgb(94,224,167)))
   using(var red=new SolidBrush(Color.FromArgb(255,142,111))){
    g.DrawString("SL4A  •  TWO-FINGER DIAGNOSTIC V2",head,white,26,18);
-   if(stage<0)g.DrawString("Press SPACE to start. Each step: lift fingers, SPACE for next.",body,white,30,85);
+   if(stage<0)g.DrawString("SPACE starts. Lift after step 1; KEEP TWO FINGERS DOWN through steps 2-3.",body,white,30,85);
    else if(stage<4)g.DrawString(Steps[stage],body,white,30,85);
    else g.DrawString("Finished.",body,white,30,85);
    g.DrawString(model.Active.Count.ToString(),number,
