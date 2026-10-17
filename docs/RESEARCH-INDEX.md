@@ -1,5 +1,8 @@
 # Surface Laptop 4 AMD touchscreen — canonical research index
 
+> **2026-10-17 local Windows verification:** `HeatCore.dll` **FOUND** at `C:\Windows\System32\HeatCore.dll` (401,408 bytes, 26100.9278, SHA-256 `B295B095ACF574007B894F841EF083E8CB06A72A256EE0BB75B4BE80F2FCD5DF`). Windows `hidspi.sys`, `HidSpiCx.sys` are also found/hashed (26100.8972); AMD `amdspi.sys` matches the archived MSI. Exact addresses/hashes and remaining *analysis* gaps: [WINDOWS-STACK-COMPLETENESS-20261017.md](WINDOWS-STACK-COMPLETENESS-20261017.md). **Do not re-search for these installed files.**
+
+
 **Audit date:** 2026-10-17. **Scope:** `avgbob/SL4A_TouchScreen` tracked `main` tree (352 file blobs / 389 tree entries at `c081075492feae4146510cf0d364b23fd0a394eb`), current research PR #12 (draft), upstream PRs, the indexed prior-source reports, and archived Windows ETW inputs. This is a *source-and-claim audit*, not a new Windows DLL disassembly or new live hardware qualification. The research PR had 403 tree entries when inspected; the two trees have different content.
 
 **CRITICAL UPDATE — HISTORICAL SOURCE RECOVERED:** See [RESEARCH-HISTORICAL-RECOVERY.md](RESEARCH-HISTORICAL-RECOVERY.md). On 2026-10-17 we discovered the **468 complete Windows `TouchPenProcessor0C19.dll` Ghidra function exports** and the original 181 KB `GROUND_TRUTH.md` at historical commit [`c94c399`](https://github.com/avgbob/SL4A_TouchScreen/tree/c94c399618b23588c95711ab4449d9400036ffd0); these files were removed from current branch tips. The original `tools/analyze_raw_corpus.py` was recovered and the strict SHA/cadence/segment test passed CI. **Older references below describing these files as external-only or the strict analyzer as missing are superseded by this update.**
