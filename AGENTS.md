@@ -1,5 +1,8 @@
 # SL4A Surface touchscreen research handoff
 
+> **Next instrumented Windows experiment prepared (2026-10-17):** Use [docs/WINDOWS-CORRELATED-PINCH-EXPERIMENT-20261017.md](docs/WINDOWS-CORRELATED-PINCH-EXPERIMENT-20261017.md) and [tools/windows_capture/capture_pinch_correlated.ps1](tools/windows_capture/capture_pinch_correlated.ps1). It pairs WPR SPB/HID/TouchAndPen logging with guided, physically M-marked V2 pointer input in ONE session; it safely stops WPR, attempts tracerpt export, and retains ETL on failure. [Coverage verifier](tools/windows_capture/analyze_correlated_pinch.py) requires actual decoded 0x0C CapImg frames. Windows CI syntactic/synthetic tests pass; **live hardware raw/processed synchrony still unverified**. Do not change the Linux driver without these data.
+
+
 > **2026-10-17 V2 confirmed physical-contact discrepancy:** Trial 1: one M press at 19:48:15.5399695Z was accidental while TWO pointers were correctly shown; all **12/12 intentional two-physical-finger M annotations** occurred with ONE OS pointer. Trial 2: **5/5** further valid M annotations reproduced one OS pointer while two fingers touched. See [repeat V2 trial](docs/WINDOWS-V2-REPEAT-PINCH-20261017.md). Repeated ID retirements near close-contact distances are measured but the source stage (sensor, classifier, firmware, HeatCore or app) is unresolved. Do not modify Gate5 on the basis of unsynchronized OS pointer data.
 
 
