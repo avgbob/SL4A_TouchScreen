@@ -1,5 +1,8 @@
 # SL4A Surface touchscreen research handoff
 
+> **2026-10-17 V2 operator-annotated correction:** 12 of 13 moments manually confirmed as two fingers down had **one OS pointer**, with actual `UP`/new-`DOWN` events; the previous clean pinch subinterval does not settle this. [Aggregate-only V2 analysis](docs/WINDOWS-V2-ANNOTATED-PINCH-FINDINGS.md). Investigate close-contact classifier/suppression in offline research, but **no assumption about whether Windows firmware, HeatCore, 0C19 software processor, or tester caused it**. Do not change Gate5 based on unsynchronized input.
+
+
 > **Operator correction (2026-10-17):** While physically pinching with two fingers the older Windows WM_POINTER test window sometimes showed **one active ID**. The CSV's uninterrupted 10.92-second *particular* two-ID section does not prove all pinches worked. The test could have a reporting bug or the actual Windows touch stack could drop a physical contact. **Do not claim all pinches succeeded**; V2 in [tools/windows_capture/capture_os_pointer_contacts_v2.ps1](tools/windows_capture/capture_os_pointer_contacts_v2.ps1) explicitly logs operator `M` annotations, message count and native frame count, and stage-specific contact timelines. Native frame view is another OS-layer measurement, not controller sensor truth.
 
 
