@@ -1,5 +1,8 @@
 # Windows side: complete stack and evidence gap audit (2026-10-17)
 
+> **Post-upload analysis update (2026-10-17):** The exact 401,408-byte `HeatCore.dll` build 26100.9278 was UPLOADED and examined with `objdump` and PE metadata parsing. [HEATCORE-26100.9278-STATIC-AUDIT.md](HEATCORE-26100.9278-STATIC-AUDIT.md) identifies this build's actual contact reporter function boundaries, ABI offsets/field copies and three serialization branches. The P0 gap is now **full semantics plus final Windows contact oracle**, not finding, copying or acquiring the DLL. Any older 'not yet transferred / not yet analyzed' text below is superseded.
+
+
 > **Authoritative post-history-search update.** Consult this page before calling any
 > Windows DLL, firmware, trace or decompilation source "missing." Scope: Surface
 > Laptop 4 AMD **MSHW0231 / HID 045E:0C19 (13-inch)**, not 0C18/15-inch.
