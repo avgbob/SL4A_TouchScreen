@@ -69,3 +69,19 @@ behavior yet; it creates a reproducible platform for that work.
 
 See `linux-surface/iptsd`'s `src/contacts/finder.hpp`, `src/contacts/tracking/tracker.hpp`
 and mainline `drivers/input/input-mt.c` for architectural comparisons.
+
+## Windows contact reference comparison
+
+When Windows *processed* contacts are captured and converted to JSONL using the
+same frame sequence and coordinate system, compare them with:
+
+```sh
+python3 compare.py windows-contacts.jsonl contacts.jsonl > discrepancy.json
+```
+
+Each line in both inputs must have `{"frame": N, "contacts": [{"id": 1,
+"x": 10.2, "y": 20.4}]}`. Coordinates default to 72×48 sensor grid units.
+Use `--reference-scale-x` and `--reference-scale-y` for known coordinate
+conversions; do not guess. The comparator reports misses, false contacts,
+coordinate error, and consecutive-frame ID switches. **This is a measurement
+interface; it does not itself capture or infer Windows touch output.**
