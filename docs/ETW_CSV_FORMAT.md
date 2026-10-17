@@ -1,6 +1,6 @@
-# Windows ETW CSV Trace Format
+# Windows ETW CSV Trace Format — archived format notes
 
-The Windows `Microsoft-Windows-HIDSPI` ETW provider captures HID-over-SPI
+> **Audit note (2026-10-17):** This document includes obsolete experimental interpretations (including a 6912-byte 16-bit raster and an overstated full-Windows-oracle claim). For this SL4 MSHW0231 capture the verified format is 4304-byte V0 0x0c bodies with a 3456-byte 8-bit 72x48 raster. The three tracked CSVs have already produced **1,422 frames** via PR #12's `windows_evidence.py`; do not rerequest raw capture. See [RESEARCH-INDEX.md](RESEARCH-INDEX.md).\n\nThe Windows `Microsoft-Windows-HIDSPI` ETW provider captures HID-over-SPI
 bus transactions at 0xFFFF verbosity. These traces are the primary ground
 truth used to reverse-engineer the protocol and pipeline.
 
@@ -115,5 +115,4 @@ contract; see `docs/EVIDENCE.md`.
 4. Compare oracle output with kernel driver output
 5. Adjust kernel implementation to match
 
-The `tools/surface_tracker.py` script implements this validation
-loop with the full Windows pipeline emulated in Python.
+The `tools/surface_tracker.py` script is a **partial Windows-inspired model**, not a completed Windows pipeline or validated Windows output oracle. It explicitly omits classification and Windows hold/lift. See [RESEARCH-CONTRADICTIONS.md](RESEARCH-CONTRADICTIONS.md) issue D22.

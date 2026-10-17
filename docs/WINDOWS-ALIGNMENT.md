@@ -1,6 +1,6 @@
 # Aligning the raw pipeline with the Windows detector (device 0x0C19)
 
-Every row names where the Windows value comes from. "PSDB record" means the static
+> **Historic comparison, not a parity certificate (2026-10-17).** The August MSI static-table audit supersedes earlier guessed classifier structures: `+0xD40..+0xD78` is structured byte data, not a 10x11 Mahalanobis float matrix; `+0xED0` is not all runtime zero; `+0x8C4=0.7553579807`. The present Linux centroid, CCL and post-association decisions are not identical to Windows. See [RESEARCH-INDEX.md](RESEARCH-INDEX.md) and [RESEARCH-CONTRADICTIONS.md](RESEARCH-CONTRADICTIONS.md).\n\nEvery row names where the Windows value comes from. "PSDB record" means the static
 per-device configuration record `DAT_1808e0460` (+0x1d8c) in `TouchPenProcessor0C19.dll`,
 selected by device id through `FUN_180625d60` / `FUN_180627980` and copied to
 `ctx+0x194d8` for the detector `FUN_1805fba00`. The signal domain is the c590 lookup

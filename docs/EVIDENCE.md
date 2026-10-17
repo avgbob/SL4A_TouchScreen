@@ -1,6 +1,6 @@
 # Evidence Ledger
 
-This ledger is the authority for release behavior. A document or code comment
+**2026-10-17 research evidence addendum:** Start with [RESEARCH-INDEX.md](RESEARCH-INDEX.md), [RESEARCH-SOURCE-MANIFEST.md](RESEARCH-SOURCE-MANIFEST.md), and [RESEARCH-CONTRADICTIONS.md](RESEARCH-CONTRADICTIONS.md). This file still defines E0–E4 **release evidence**. The Oct 17 GitHub Actions replay of 1,422 authentic Windows sensor frames is an *offline replay observation*, not processed Windows contact-output validation or broad E1 hardware qualification. The previously optional `tests/raw_corpus_test.py` strict-hash/cadence test still silently SKIPs when `tools/analyze_raw_corpus.py` is absent; see D13.\n\nThis ledger is the authority for release behavior. A document or code comment
 that disagrees with it is a discrepancy to resolve, not a reason to change the
 wire protocol.
 

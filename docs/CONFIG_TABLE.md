@@ -1,6 +1,6 @@
 # DLL Config Table Reference
 
-Complete configuration table extracted from `TouchPenProcessor0C19.dll`
+> **2026-10-17 correction:** The DLL constants are recovered static values. The `Linux Equivalent` column and any finger-count multiplier interpretation below are **Linux approximations, NOT verified Windows radius policy**; consult the specific `FUN_180607a20` branches in [decomp/SURFACE_TRACKER_DECOMP.md](decomp/SURFACE_TRACKER_DECOMP.md) and [RESEARCH-CONTRADICTIONS.md](RESEARCH-CONTRADICTIONS.md) D16 before using them.\n\nComplete configuration table extracted from `TouchPenProcessor0C19.dll`
 data segment at virtual address `0x1808E0460` (file offset `0x8DF060`,
 section `.rdata`, product ID 0x0C19).
 
@@ -56,10 +56,9 @@ the strongest candidate's weight.
 | Offset | DLL Value | Description |
 |--------|-----------|-------------|
 | +0x8C0 | 0.611209 | Primary pre-assoc ratio threshold |
-| +0x8C4 | 0.754732 | Secondary ratio threshold |
+| +0x8C4 | **0.7553579807** | Secondary ratio threshold |
 
-Disabled in Linux (`pre_assoc_ratio=0`). Without the Mahalanobis
-classifier to reject false positives, this filter is too aggressive
+Disabled in Linux (`pre_assoc_ratio=0`). Without verified Windows candidate classification and gain handling, this filter is potentially too aggressive
 for multi-finger scenarios.
 
 ## Noise Floor (offset +0xECC)
@@ -94,20 +93,34 @@ gain adaptation (FUN_180600820), which adjusts global signal gain
 based on noise floor measurements. Without the gain pipeline, this
 threshold is meaningless as a standalone value.
 
-## Runtime-Only Values (Not Ported)
+## Static versus runtime data: corrected by August MSI audit
 
-These config table ranges contain zeros in the static DLL binary and
-are populated at runtime by the Windows user-mode service or device
-firmware. They cannot be ported to Linux without equivalent
-communication channels.
+The August 2026 Microsoft MSI mining report (docs/SL4_MSI_Mining_Report.md)
+re-checked the actual 0x0C19 static image. **Not all of these ranges are
+zero-filled runtime calibration data.** Avoid using guessed matrix types or
+assuming SurfaceSystemTelemetryDriver is their producer.
 
-| Offset Range | Purpose | Source |
-|-------------|---------|--------|
-| +0xE60 - +0xE98 | Per-cycle gain calibration coefficients | Device firmware via SurfaceSystemTelemetryDriver |
-| +0xD40 - +0xD78 | Mahalanobis classification matrix (10×11 floats) | Device firmware |
-| +0xEA0 - +0xEC0 | Background noise adaptation tracking | Runtime sampling |
-| +0xE20 - +0xE48 | Contact size calibration | Device calibration |
-| +0xED0 - +0xF10 | Regional sensitivity maps | Runtime learning |
+| Offset range | Static image observation | What is still unknown |
+|---|---|---|
+| +0xD40 .. +0xD78 | Structured **nonzero byte/index** data with 0xFF sentinels; **not** a 10×11 floating-point Mahalanobis matrix | Meaning and consuming xrefs |
+| +0xE20 .. +0xE48 | Statically zero | Runtime producer and exact purpose |
+| +0xE60 .. +0xE98 | Statically zero | Runtime producer and per-cycle gain interpretation |
+| +0xEA0 .. +0xEC0 | Statically zero | Noise/adaptation fields and producer |
+| +0xED0 onward | Structured **static** floats, count and 20-entry quadratic lookup | Which detector path consumes it |
+
+At +0xED0: floats 0.12, 0.06, 0.055, integer 20, then
+pairs x (0.025..0.120 in increments of 0.005) and approximately
+round(65536 * x²) (41..944). The 15-inch 0x0C18 table differs
+in at least the preceding +0xED8 parameter.
+
+The old description of +0xD40 as an all-zero runtime Mahalanobis
+float matrix and +0xED0 as runtime-only regional sensitivity are
+**retracted**. The classifier function FUN_180601690 still requires
+decompilation and empirical Windows comparison.
+
++0x8C4 is verified **0.7553579807**; an earlier documented value
+0.754732 was a transcription error. See the exact DLL hash and
+cross-product comparison in docs/SL4_MSI_Mining_Report.md.
 
 ## Data Type Notes
 

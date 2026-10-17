@@ -1,9 +1,6 @@
-# Surface TouchPenProcessor0C19 — Kernel Pipeline
+# Surface TouchPenProcessor0C19 — **historical Linux approximation**
 
-Linux kernel multitouch pipeline matching the Windows
-`TouchPenProcessor0C19.dll` processing chain.
-
-## Pipeline Overview
+> **NOT A WINDOWS-EQUIVALENCE SPECIFICATION.** This file documents the Linux heatmap tracker and the hypotheses used during its development. Its alignment percentages are **not measurements** against Windows processed touch contacts. Some algorithm labels are conjectural; the Windows classifier and real hold/lift/reporting remain unresolved. Read [RESEARCH-INDEX.md](RESEARCH-INDEX.md) and [RESEARCH-CONTRADICTIONS.md](RESEARCH-CONTRADICTIONS.md) first. The older Mahalanobis-matrix interpretation is falsified by the August 0C19 MSI analysis.\n\n## Pipeline Overview
 
 ```
 Frame (heatmap grid — 72×48/3456 cells on SL4 MSHW0231, 78×52/4056 on SL3 MSHW0162; selected by ACPI ID)

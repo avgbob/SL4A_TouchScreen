@@ -1,4 +1,4 @@
-# HID-over-SPI Version 0 Protocol
+> **2026-10-17 evidence note:** Historical transport hypotheses in this file (especially any 16-bit/6912-byte raw-raster descriptions) are superseded for MSHW0231 by the verified 4304-byte V0 CapImg section decoder, 72x48 8-bit raster, and the [canonical evidence index](RESEARCH-INDEX.md). Do not infer that Windows synthesizes no 0x40 contact report merely because SPI traces contain 0x0c.\n\n# HID-over-SPI Version 0 Protocol
 
 The MSHW0231 touch controller communicates via the HID-over-SPI protocol
 Version 0 (V0), a pre-release variant that differs from the public v1.0

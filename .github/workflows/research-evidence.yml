@@ -1,0 +1,35 @@
+name: Research evidence source integrity
+on:
+  push:
+    branches:
+      - main
+      - docs/canonical-research-audit-20261017
+    paths:
+      - "AGENTS.md"
+      - "docs/RESEARCH-*"
+      - "docs/CONFIG_TABLE.md"
+      - "docs/CONTACT_ABI.md"
+      - "tools/research_evidence_guard.py"
+      - "traces/**"
+      - "captures/id5-20260718/frames/**"
+      - "evidence/windows/gate2/windows-golden.jsonl"
+      - ".github/workflows/research-evidence.yml"
+  pull_request:
+    paths:
+      - "AGENTS.md"
+      - "docs/RESEARCH-*"
+      - "tools/research_evidence_guard.py"
+      - "traces/**"
+      - "captures/id5-20260718/frames/**"
+      - ".github/workflows/research-evidence.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  immutable-evidence:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify source inventory and exact mirrors
+        run: python3 tools/research_evidence_guard.py

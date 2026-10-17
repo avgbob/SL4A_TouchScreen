@@ -1,6 +1,6 @@
 # SL4A TouchScreen
 
-Linux touchscreen driver for the **Microsoft Surface Laptop 4 AMD** and
+> **Research evidence start here (2026-10-17):** [canonical SL4A Windows evidence index](docs/RESEARCH-INDEX.md) · [original source manifest](docs/RESEARCH-SOURCE-MANIFEST.md) · [24 contradictions and open gaps](docs/RESEARCH-CONTRADICTIONS.md). These documents supersede unqualified Windows-fidelity claims in historical pipeline notes. Full 1,422-frame July CapImg corpus has already been replayed in PR #12; processed Windows contact IDs have **not** been verified.\n\nLinux touchscreen driver for the **Microsoft Surface Laptop 4 AMD** and
 **Surface Laptop 3 AMD**, built around the AMD `AMDI0060` SPI controller and
 Microsoft `MSHW0231` / `MSHW0162` HID-over-SPI devices.
 

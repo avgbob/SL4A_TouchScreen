@@ -11,10 +11,13 @@ endif
 all: protocol_test capimg_decoder_host_test c590_atan2_host_test wire_frames_test
 
 # Real Windows touch-session corpus: 537 SPB wire frames extracted from the
-# recovered surface_touch.csv capture (~/sl4a-analysis/raw-corpus). It is
-# Microsoft-derived capture data, so it is deliberately NOT committed here;
-# when the file is missing the replay tool prints SKIP and exits 0 (the test
-# recipe also runs it behind `|| true`, like the other optional contracts).
+# recovered surface_touch.csv capture (~/sl4a-analysis/raw-corpus). The raw
+# source CSV is already tracked at ../traces/surface_touch.csv (537 V0 frames)
+# and was successfully extracted/replayed via PR #12 GitHub Actions on 2026-10-17.
+# The OLD *derived frames.txt* path remains optional in this legacy Make target;
+# missing frames.txt => SKIP, and `|| true` masks failures of that old gate.
+# Never describe this particular optional harness as a passing Windows corpus
+# validation. See ../docs/RESEARCH-CONTRADICTIONS.md D13 and D10.
 REAL_FRAMES ?= $(HOME)/sl4a-analysis/raw-corpus/surface_touch-frames.txt
 
 protocol_test: protocol_test.c ../driver/spi-hid-protocol.h
