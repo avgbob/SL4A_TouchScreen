@@ -48,7 +48,7 @@ $inventory = @(
     }
   }
 )
-$inventory | ConvertTo-Json -Depth 5 | Out-File -LiteralPath (Join-Path $sourceDir 'manifest.json') -Encoding UTF8
+$inventory | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath (Join-Path $sourceDir 'manifest.json') -Encoding UTF8
 $inventory | Export-Csv -LiteralPath (Join-Path $sourceDir 'manifest.csv') -NoTypeInformation
 
 try {
