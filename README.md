@@ -1,5 +1,7 @@
 # SL4A TouchScreen
 
+> **Public research dataset:** [8,232 privacy-hardened SL4 AMD pinch heatmaps](datasets/sl4a-amd-pinch/) (72×48 rasters, relative timestamps, anonymized Windows contact markers). Includes research limitations; **not** the private Windows ETL or full vendor payloads.
+
 > **Research evidence start here (2026-10-17):** [**recovered historical Windows Ghidra source (468 functions)**](docs/RESEARCH-HISTORICAL-RECOVERY.md) · [canonical SL4A Windows evidence index](docs/RESEARCH-INDEX.md) · [original source manifest](docs/RESEARCH-SOURCE-MANIFEST.md) · [24 contradictions and open gaps](docs/RESEARCH-CONTRADICTIONS.md). These documents supersede unqualified Windows-fidelity claims in historical pipeline notes. Full 1,422-frame July CapImg corpus has already been replayed in PR #12; processed Windows contact IDs have **not** been verified.\n\nLinux touchscreen driver for the **Microsoft Surface Laptop 4 AMD** and
 **Surface Laptop 3 AMD**, built around the AMD `AMDI0060` SPI controller and
 Microsoft `MSHW0231` / `MSHW0162` HID-over-SPI devices.
