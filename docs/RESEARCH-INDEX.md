@@ -1,5 +1,8 @@
 # Surface Laptop 4 AMD touchscreen — canonical research index
 
+> **2026-10-17 uploaded HeatCore binary reverse engineering:** The user's exact 26100.9278 `HeatCore.dll` was uploaded and statically inspected. Code-bound `HeatHidInjectionProvider` starts at RVA `0x14900`, `HeatPointerInputReporter::ReportTouchContactFrame` at `0x34f60`. Its actual `0x3a` -> `0x21` field copy, `0x20` -> `0x3a` pointer record flags `1/2/4`, three output format branches, and PDB signature have been mapped. **Historical HeatCore function addresses do not match function starts in this build.** [Exact binary static audit](HEATCORE-26100.9278-STATIC-AUDIT.md). Missing *analysis copy* is now also CLOSED. 
+
+
 > **2026-10-17 local Windows verification:** `HeatCore.dll` **FOUND** at `C:\Windows\System32\HeatCore.dll` (401,408 bytes, 26100.9278, SHA-256 `B295B095ACF574007B894F841EF083E8CB06A72A256EE0BB75B4BE80F2FCD5DF`). Windows `hidspi.sys`, `HidSpiCx.sys` are also found/hashed (26100.8972); AMD `amdspi.sys` matches the archived MSI. Exact addresses/hashes and remaining *analysis* gaps: [WINDOWS-STACK-COMPLETENESS-20261017.md](WINDOWS-STACK-COMPLETENESS-20261017.md). **Do not re-search for these installed files.**
 
 
