@@ -1,5 +1,73 @@
 # Windows capture kit — historical research reference
 
+## New priority: paired WPR + guided V2 close-pinch capture (2026-10-17)
+
+Two separate user-confirmed V2 trials provide **17/17 intentional M
+annotations** with two physical fingers but **one OS pointer**. The next
+decisive experiment is to capture the raw sensor bus and Windows
+pointer output **in the same trial**, not to gather another OS-only
+CSV. See [full capture protocol and validation gates](../../docs/WINDOWS-CORRELATED-PINCH-EXPERIMENT-20261017.md).
+
+### One coordinated run (on the Surface in Windows)
+
+**Open Windows PowerShell as Administrator**. Make sure no other
+Windows Performance Recorder session is running. Copy/paste
+this full block:
+
+```powershell
+$kit = Join-Path $env:USERPROFILE 'Desktop\SL4A-Correlated-Kit'
+New-Item -ItemType Directory -Force -Path $kit | Out-Null
+
+$base = 'https://raw.githubusercontent.com/avgbob/SL4A_TouchScreen/main/tools/windows_capture/'
+foreach ($name in @('capture_pinch_correlated.ps1',
+                    'capture_os_pointer_contacts_v2.ps1',
+                    'touch_boot.wprp')) {
+    Invoke-WebRequest ($base + $name) -OutFile (Join-Path $kit $name)
+}
+
+powershell.exe -NoProfile -STA -ExecutionPolicy Bypass -File (Join-Path $kit 'capture_pinch_correlated.ps1') -Mode Capture
+```
+
+It checks the WPR profile, starts the ETW trace, opens the V2
+full-screen test, stops the trace when the test closes, and **retains
+the original ETL even if tracerpt cannot export CSV**. It does not
+call `wpr -cancel` and will not reset or modify the device.
+
+**Perform one consistent physical sequence:**
+
+1. Press **SPACE**; drag one finger and lift it.
+2. Press **SPACE**; put two fingers far apart and hold for five
+   seconds. **Keep them down** when you press SPACE to advance.
+3. Move the **same two fingers** slowly together then apart,
+   repeating three times; hold them close briefly without lifting.
+   **If both physically touch but active IDs show 1, press M**
+   with your other hand while the missing-contact condition persists.
+   Do not press M when the screen correctly shows 2.
+4. Press **SPACE**; lift only one finger, hold the remaining finger
+   for three seconds, then lift it. Press **SPACE** to finish (ESC
+   also saves a partial attempt).
+
+Outputs go to the timestamped Desktop
+`SL4A-Correlated-YYYYMMDD-HHMMSS` folder. Upload
+`pointer/SUMMARY.txt`, `pointer/events.csv`,
+`pointer/samples.csv`, `manifest.json`, and
+`coordinator-markers.tsv` first; also upload
+`pinch-runtime.csv` when feasible. **Preserve
+`pinch-runtime.etl` locally** as the original source for further
+UTC/QPC and TraceLogging reconstruction.
+
+The CSV/ETL may contain device-wide event metadata and touch
+positions; do not publish them on GitHub. The
+[offline coverage verifier](analyze_correlated_pinch.py) will
+confirm whether **complete V0 0x0C sensor frames** are actually
+present. A WPR trace with only provider names is not sufficient
+for a sensor/software root-cause diagnosis. This collector has
+passed CI parsing and synthetic regression gates, but **live
+WPR+Surface hardware execution is not yet validated**.
+
+---
+
+
 ## Recommended test: guided one-hand pinch diagnostic V2 (2026-10-17)
 
 **Use [`capture_os_pointer_contacts_v2.ps1`](capture_os_pointer_contacts_v2.ps1), not the old V1 script** when checking the operator's report that the on-screen active ID count sometimes fell to **one while two fingers were physically pinching**. The previous 8,947-event CSV proved that *some* two-ID intervals existed; it **did not** prove the device tracked both fingers through **every** pinch. The operator's firsthand observation must be tested and recorded as such.
