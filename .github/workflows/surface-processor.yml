@@ -1,0 +1,27 @@
+name: Surface processor offline tests
+on:
+  pull_request:
+    paths:
+      - "userspace/surface-processor/**"
+      - ".github/workflows/surface-processor.yml"
+  push:
+    branches:
+      - "research/windows-contact-processor-v1"
+    paths:
+      - "userspace/surface-processor/**"
+      - ".github/workflows/surface-processor.yml"
+
+jobs:
+  offline-tests:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Compile Python
+        run: python3 -m compileall -q userspace/surface-processor
+      - name: Run isolated processor tests
+        run: python3 -m unittest discover -s userspace/surface-processor -p 'test_*.py' -v
