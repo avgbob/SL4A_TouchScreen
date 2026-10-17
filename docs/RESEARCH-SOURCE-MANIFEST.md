@@ -120,3 +120,34 @@ executed `git archive` / `tar -x` to
 DLL/ETL files were **not found by a limited `find`** over three Linux-home
 paths; other volumes were not searched. Details:
 [RESEARCH-HISTORICAL-RECOVERY.md](RESEARCH-HISTORICAL-RECOVERY.md).
+
+
+## Windows original artifact verification, October 17, 2026
+
+User-supplied PowerShell output confirmed the following **on Windows**, after the
+earlier Ubuntu search failed to find the original files:
+
+- `TouchPenProcessor0C19.dll` exists under the DriverStore folder
+  `surfacetouchpenprocessorupdate.inf_amd64_2f7c805dc6a4f0fa`;
+  size **9,770,336 bytes**, last-modified 2026-05-18. The locally computed MD5
+  `DE83210B2299AABA5C2C9819F166C0FE` matches the exact MD5
+  `de83210b2299aaba5c2c9819f166c0fe` in historical Ghidra `FINDINGS.md`.
+  **Binary identity resolved for this DLL.** This is not a claim that
+  unverified HeatCore or separate Windows contact reports are present.
+- `C:\gate2\gate2.etl` exists, **398,721,024 bytes**, modified 2026-09-22.
+  **Original binary ETL located; providers/payloads NOT YET decoded.**
+- `%USERPROFILE%\Desktop\SL4-SPI.zip` exists, **231,846 bytes**, modified
+  2026-08-18; ZIP contains **11 entries**. The first contents listing
+  filtered for touch/heat/etl/dll/ghidra/finding/trace/capture/csv and printed
+  nothing. **All 11 entry names remain to be inspected; do not infer it is empty.**
+- A broader PowerShell full-drive search reported zero matches despite an earlier
+  targeted search finding 148. Do not treat the second zero as a trustworthy
+  absence claim. The targeted scan is recorded to
+  `%USERPROFILE%\surface-evidence-search.csv`.
+
+**Next evidence step:** list all 11 ZIP members and inspect the existing Gate2
+ETL's provider/event coverage. Obtain explicitly labeled SHA-256 values (the
+PowerShell formatting deferred hash output between file headings). Avoid
+collecting another raw sensor trace or declaring processed contact truth
+until actual records have been inspected. Keep original Windows system DLL
+and ETL unmodified during evidence analysis.
