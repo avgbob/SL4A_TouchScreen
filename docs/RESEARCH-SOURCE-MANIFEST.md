@@ -1,5 +1,7 @@
 # SL4A research source manifest and artifact locations
 
+**CRITICAL HISTORY RECOVERY (same day):** [RESEARCH-HISTORICAL-RECOVERY.md](RESEARCH-HISTORICAL-RECOVERY.md) documents **468 Windows TouchPen Ghidra `.c` bodies** in commit `c94c399`, indexed in [RESEARCH-HISTORICAL-DECOMP-INDEX-20260716.json](RESEARCH-HISTORICAL-DECOMP-INDEX-20260716.json), and the restored strict corpus analyzer; previous text below saying those exports were only external is superseded.
+
 **Audited:** 2026-10-17 against `avgbob/SL4A_TouchScreen:main` commit `c081075492feae4146510cf0d364b23fd0a394eb`, plus research draft PR #12 at `0782c6cfca09953f29ddb9475561900108d3713e`. Relative paths below resolve from the repository root. This is not a claim that externally referenced local directories exist in the current execution environment.
 
 ## 1. Original or near-original tracked Windows evidence
@@ -23,14 +25,14 @@
 | `evidence/windows/{amdspi,hidspi_km,SurfaceDigitizerHidSpiExtnPackage,SurfaceTouchPenProcessorUpdate_13}.inf` | Four INF files | OEM/transport/HeatCore binding evidence and provider identity |
 | `evidence/windows/SOURCE-HASHES.md` | Four source hashes | Exact original source-bundle hash provenance versus Git's normalized text bytes |
 
-These 1,422 bodies are **three distinct captures** and include 537 + 247 + 638. The 2 duplicated CSV paths are **aliases**. Do not sum files by directory. Historical `tests/raw_corpus_test.py` preserves expected counts, per-stream payload SHA-256 values, cadence runs and static sections. It calls a **missing** `tools/analyze_raw_corpus.py` and currently invokes `skip_optional_contract` (prints `SKIP` and exits 0) if that analyzer isn't present: **do not report the old contract as having run**.
+These 1,422 bodies are **three distinct captures** and include 537 + 247 + 638. The 2 duplicated CSV paths are **aliases**. Do not sum files by directory. Historical `tests/raw_corpus_test.py` preserves expected counts, per-stream payload SHA-256 values, cadence runs and static sections. The original `tools/analyze_raw_corpus.py` was recovered from Git commit `c94c399` and **restored**. The previously skipping `tests/raw_corpus_test.py` has now executed successfully with **all strict stream-hash, cadence, and static segment assertions** in [CI 39052198562](https://github.com/avgbob/SL4A_TouchScreen/actions/runs/39052198562); do not continue calling this gate absent.
 
 ### Known archived corpus expected outputs
 
 - Touch 0x0c count `537`; payload-stream SHA-256 `3d2122e71d0855771897dbb35fb00fc3dfc4183be8521b5dae76825109851aa2`.
 - Init 0x0c count `247`; payload-stream SHA-256 `ebe1eed7fb69c5c3a580190febe1678952de189c07601abcd5eb7e889b5accc0`.
 - Boot 0x0c count `638`; payload-stream SHA-256 `aef0f6da2a60ea872dd2cfa0d07253bc7a581970ce4277463b1a765eeb2acd6d`.
-- The older strict stream SHA and cadence `expected_falsification` are tracked in `tests/raw_corpus_test.py`; **PR #12 currently checks counts, frame structure, and offline replay, not every one of those historical byte-for-byte falsification assertions**.
+- The older strict stream SHA and cadence `expected_falsification` are tracked in `tests/raw_corpus_test.py`; **PR #12's extractor checks structure/counts/replay; separately, the recovered original analyzer is now checked by mainline documentation-audit CI against all historical byte-for-byte SHA/cadence/segment assertions.**
 
 ### October 17 GitHub Actions verification
 
@@ -75,14 +77,14 @@ These **historical names and locations are valuable retrieval clues, not invente
 | Referenced artifact/location | Evidence of reference | Current audit status |
 | --- | --- | --- |
 | `~/sl4a-analysis/ghidra-findings/{FINDINGS.md,FINDINGS2.md,FINDINGS3.md}` | `docs/WINDOWS-ALIGNMENT.md` | Not present in audited repo; actual local path needs filesystem check |
-| `touchpen0c19_fullheat_20260716/functions/180601690_FUN_180601690.c`, `180606370_FUN_180606370.c`, `180600820_FUN_180600820.c`, `180600c40_FUN_180600c40.c` | `docs/decomp/SURFACE_TRACKER_DECOMP.md` | Function bodies **not committed**; docs are secondary decompilation summaries |
-| `heatcore_20260716/functions/{180015ff0_FUN_180015ff0.c,1800351a0_FUN_1800351a0.c,...}` | `docs/decomp/MULTITOUCH_STATIC_DECOMP.md` | Not in repo; full contact egess / ID remap still not reconstructed |
+| `touchpen0c19_fullheat_20260716/functions/180601690_FUN_180601690.c`, `180606370_FUN_180606370.c`, `180600820_FUN_180600820.c`, `180600c40_FUN_180600c40.c` | `docs/decomp/SURFACE_TRACKER_DECOMP.md` | **Recovered in historical Git commit c94c399**: 468 complete `.c` files; exact directory and per-file hashes in RESEARCH-HISTORICAL-RECOVERY.md |
+| `heatcore_20260716/functions/{180015ff0_FUN_180015ff0.c,1800351a0_FUN_1800351a0.c,...}` | `docs/decomp/MULTITOUCH_STATIC_DECOMP.md` | This specific HeatCore function-export directory was not found with the recovered TouchPen closure; inspect other historical sources, full contact egress remains unresolved |
 | `~/windrivers/` original `.sys/.dll/.pdb` | `tools/ghidra/README.md`; MSI report SHA | Files not committed by design; Windows binaries not recoverable from secondary reports alone |
 | `SL4-SPI.zip`, `SL4-MSI-MINE.zip` | `evidence/windows/SOURCE-HASHES.md` | Previously analyzed August archives; original ZIPs not located in audited repo/current accessible Library search |
 | `C:\gate2\gate2.etl`, `markers.tsv` | `docs/GOLDEN-SM.md` | ETL SHA-256 `4583C62F0A7AC1B2099AA904FF8F61BF1DE065A2A2EF1AB58397950E57906552`, size **398,721,024 bytes**, **3,254,430 events**, **0 lost**. Compact JSONL available; original binary not checked in |
 | Windows **runtime** ETL exported with TouchAndPen TraceLogging provider and fields `TouchBlobCoMX/CoMY` | `tools/windows_capture/README.md` | **Capture method exists; completed capture not established by repo.** July CSV event probes negative; locate ETL before planning new run |
-| `docs/GROUND_TRUTH.md`, `docs/decomp/heatcore_20260716/` | Referenced in historical roadmap/notes | Paths absent from `main`; historical content may be on other branches or external workstation, do not fabricate |
-| `tools/analyze_raw_corpus.py` | Required by `tests/raw_corpus_test.py` | **Absent** from audited default branch; old test silently SKIPs |
+| `docs/GROUND_TRUTH.md`, `docs/decomp/heatcore_20260716/` | Referenced in historical roadmap/notes | `docs/GROUND_TRUTH.md` **recovered at c94c399** (181 KB, explicitly outdated claims). `docs/decomp/heatcore_20260716/` under that literal name not yet recovered. |
+| `tools/analyze_raw_corpus.py` | Required by `tests/raw_corpus_test.py` | **RESTORED** from Git history at c94c399; strict test PASSED in CI 39052198562 |
 
 ## 4. Numeric/scope traps (do not collapse these)
 
@@ -100,3 +102,7 @@ These **historical names and locations are valuable retrieval clues, not invente
 - For each new external file, record canonical file path, original host/date, captured raw hash, normalized Git/blob hash if checked in, size, source derivation command, and whether personal data requires restricted storage. Do not add proprietary Microsoft DLLs/ETLs to a public repo without a licensing/privacy review.
 - For an artifact marked **not in this tracked tree**, search external stores/other Git refs before concluding it never existed. Never substitute a code comment or derived CSV for its original bytes.
 - When a gap is resolved, commit the new evidence and update all three canonical docs plus the evidence gate. Distinguish `FOUND`, `READ`, `VALIDATED`, and `WINDOWS-OUTPUT-COMPARED` statuses.
+
+## Git history retrieval is now a required discovery step
+
+Historical commit [`c94c399`](https://github.com/avgbob/SL4A_TouchScreen/tree/c94c399618b23588c95711ab4449d9400036ffd0) holds the formerly deleted **468 complete TouchPen processor `.c` decompilation functions**, `FINDINGS.md`, `callgraph.tsv`, `static_data_references.tsv`, `docs/GROUND_TRUTH.md` (181 KB), `touchpen0c19_tables_20260716/` and AMD/HIDSPI `docs/decomp/clean/` artifacts. Original `tools/analyze_raw_corpus.py` was also present and has been reinstated. See [RESEARCH-HISTORICAL-RECOVERY.md](RESEARCH-HISTORICAL-RECOVERY.md) for fully qualified links and verified hashes; see [RESEARCH-HISTORICAL-DECOMP-INDEX-20260716.json](RESEARCH-HISTORICAL-DECOMP-INDEX-20260716.json) for all 469 function-dir entries. The earlier 'external-only' descriptions of these specific files are **superseded**, but independent runtime processed TouchAndPen ETL and original Microsoft DLL bytes are still not located.

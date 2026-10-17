@@ -35,6 +35,8 @@ REQUIRED_DOCS = [
     'docs/RESEARCH-CONTRADICTIONS.md',
     'docs/RESEARCH-SOURCE-MANIFEST.md',
     'docs/RESEARCH-SNAPSHOT-20261017.json',
+    'docs/RESEARCH-HISTORICAL-RECOVERY.md',
+    'docs/RESEARCH-HISTORICAL-DECOMP-INDEX-20260716.json',
     'docs/EVIDENCE.md',
     'docs/CONFIG_TABLE.md',
     'docs/CONTACT_ABI.md',
@@ -90,10 +92,11 @@ def audit(root: Path) -> tuple[dict, list[str]]:
         except (ValueError, UnicodeError):
             errors.append('GATE2_COMPACT_JSONL_PARSE_FAILED')
     if (root / 'tools/analyze_raw_corpus.py').is_file():
-        legacy = 'present_requires_independent_check'
+        legacy = 'RESTORED_CI_STRICT_HASH_CADENCE_TEST_REQUIRED'
     else:
         legacy = 'MISSING_OLD_CORPUS_ANALYZER_OLD_TEST_SILENTLY_SKIPS'
-        notes.append('D13 UNRESOLVED: tests/raw_corpus_test.py exits 0/SKIP without tools/analyze_raw_corpus.py. Do not claim that legacy strict hash/cadence check passed.')
+        errors.append('RESTORED_ANALYZER_MISSING: old corpus test would silently SKIP; failure is mandatory')
+        notes.append('D13 regression: tools/analyze_raw_corpus.py was recovered from Git history, do not allow it to disappear again')
     manifest = root / 'docs/RESEARCH-SNAPSHOT-20261017.json'
     entries = 0
     if manifest.is_file():
@@ -104,6 +107,16 @@ def audit(root: Path) -> tuple[dict, list[str]]:
                 errors.append('SNAPSHOT_BASELINE_NOT_EXPECTED')
         except (ValueError, KeyError, TypeError):
             errors.append('SNAPSHOT_JSON_INVALID')
+    historic_index = root / 'docs/RESEARCH-HISTORICAL-DECOMP-INDEX-20260716.json'
+    recovered_functions = 0
+    if historic_index.is_file():
+        try:
+            history = json.loads(historic_index.read_text())
+            recovered_functions = history['historical_counts']['source_files']
+            if recovered_functions != 468 or history['source_historical_commit'] != 'c94c399618b23588c95711ab4449d9400036ffd0':
+                errors.append('HISTORICAL_468_FUNCTION_INDEX_INVALID')
+        except (ValueError, KeyError, TypeError):
+            errors.append('HISTORICAL_INDEX_JSON_PARSE_FAILED')
     result = {
         'scope': 'original git tracked evidence only; not processed Windows HID truth',
         'ok': not errors,
@@ -112,6 +125,7 @@ def audit(root: Path) -> tuple[dict, list[str]]:
         'v0_fixture_count': len(snapshots),
         'gate2_compact_rows': len(gate2),
         'original_tracked_blob_manifest_rows': entries,
+        'historical_decompiled_function_count': recovered_functions,
         'legacy_corpus_contract': legacy,
         'notes': notes,
         'errors': errors,

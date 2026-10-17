@@ -16,8 +16,12 @@ all: protocol_test capimg_decoder_host_test c590_atan2_host_test wire_frames_tes
 # and was successfully extracted/replayed via PR #12 GitHub Actions on 2026-10-17.
 # The OLD *derived frames.txt* path remains optional in this legacy Make target;
 # missing frames.txt => SKIP, and `|| true` masks failures of that old gate.
-# Never describe this particular optional harness as a passing Windows corpus
-# validation. See ../docs/RESEARCH-CONTRADICTIONS.md D13 and D10.
+# The *separate* strict Windows CSV corpus contract `raw_corpus_test.py`
+# previously skipped because its Python analyzer had been deleted. It was
+# restored from Git history on 2026-10-17 and verified on 1422 frames in
+# Research evidence source integrity GitHub Actions. The derived C replay
+# harness below still SKIPs when REAL_FRAMES is absent; do not conflate them.
+# See ../docs/RESEARCH-HISTORICAL-RECOVERY.md and D10/D13.
 REAL_FRAMES ?= $(HOME)/sl4a-analysis/raw-corpus/surface_touch-frames.txt
 
 protocol_test: protocol_test.c ../driver/spi-hid-protocol.h
@@ -347,8 +351,9 @@ test: protocol_test capimg_decoder_host_test c590_atan2_host_test wire_frames_te
 	$(SHELL) hunt_sandbox_test.sh
 
 # Checks that need something this repository does not ship: the Windows touch
-# corpus, the offline analyzers, the capture harnesses. They skip (and therefore
-# pass) when their input is absent, so they cannot be part of the CI gate — a
+# derived replay frames and certain capture harnesses. The original analyzer
+# and raw CSV corpus are now present and tested separately via GitHub Actions.
+# Some legacy local-only checks still skip when their input is absent, so a
 # green `make test` has to mean something. Run them by hand on a machine that
 # has the corpora: their SKIP/FAIL output is the whole point, and that is why
 # they are not behind `|| true` here.
