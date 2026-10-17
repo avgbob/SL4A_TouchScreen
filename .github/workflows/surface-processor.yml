@@ -86,3 +86,37 @@ jobs:
               found = manifest.get('processed_touch_provider_probe', {})
               print(f'{name}: upper-layer provider event types={len(found)} {found}')
           PY
+
+      - name: Replay published 8,232-frame physical pinch corpus (NOT Windows HID parity)
+        run: |
+          set -euo pipefail
+          curl -fL --retry 3 --retry-delay 1 \
+            'https://raw.githubusercontent.com/avgbob/SL4A_TouchScreen/0bf5a9e39df89f5572a7eef6430b4730a067f721/datasets/sl4a-amd-pinch/SL4A_heatmaps_privacy_hardened.zip' \
+            -o /tmp/sl4a-public-pinch.zip
+          echo '2c77050b9356b141ff0b30acf0a99a896db86a31d43cde6922dca558174aed2a  /tmp/sl4a-public-pinch.zip' | sha256sum -c -
+          python3 userspace/surface-processor/pinch_dataset.py \
+            /tmp/sl4a-public-pinch.zip --out /tmp/pinch-baseline-report.json
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          p=json.loads(Path('/tmp/pinch-baseline-report.json').read_text())
+          assert p['frames']==8232, p['frames']
+          assert p['operator_markers']==3, p['operator_markers']
+          assert p['raw_gap_indices']==[1224], p['raw_gap_indices']
+          assert p['prototype_replay']['processed']==8232
+          assert p['prototype_replay']['tracker_reset_on_200ms_real_capture_gap']==1
+          for region in ('two_far_apart_reference', 'two_recovered_reference'):
+              assert p[region]['threshold_150_region_histogram']=={'2':50}
+              assert p[region]['smoothed_peak_histogram']=={'2':50}
+          for w in p['marker_windows']:
+              assert w['threshold_150_region_histogram']=={'1':50},w
+              assert w['threshold_165_region_histogram']=={'1':50},w
+              assert w['smoothed_peak_histogram']=={'1':50},w
+          print('PASS: all 8,232 real frames replayed; three M windows show one robust peak, two wide-contact controls show two.')
+          print('CAUTION: published OS and raw time origins are not formally synchronized.')
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sl4a-public-pinch-processor-baseline
+          path: /tmp/pinch-baseline-report.json
+          if-no-files-found: error
