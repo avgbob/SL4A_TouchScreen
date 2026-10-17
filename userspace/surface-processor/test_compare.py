@@ -28,6 +28,21 @@ class CompareTest(unittest.TestCase):
         self.assertEqual(r['missed_contacts'], 1)
         self.assertEqual(r['extra_contacts'], 1)
 
+    def test_requires_complete_reference_coverage(self):
+        a = {1: [contact(1, 10, 10)], 2: [contact(1, 10, 10)]}
+        b = {1: [contact(1, 10, 10)]}
+        with self.assertRaisesRegex(ValueError, 'coverage mismatch'):
+            compare(a, b)
+        r = compare(a, b, allow_partial=True)
+        self.assertFalse(r['coverage_complete'])
+        self.assertEqual(r['reference_only_frames'], 1)
+
+    def test_rejects_nan_and_duplicate_ids(self):
+        with self.assertRaises(ValueError):
+            compare({1: [contact(1, float('nan'), 1)]}, {1: []})
+        with self.assertRaises(ValueError):
+            compare({1: [contact(1, 1, 1), contact(1, 3, 4)]}, {1: []})
+
     def test_invalid_reference(self):
         with self.assertRaises(ValueError):
             compare({1: []}, {2: []})
@@ -37,3 +52,18 @@ class CompareTest(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main(verbosity=2)
+
+# Test discovery intentionally uses unittest; additional edge-case coverage.
+class FileValidationTest(unittest.TestCase):
+    def test_jsonl_duplicate_frame_and_nonfinite(self):
+        import tempfile
+        from pathlib import Path
+        from compare import read_jsonl
+        with tempfile.TemporaryDirectory() as tmp:
+            p = Path(tmp) / 'ref.jsonl'
+            p.write_text('{"frame":1,"contacts":[]}\n{"frame":1,"contacts":[]}\n')
+            with self.assertRaisesRegex(ValueError, 'duplicate/invalid frame'):
+                read_jsonl(p)
+            p.write_text('{"frame":1,"contacts":[{"id":1,"x":NaN,"y":2}]}\n')
+            with self.assertRaisesRegex(ValueError, 'nonfinite'):
+                read_jsonl(p)

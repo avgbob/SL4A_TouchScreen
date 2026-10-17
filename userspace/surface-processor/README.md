@@ -19,20 +19,24 @@ Python 3.10+ and its standard library only:
 
 ```sh
 cd userspace/surface-processor
-python3 -m unittest -v test_processor
+python3 -m unittest discover -p 'test_*.py' -v
 python3 replay.py /path/to/sl4a-heat/heat-captures > contacts.jsonl
 python3 replay.py /path/to/real-frames.txt --association-scale 1 > contacts.jsonl
 ```
 
 Inputs: a directory of numbered `heat-*.bin` HID reports, a single binary V0
 report, a one-hex-frame-per-line SPB capture (optional leading 5 `ff` bytes),
-or an isolated 3456-byte raster.  Each frame is validated using the same V0
+or an isolated 3456-byte raster. `.v0` and `.raw` are also accepted as binary.  Each frame is validated using the same V0
 section constraints as `driver/spi-hid-capimg.c`. Outputs are JSON Lines with
 contact records, candidate coordinates, age, and mutable coalescing groups.
 
 The first 30 frames establish a baseline; captures beginning mid-touch may not
 provide a usable baseline. The `--absolute-gate` and `--association-scale`
 arguments support controlled A/B comparisons, not claims of Windows parity.
+Newly detected contacts have **unknown Windows class and merge group** (`null`),
+not assumed status 1. The recovered coalescer is only applied if verified class
+and group labels are explicitly provided. `--hold-frames` retains internal
+tracks but does not emulate Windows' HID hold/lift emissions.
 
 ## Provenance/uncertainty inventory
 
@@ -44,7 +48,7 @@ arguments support controlled A/B comparisons, not claims of Windows parity.
 | 4-connected candidate extraction | Fork raw pipeline | Linux approximation, NOT Windows detector/classifier |
 | Hungarian solver and radius tables | `docs/decomp/SURFACE_TRACKER_DECOMP.md`; `docs/CONFIG_TABLE.md` | Solver strategy and DLL constants; unknown Windows cost details |
 | Ten-history samples, gap >5 reset | Surface tracker decomp | Recovered structure and release behavior |
-| 3-frame birth / optional hold | Current Linux defaults | *Experimental* semantics; Windows hold quality gate not implemented |
+| 3-frame birth / internal retention | Current Linux defaults | *Experimental* semantics; Windows hold quality gate not implemented |
 | Merge-group/status-7 annotations | `FUN_1806025c0` and `tools/surface_tracker_oracle.py` | Recovered local behavior only; no final HID contact semantics |
 | Finger validity, Mahalanobis classifier, gain adaptation | Windows DLL/runtime calibration | NOT implemented |
 | Windows virtual HID tracking-ID mapping | Windows HeatCore | Unknown; local IDs must not be treated as Windows IDs |
@@ -77,6 +81,8 @@ same frame sequence and coordinate system, compare them with:
 
 ```sh
 python3 compare.py windows-contacts.jsonl contacts.jsonl > discrepancy.json
+# If capture windows intentionally differ:
+python3 compare.py --allow-partial windows-contacts.jsonl contacts.jsonl > partial.json
 ```
 
 Each line in both inputs must have `{"frame": N, "contacts": [{"id": 1,
@@ -85,3 +91,10 @@ Use `--reference-scale-x` and `--reference-scale-y` for known coordinate
 conversions; do not guess. The comparator reports misses, false contacts,
 coordinate error, and consecutive-frame ID switches. **This is a measurement
 interface; it does not itself capture or infer Windows touch output.**
+
+## Audit
+
+See [AUDIT.md](AUDIT.md) for corrected bugs and unresolved release gates.
+The new comparator **requires complete frame coverage** by default; incomplete
+windows need explicit `--allow-partial`. A synthetic pass alone does not prove
+correct close-finger operation or Windows output equivalence.

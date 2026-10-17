@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from collections import deque
 from dataclasses import dataclass, field
-from math import hypot
+from math import isfinite
 from struct import unpack_from
 from typing import Iterable
 
@@ -90,7 +90,8 @@ class Config:
     def __post_init__(self) -> None:
         if (self.baseline_frames < 1 or self.minimum_rise < 0 or
                 self.absolute_gate < 0 or self.minimum_pixels < 1 or
-                self.minimum_weight < 0 or self.association_scale <= 0 or
+                self.minimum_weight < 0 or not isfinite(self.association_scale) or
+                self.association_scale <= 0 or self.association_scale > 100 or
                 self.birth_frames < 1 or self.hold_frames < 0 or
                 not 1 <= self.max_candidates <= MAX_TRACKS):
             raise ValueError('invalid processor configuration')
@@ -186,7 +187,7 @@ class Detector:
                     if k >= 0 and mask[k]:
                         mask[k] = 0
                         queue.append(k)
-            if count >= self.cfg.minimum_pixels and mass >= self.cfg.minimum_weight:
+            if mass > 0 and count >= self.cfg.minimum_pixels and mass >= self.cfg.minimum_weight:
                 result.append(Candidate(sx / mass, sy / mass, mass, count, peak))
         return sorted(result, key=lambda c: (-c.weight, c.y, c.x))[:self.cfg.max_candidates]
 
@@ -262,9 +263,11 @@ class Contact:
     x: float
     y: float
     age: int
-    group: int
-    # Recovered coalescer status semantics; not an OS contact validity flag.
-    status: int = 1
+    # Class and merge-group cannot be inferred from the tracker ID. They
+    # must be supplied by an independently verified classification/emission
+    # stage before Windows report grouping is meaningful.
+    group: int | None = None
+    status: int | None = None
 
 
 class Tracker:
@@ -284,14 +287,18 @@ class Tracker:
         self.previous_frame = None
 
     def update(self, frame: int, candidates: list[Candidate]) -> tuple[list[Contact], bool]:
+        if not isinstance(frame, int) or isinstance(frame, bool) or frame < 0:
+            raise ValueError('frame sequence must be nonnegative integers')
+        if len(candidates) > min(MAX_TRACKS, self.cfg.max_candidates):
+            raise ValueError('too many candidates')
+        if any(not isfinite(c.x) or not isfinite(c.y) for c in candidates):
+            raise ValueError('nonfinite candidate coordinates')
         if frame < 0 or (self.previous_frame is not None and frame <= self.previous_frame):
             raise ValueError('frame sequence must be strictly increasing')
         gap = self.previous_frame is not None and frame - self.previous_frame > 5
         if gap:
             self.tracks.clear()
         self.previous_frame = frame
-        if len(candidates) > MAX_TRACKS:
-            raise ValueError('too many candidates')
         tracks = [self.tracks[k] for k in sorted(self.tracks)]
         n, nt = len(candidates), len(tracks)
         # DLL values are strict squared-distance gates, not guessed pixel radii.
@@ -310,7 +317,10 @@ class Tracker:
             row.extend(birth if j == i else invalid for j in range(n))
             cost.append(row)
         chosen = assignment(cost)
-        assigned = set()
+        matched_ids = set()
+        unmatched = []
+        # Update existing tracks first. Expire old tracks before admitting
+        # new observations so full capacity does not lose an entire frame.
         for i, slot in enumerate(chosen):
             c = candidates[i]
             if slot < nt and cost[i][slot] < invalid:
@@ -319,20 +329,23 @@ class Tracker:
                 t.age += 1
                 t.missed = 0
                 t.history.append((c.x, c.y))
-                assigned.add(t.id)
+                matched_ids.add(t.id)
             else:
-                if len(self.tracks) >= MAX_TRACKS:
-                    continue
-                tid = self.next_id
-                self.next_id += 1
-                self.tracks[tid] = Track(tid, c.x, c.y)
-                assigned.add(tid)
+                unmatched.append(c)
         for t in tracks:
-            if t.id not in assigned:
+            if t.id not in matched_ids:
                 t.missed += 1
                 if t.missed > self.cfg.hold_frames:
                     del self.tracks[t.id]
-        contacts = [Contact(t.id, t.x, t.y, t.age, t.id) for t in self.tracks.values()
+        for c in unmatched:
+            if len(self.tracks) >= MAX_TRACKS:
+                continue
+            tid = self.next_id
+            self.next_id += 1
+            self.tracks[tid] = Track(tid, c.x, c.y)
+        # No Windows class or merge group is available yet: do not invent
+        # status=1 or use our Linux/local track IDs as Windows group labels.
+        contacts = [Contact(t.id, t.x, t.y, t.age) for t in self.tracks.values()
                     if t.missed == 0 and t.age >= self.cfg.birth_frames]
         return self._group(contacts), gap
 
@@ -344,10 +357,10 @@ class Tracker:
         validity, which requires unrecovered classifier/emission semantics.
         """
         for i, a in enumerate(records):
-            if a.status not in (1, 3):
+            if a.status not in (1, 3) or a.group is None:
                 continue
             for b in records[i + 1:]:
-                if b.status not in (1, 3) or b.group == a.group:
+                if b.status not in (1, 3) or b.group is None or b.group == a.group:
                     continue
                 if (a.x - b.x)**2 + (a.y - b.y)**2 >= COALESCE_D2:
                     continue
@@ -369,15 +382,23 @@ class Processor:
         self.signal = Signal(self.cfg)
         self.detector = Detector(self.cfg)
         self.tracker = Tracker(self.cfg)
+        self.previous_frame: int | None = None
 
     def process(self, frame: int, raw: bytes) -> dict:
+        # Validate before processing signal; malformed sequences must not
+        # alter baseline, track history or frame state even during calibration.
+        if (not isinstance(frame, int) or isinstance(frame, bool) or frame < 0 or
+                (self.previous_frame is not None and frame <= self.previous_frame)):
+            raise ValueError('frame sequence must be strictly increasing nonnegative integers')
         raster = decode_frame(raw)
         values = self.signal.process(raster)
         if values is None:
+            self.previous_frame = frame
             # Frame counter still advances; no stale tracks during calibration.
             return {'frame': frame, 'stage': 'baseline', 'contacts': [], 'candidates': []}
         candidates = self.detector.detect(*values)
         contacts, reset = self.tracker.update(frame, candidates)
+        self.previous_frame = frame
         return {'frame': frame, 'stage': 'tracking', 'discontinuity_reset': reset,
                 'candidates': [vars(c) for c in candidates],
                 'contacts': [vars(c) for c in contacts],

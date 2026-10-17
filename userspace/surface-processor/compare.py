@@ -13,33 +13,65 @@ from statistics import mean
 from processor import assignment
 
 
+def _validate_frame_contacts(contacts, label):
+    if not isinstance(contacts, list):
+        raise ValueError(f'{label}: contacts must be an array')
+    seen = set()
+    for i, contact in enumerate(contacts):
+        if not isinstance(contact, dict) or not all(k in contact for k in ('id', 'x', 'y')):
+            raise ValueError(f'{label}: contact {i} needs id, x, y')
+        cid = contact['id']
+        if isinstance(cid, bool) or not isinstance(cid, (str, int)) or cid == '':
+            raise ValueError(f'{label}: invalid contact ID')
+        if cid in seen:
+            raise ValueError(f'{label}: duplicate contact ID {cid!r}')
+        seen.add(cid)
+        for key in ('x', 'y'):
+            try:
+                value = float(contact[key])
+            except (TypeError, ValueError, OverflowError) as e:
+                raise ValueError(f'{label}: invalid {key}') from e
+            if not math.isfinite(value):
+                raise ValueError(f'{label}: nonfinite {key}')
+
+
 def read_jsonl(path):
     result = {}
     for lineno, line in enumerate(path.read_text(encoding='utf-8').splitlines(), 1):
         if not line.strip() or line.lstrip().startswith('#'):
             continue
+        label = f'{path}:{lineno}'
         try:
             row = json.loads(line)
+            if not isinstance(row, dict):
+                raise ValueError('expected JSON object')
             frame = row['frame']
-            if not isinstance(frame, int) or frame < 0 or frame in result:
+            if (type(frame) is not int or frame < 0 or frame in result):
                 raise ValueError('duplicate/invalid frame')
-            assert isinstance(row['contacts'], list)
-            for contact in row['contacts']:
-                if not all(k in contact for k in ('id', 'x', 'y')):
-                    raise ValueError('contact requires id, x, y')
+            _validate_frame_contacts(row['contacts'], label)
             result[frame] = row['contacts']
-        except (KeyError, ValueError, AssertionError, TypeError) as e:
-            raise ValueError(f'{path}:{lineno}: invalid contact JSONL: {e}') from e
+        except (KeyError, ValueError, TypeError) as e:
+            raise ValueError(f'{label}: invalid contact JSONL: {e}') from e
     if not result:
         raise ValueError(f'{path}: no contact frames')
     return result
 
 
-def compare(reference, experimental, *, max_distance=2.5, scale_x=1, scale_y=1):
-    if not math.isfinite(max_distance) or max_distance <= 0:
-        raise ValueError('max_distance must be positive finite')
+def compare(reference, experimental, *, max_distance=2.5, scale_x=1, scale_y=1, allow_partial=False):
+    if not math.isfinite(max_distance) or not 0 < max_distance < 1e6:
+        raise ValueError('max_distance must be positive finite (< 1e6)')
     if not all(math.isfinite(x) and x > 0 for x in (scale_x, scale_y)):
         raise ValueError('reference scales must be positive finite')
+    for label, frames in [('reference', reference), ('experiment', experimental)]:
+        for frame, contacts in frames.items():
+            if type(frame) is not int or frame < 0:
+                raise ValueError(f'{label}: invalid frame number')
+            _validate_frame_contacts(contacts, f'{label} frame {frame}')
+    missing = sorted(set(reference) - set(experimental))
+    unexpected = sorted(set(experimental) - set(reference))
+    if not allow_partial and (missing or unexpected):
+        raise ValueError(f'frame coverage mismatch: {len(missing)} missing, '
+                         f'{len(unexpected)} additional frames; use --allow-partial explicitly')
     shared = sorted(set(reference) & set(experimental))
     if not shared:
         raise ValueError('reference and experimental frames do not overlap')
@@ -81,8 +113,10 @@ def compare(reference, experimental, *, max_distance=2.5, scale_x=1, scale_y=1):
         details.append({'frame': f, 'reference': nr, 'experiment': ng,
                         'matched': frame_matched, 'missed': nr-frame_matched,
                         'extra': ng-len(used)})
-    return {'frames_compared': len(shared), 'reference_only_frames': len(set(reference)-set(shared)),
-            'experiment_only_frames': len(set(experimental)-set(shared)),
+    return {'frames_compared': len(shared), 'reference_only_frames': len(missing),
+            'experiment_only_frames': len(unexpected),
+            'coverage_complete': not (missing or unexpected),
+            'reference_frames': len(reference), 'experiment_frames': len(experimental),
             'matched_contacts': matched, 'missed_contacts': missed,
             'extra_contacts': extra, 'tracking_id_switches': switches,
             'mean_grid_error': round(mean(errors), 5) if errors else None,
@@ -97,10 +131,12 @@ def main(argv=None):
     parser.add_argument('--max-distance', type=float, default=2.5)
     parser.add_argument('--reference-scale-x', type=float, default=1.0)
     parser.add_argument('--reference-scale-y', type=float, default=1.0)
+    parser.add_argument('--allow-partial', action='store_true', help='compare only shared frames (reports coverage gaps)')
     a = parser.parse_args(argv)
     report = compare(read_jsonl(a.reference), read_jsonl(a.experiment),
                      max_distance=a.max_distance,
-                     scale_x=a.reference_scale_x, scale_y=a.reference_scale_y)
+                     scale_x=a.reference_scale_x, scale_y=a.reference_scale_y,
+                     allow_partial=a.allow_partial)
     print(json.dumps(report, indent=2, allow_nan=False))
     return 0
 

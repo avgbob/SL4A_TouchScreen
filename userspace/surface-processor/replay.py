@@ -15,7 +15,7 @@ def frames(path: Path):
             raise ValueError('directory has no heat-*.bin files')
         for capture in captures:
             yield capture.name, capture.read_bytes()
-    elif path.suffix == '.bin':
+    elif path.suffix.lower() in ('.bin', '.v0', '.raw'):
         yield path.name, path.read_bytes()
     else:
         with path.open('r', encoding='utf-8') as inp:
@@ -47,7 +47,10 @@ def run(argv=None) -> int:
                     baseline_frames=args.baseline_frames)
     processor = Processor(config)
     for n, (name, data) in enumerate(frames(args.input)):
-        result = processor.process(n, data)
+        try:
+            result = processor.process(n, data)
+        except ValueError as e:
+            raise ValueError(f'{args.input}: frame {n} ({name}): {e}') from e
         result['source'] = name
         print(json.dumps(result, separators=(',', ':'), allow_nan=False))
     return 0
