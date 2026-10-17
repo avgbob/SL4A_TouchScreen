@@ -20,6 +20,49 @@ SPB, GPIO-interrupt, and HIDCLASS, but not ACPI/SAM/power activity.
 The touch initializes at COLD BOOT (a disable/enable in Device Manager isn't enough — that
 only triggers a D2→D0 resume). So a **boot trace** is used.
 
+## Windows OS-visible pointer ID/lift reference (new 2026-10-17 research probe)
+
+The existing TraceLogging `touch_boot.wprp` and `capture_runtime.cmd`
+capture sensor/processor metadata. **Those events do not themselves establish
+what pointer contact Windows delivers to applications.**
+
+A separate **read-only Windows Forms pointer message observer** is provided:
+[`capture_os_pointer_contacts.ps1`](capture_os_pointer_contacts.ps1).
+It logs `WM_POINTERDOWN`, `WM_POINTERUPDATE`, `WM_POINTERUP`,
+`WM_POINTERENTER/LEAVE`, and `WM_POINTERCAPTURECHANGED` in a full-screen
+touch target. CSV columns include UTC timestamp, Stopwatch ticks, OS pointer
+ID, type, Windows-screen coordinates, and the untouched raw `WPARAM`.
+It does not install anything, modify a touch driver, or issue HID commands.
+
+**Not yet tested on the user's Windows installation; validate that DOWN and UP
+rows actually appear before promoting this as a ground-truth collection.**
+`WM_POINTER` IDs are **Windows application-facing pointer IDs**, not
+proven to match USB/HID internal Contact ID values or HeatCore tracker IDs.
+It provides a measurement of Windows-visible active contact and lift rather
+than internal classification.
+
+To use with sensor correlation, on Windows PowerShell in the downloaded repo's
+`tools/windows_capture` folder, with `touch_boot.wprp` copied into
+`%USERPROFILE%\Desktop\SL4A_capture`:
+
+1. Start `capture_runtime.cmd` as Administrator in one console, following
+   its existing steps. **Start the WPR trace first**.
+2. In a **second** Windows PowerShell 5.1 console (STA), run:
+   `powershell.exe -NoProfile -STA -ExecutionPolicy Bypass -File .\capture_os_pointer_contacts.ps1`.
+3. In the full-screen target, do one-finger drag/lift, far-separated two-finger
+   pinch/expand/lift, then close the logger using **ESC**.
+4. Stop WPR in the original console, preserve both the
+   `touch_runtime.etl` and `sl4a-os-pointer-*.csv`, and record their
+   exact source hashes. Both sessions record wall-clock UTC for approximate
+   alignment. **Frame-accurate sensor/contact synchronization still needs
+   measured correlation**, not an assumed millisecond offset.
+5. Validate one DOWN/UP pair per observed OS pointer before treating the CSV
+   as an oracle. Beware that the observer receives events only when the finger
+   targets its window; it is not a system-wide input logger.
+
+The touched OS-pointer CSV may contain screen coordinates, so treat the original
+recording as potentially sensitive; do not automatically upload or publish it.
+
 ## Steps (run on Windows, in an Administrator prompt)
 
 ### Runtime centroid capture for multi-touch mapping
