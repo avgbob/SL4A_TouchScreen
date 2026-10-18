@@ -22,8 +22,8 @@ function Assert-Assets {
   if($touch.Count -ne 1 -or $spb.Count -ne 1){throw 'Profile missing expected TouchAndPen / SPB providers'}
   $source=Get-Content -LiteralPath $Pointer -Raw
   if($source -notmatch 'PHYSICAL_TWO_MARK'){throw 'This pointer logger has no M-annotation support'}
-  if($PhysicalTruthMode -and $source -notmatch 'SECOND_INTENTIONALLY_LIFTED'){
-    throw 'This pointer logger is missing the controlled physical-truth V3 mode'
+  if($PhysicalTruthMode -and ($source -notmatch 'GUIDED PHYSICAL TRUTH V4' -or $source -notmatch 'GUIDED_SPACE')){
+    throw 'This pointer logger is missing the one-key physical-truth V4 mode'
   }
 }
 function Assert-Admin {
@@ -61,7 +61,7 @@ function Manifest {
     generated_utc=(Stamp);mode=$Mode;
     wpr_profile_sha256=(Get-FileHash -LiteralPath $Profile -Algorithm SHA256).Hash.ToLowerInvariant();
     pointer_v2_sha256=(Get-FileHash -LiteralPath $Pointer -Algorithm SHA256).Hash.ToLowerInvariant();
-    pointer_protocol=$(if($PhysicalTruthMode){'V3_PHYSICAL_TRUTH'}else{'V2_PINCH'});
+    pointer_protocol=$(if($PhysicalTruthMode){'V4_GUIDED_PHYSICAL_TRUTH'}else{'V2_PINCH'});
     files=$records;
     warning='Enabling SPB providers does not guarantee complete raw 0x0C heatmaps. Verify decoded frames.'
   } | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath $target -Encoding utf8
@@ -69,7 +69,7 @@ function Manifest {
 
 Assert-Assets
 if($Mode -eq 'SelfTest'){
-  Write-Host $(if($PhysicalTruthMode){'PASS: V3 physical-truth logger, profile XML, SPB and TouchAndPen providers verified.'}else{'PASS: V2 pointer logger, profile XML, SPB and TouchAndPen providers verified.'})
+  Write-Host $(if($PhysicalTruthMode){'PASS: one-key V4 physical-truth logger, profile XML, SPB and TouchAndPen providers verified.'}else{'PASS: V2 pointer logger, profile XML, SPB and TouchAndPen providers verified.'})
   return
 }
 Assert-Admin
@@ -109,8 +109,8 @@ if($Mode -eq 'Capture'){
     $started=$true
     Mark 'WPR_ACTIVE'
     Write-Host ''
-    Write-Host $(if($PhysicalTruthMode){'TRACE RECORDING. V3 opens now. Follow the large instruction for EACH stage; do not guess from the key legend.'}else{'TRACE RECORDING. V2 opens now. SPACE advances stages; press M only if physically two fingers are down but display says one.'})
-    Write-Host $(if($PhysicalTruthMode){'Finish V3 by pressing SPACE after stage 8. ESC saves a partial run. The trace stops automatically.'}else{'Finish V2 with SPACE or ESC. The trace will stop automatically.'})
+    Write-Host $(if($PhysicalTruthMode){'TRACE RECORDING. Guided V4 opens now. Use SPACE only; each confirmed state is held automatically for 2 seconds.'}else{'TRACE RECORDING. V2 opens now. SPACE advances stages; press M only if physically two fingers are down but display says one.'})
+    Write-Host $(if($PhysicalTruthMode){'The window closes automatically after the final empty-glass hold. ESC saves a partial run.'}else{'Finish V2 with SPACE or ESC. The trace will stop automatically.'})
     $pointerArgs=@('-NoProfile','-STA','-ExecutionPolicy','Bypass','-File',$Pointer,'-OutputFolder',$PointerOut)
     if($PhysicalTruthMode){$pointerArgs+='-PhysicalTruthMode'}
     & (Join-Path $PSHOME 'powershell.exe') @pointerArgs 2>&1 |
@@ -137,7 +137,7 @@ if($Mode -eq 'Capture'){
   }
   if(-not $started){throw "Trace did not start; see $RunDir. $failure"}
   if(-not $stopOk){throw "Trace could not be preserved; see $RunDir. $failure"}
-  if($childExit -ne 0){$protocol=$(if($PhysicalTruthMode){'V3'}else{'V2'});throw "$protocol exited with code $childExit; ETL still saved: $Etl"}
+  if($childExit -ne 0){$protocol=$(if($PhysicalTruthMode){'V4'}else{'V2'});throw "$protocol exited with code $childExit; ETL still saved: $Etl"}
   if($failure){throw "Capture failed but ETL was preserved. $failure"}
   Write-Host "Original ETL saved: $Etl"
 }

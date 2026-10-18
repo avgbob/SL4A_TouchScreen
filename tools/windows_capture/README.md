@@ -56,6 +56,41 @@ hash rejection, and ZIP contents have automated tests on
 
 ---
 
+## Current physical-truth capture: guided V4 (2026-10-17)
+
+V4 replaces the error-prone `B/T/L/R/N/X` keyboard protocol. The operator
+uses only **SPACE**: perform the single large instruction on screen, then press
+SPACE once when it is physically true. The collector records the intended
+state and automatically holds that label for two seconds before showing the
+next instruction. Letter keys do nothing. `ESC` remains available to preserve
+a partial run.
+
+The 19 guided states cover horizontal and vertical close contacts, both
+horizontal single-finger lift orders, light versus firmer pressure, returns,
+separations, and empty-glass controls. Transitions are explicitly recorded as
+unknown rather than inheriting the prior physical label.
+
+In an Administrator Windows PowerShell window:
+
+```powershell
+$desktop = [Environment]::GetFolderPath('Desktop')
+$kit = Join-Path $desktop 'SL4A-PhysicalTruth-Kit'
+New-Item -ItemType Directory -Force -Path $kit | Out-Null
+$base = 'https://raw.githubusercontent.com/avgbob/SL4A_TouchScreen/main/tools/windows_capture/'
+foreach ($name in @('capture_pinch_correlated.ps1','capture_os_pointer_contacts_v2.ps1','touch_boot.wprp')) {
+    Invoke-WebRequest ($base + $name) -OutFile (Join-Path $kit $name)
+}
+$script = Join-Path $kit 'capture_pinch_correlated.ps1'
+powershell.exe -NoProfile -STA -ExecutionPolicy Bypass -File $script -Mode SelfTest -PhysicalTruthMode
+powershell.exe -NoProfile -STA -ExecutionPolicy Bypass -File $script -Mode Capture -PhysicalTruthMode
+```
+
+The window closes automatically after the final empty-glass hold. Preserve the
+original ETL and privately upload the resulting evidence ZIP after running the
+existing offline bundle builder.
+
+---
+
 ## New priority: paired WPR + guided V2 close-pinch capture (2026-10-17)
 
 Two separate user-confirmed V2 trials provide **17/17 intentional M

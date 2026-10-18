@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-2.0
-"""Analyze operator-announced physical contact states in paired SL4A V3 logs.
+"""Analyze operator-confirmed physical contact states in paired SL4A V3/V4 logs.
 
 Read-only. This is NOT an independent instrument measuring fingers on glass:
 state changes are user key annotations with unknown human reaction latency.
 Use a conservative delay after marks and truncate before the next mark.
 Corrected intervals remain in raw evidence but are excluded from metrics.
+Guided V4 explicitly terminates every two-second labelled hold with UNKNOWN.
 """
 from __future__ import annotations
 
@@ -24,7 +25,30 @@ STATES = {
     "OPERATOR_SECOND_INTENTIONALLY_LIFTED": 1,
     "OPERATOR_BOTH_LIFTED": 0,
 }
+GUIDED_STATES = {
+    "OPERATOR_CONFIRM_EMPTY_START": 0,
+    "OPERATOR_CONFIRM_HORIZONTAL_TWO_APART": 2,
+    "OPERATOR_CONFIRM_HORIZONTAL_CLOSE_BOTH_DOWN": 2,
+    "OPERATOR_CONFIRM_HORIZONTAL_LEFT_LIFTED": 1,
+    "OPERATOR_CONFIRM_HORIZONTAL_RIGHT_ONLY": 1,
+    "OPERATOR_CONFIRM_HORIZONTAL_LEFT_RETURNED": 2,
+    "OPERATOR_CONFIRM_HORIZONTAL_RIGHT_LIFTED": 1,
+    "OPERATOR_CONFIRM_HORIZONTAL_LEFT_ONLY": 1,
+    "OPERATOR_CONFIRM_HORIZONTAL_RIGHT_RETURNED": 2,
+    "OPERATOR_CONFIRM_HORIZONTAL_TWO_APART_AGAIN": 2,
+    "OPERATOR_CONFIRM_EMPTY_BETWEEN_TRIALS": 0,
+    "OPERATOR_CONFIRM_VERTICAL_TWO_APART": 2,
+    "OPERATOR_CONFIRM_VERTICAL_CLOSE_LIGHT": 2,
+    "OPERATOR_CONFIRM_VERTICAL_CLOSE_FIRM": 2,
+    "OPERATOR_CONFIRM_VERTICAL_TOP_LIFTED": 1,
+    "OPERATOR_CONFIRM_VERTICAL_BOTTOM_ONLY": 1,
+    "OPERATOR_CONFIRM_VERTICAL_TOP_RETURNED": 2,
+    "OPERATOR_CONFIRM_VERTICAL_TWO_APART_AGAIN": 2,
+    "OPERATOR_CONFIRM_EMPTY_FINISH": 0,
+}
+ALL_STATES = {**STATES, **GUIDED_STATES}
 INVALID = "OPERATOR_ANNOTATION_INVALIDATED"
+UNKNOWN = "OPERATOR_TRANSITION_UNKNOWN"
 
 
 def utc_seconds(value: str) -> float:
@@ -56,17 +80,16 @@ def evaluate(events: list[dict], samples: list[dict], *, guard_after=0.35,
         kind = row.get("Event", "")
         if kind == "DOWN" or kind == "UP":
             pointer_counts[kind] += 1
-        if kind in STATES or kind == INVALID:
+        if kind in ALL_STATES or kind in (INVALID, UNKNOWN):
             physical = int(row.get("OperatorPhysical", "-1"))
-            expected = STATES.get(kind, -1)
+            expected = ALL_STATES.get(kind, -1)
             if physical != expected:
                 raise ValueError(f"inconsistent operator label: {kind} physical={physical}")
             marks.append({"timestamp": when, "event": kind, "physical": physical,
                           "stage": row.get("Stage", ""),
                           "windows_at_key": int(row.get("MessageActive", "-1"))})
-    # A V3 control recording must contain both physical-two and deliberate-lift labels.
     if not marks:
-        raise ValueError("no V3 physical state markers")
+        raise ValueError("no V3/V4 physical state markers")
     if not samples:
         raise ValueError("no periodic pointer samples")
     sampled = []
@@ -86,7 +109,7 @@ def evaluate(events: list[dict], samples: list[dict], *, guard_after=0.35,
     longest_by_class = Counter()
     excluded_by_correction = 0
     for idx, mark in enumerate(marks):
-        if mark["event"] == INVALID:
+        if mark["event"] in (INVALID, UNKNOWN):
             continue
         next_mark = marks[idx + 1] if idx + 1 < len(marks) else None
         # X invalidates the preceding annotated interval, never rewriting raw CSV.
@@ -156,14 +179,17 @@ def evaluate(events: list[dict], samples: list[dict], *, guard_after=0.35,
         "status": "HUMAN_ANNOTATED_PHYSICAL_STATES_NOT_INDEPENDENT_SENSOR_TRUTH",
         "guard_after_seconds": guard_after, "guard_before_seconds": guard_before,
         "minimum_sustained_run_seconds": min_run,
-        "operator_markers": len(marks), "corrected_intervals_excluded": excluded_by_correction,
+        "operator_markers": sum(m["event"] not in (INVALID, UNKNOWN) for m in marks),
+        "transition_boundaries": sum(m["event"] == UNKNOWN for m in marks),
+        "raw_annotation_events": len(marks),
+        "corrected_intervals_excluded": excluded_by_correction,
         "os_event_lifetimes": dict(pointer_counts), "stage_intervals": summaries,
         "totals": dict(aggregate),
         "longest_mismatch_seconds_by_class": {k:round(v,3) for k,v in longest_by_class.items()},
         "warnings": [
             "An operator keypress is not the exact moment a finger physically lifts/lands.",
             "The sensor and OS timebases require an independent clock map for frame-exact claims.",
-            "A stale physical-state key can mislabel intervening physical gestures; stage instructions are not ground truth.",
+            "V3 labels can remain stale; V4 ends each labelled hold with an explicit unknown transition.",
             "The OS pointer counts are Windows application-visible, not raw controller contact identities.",
             "No external finger video or synchronized hardware switch was captured.",
         ],

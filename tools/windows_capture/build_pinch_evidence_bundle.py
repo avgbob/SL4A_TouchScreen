@@ -43,7 +43,7 @@ def collect(folder: Path, *, skip_wpr: bool = False) -> dict:
         raise ValueError("Original manifest is missing pointer/events.csv")
     result_dir = folder / "offline-analysis"
     result_dir.mkdir(exist_ok=True)
-    print("Inspecting pointer IDs and M key annotations ...", flush=True)
+    print("Inspecting pointer IDs and operator annotations ...", flush=True)
     pointer_report = verify_pointer_events(pointer)
     report = {"pointer": pointer_report,
               "manifest_created_utc": meta.get("generated_utc"),
@@ -51,14 +51,18 @@ def collect(folder: Path, *, skip_wpr: bool = False) -> dict:
               "clock_warning": "Do not convert tracerpt Clock-Time QPC to UTC without an explicit verified mapping"}
     if pointer_report["sha256"].lower() != expected["pointer/events.csv"]["sha256"].lower():
         raise ValueError("Pointer events differ from original manifest; refusing untraceable evidence")
-    # V3 physical truth controls are included in the same evidence archive.
+    # V3/V4 physical truth controls are included in the same evidence archive.
     # V2 recordings have no operator physical-state markers and stay unchanged.
     counts = pointer_report.get("event_counts", {})
     if any(k.startswith("OPERATOR_") for k in counts):
         if not samples.is_file():
-            raise FileNotFoundError("V3 physical state labels require pointer/samples.csv")
+            raise FileNotFoundError("Physical state labels require pointer/samples.csv")
         truth = evaluate_physical(physical_read_csv(pointer),physical_read_csv(samples))
-        report["physical_truth_v3"] = truth
+        truth_key = ("physical_truth_v4" if
+                     str(meta.get("pointer_protocol", "")).startswith("V4_")
+                     else "physical_truth_v3")
+        report[truth_key] = truth
+        report["physical_truth_protocol"] = meta.get("pointer_protocol", "V3_LEGACY_OR_UNKNOWN")
         (result_dir/"physical-truth-report.json").write_text(
             json.dumps(truth, indent=2, sort_keys=True)+"\n", encoding="utf-8")
     if not skip_wpr and wpr_csv.is_file():
@@ -110,10 +114,15 @@ def collect(folder: Path, *, skip_wpr: bool = False) -> dict:
         "pointer_events": sum(pointer_report["event_counts"].values()),
         "physical_two_keypresses": len(pointer_report["raw_m_presses"]),
         "physical_two_with_one_os_pointer": len(pointer_report["raw_one_pointer_m_presses"]),
+        "physical_truth_protocol": report.get("physical_truth_protocol"),
+        "physical_truth_intervals": len((report.get("physical_truth_v4") or
+                                          report.get("physical_truth_v3") or {}).get("stage_intervals", [])),
+        "physical_truth_summary": (report.get("physical_truth_v4") or
+                                     report.get("physical_truth_v3") or {}).get("totals"),
         "v3_physical_truth_intervals": len(report.get("physical_truth_v3", {}).get("stage_intervals", [])),
         "v3_truth_summary": report.get("physical_truth_v3", {}).get("totals"),
         "warnings": [
-            "Raw M presses may include mistakes; user should identify any accidental M.",
+            "Operator annotations are human observations; V2 M presses may include mistakes.",
             "Even verified raw 0x0C frames require a proper WPR-to-UTC timestamp mapping.",
             "Never publish raw touch events/heatmaps to a public repository.",
         ],

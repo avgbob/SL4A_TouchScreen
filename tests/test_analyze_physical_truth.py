@@ -22,6 +22,20 @@ def sample(t,reported):
     return {"Utc":ts(t),"MessageActive":str(reported),"Stage":"4"}
 
 class PhysicalTruthTest(unittest.TestCase):
+    def test_v4_guided_holds_end_at_explicit_unknown_boundaries(self):
+        events=[mark(0,"OPERATOR_CONFIRM_HORIZONTAL_CLOSE_BOTH_DOWN",2,1),
+                mark(2,"OPERATOR_TRANSITION_UNKNOWN",-1,1),
+                mark(3,"OPERATOR_CONFIRM_HORIZONTAL_LEFT_LIFTED",1,1),
+                mark(5,"OPERATOR_TRANSITION_UNKNOWN",-1,1)]
+        samples=[sample(i/10,1) for i in range(61)]
+        result=evaluate(events,samples)
+        self.assertEqual(result['operator_markers'],2)
+        self.assertEqual(result['transition_boundaries'],2)
+        self.assertEqual(len(result['stage_intervals']),2)
+        self.assertEqual(result['stage_intervals'][0]['physical'],2)
+        self.assertGreater(result['totals']['two_physical_one_windows_samples'],0)
+        self.assertEqual(result['stage_intervals'][1]['windows_mismatch_samples'],0)
+
     def test_deliberate_lift_vs_close_occlusion(self):
         # BOTH down but second OS ID lost; then REAL lift -> OS count 1 correct;
         # then NEW second finger returns; then both OFF must show OS count 0.
