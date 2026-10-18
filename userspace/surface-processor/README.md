@@ -1,5 +1,8 @@
 # MSHW0231 Windows-derived contact processor (offline research)
 
+> **Newest research gate (2026-10-17):** [Diagnostic-only shadow identity overlay](SHADOW-TRACKER-AUDIT-20261017.md). Full 8,232-frame replay produced **22 plausible two-to-one occlusion hypotheses** and **16–19 proposed reconnections** across 0.2–2.0-second retention policies, with **zero automatically reused output IDs**. **This is not 16–19 verified recovered physical fingers.** In default mode, only actually observed contacts appear in output. None of the 0.2–1.0-second policies retained a shadow at the three M-marked moments; even 2.0 seconds retained at only two. Genuine close finger lift followed by a new finger in the same location remains fundamentally ambiguous. Use `python3 shadow_replay.py /path/to/SL4A_heatmaps_privacy_hardened.zip --output /tmp/shadow-audit.json` for reproducibility; no Gate5 or upstream driver change.
+
+
 > **Latest empirical next gate:** [Pre-loss sensor-region collapse and independent-lift control audit](PINCH-TRANSITION-AUDIT-20261017.md). Four clear Windows contact transitions anchor only a **behavioral** estimate of sensor/event time offset. Across four close-pinch secondary `UP` events, distinct raw regions collapsed **0.43–1.45 seconds before** Windows released the corresponding pointer by that estimate. Three subsequent M markers independently confirm two physical fingers at later points. Even a peak threshold of 2 recovers no second 4-cell-separated lobe in the sampled failure windows. **No hold timer or synthetic second contact has been implemented**.
 
 **Reproduce pre-loss audit (Python stdlib, public dataset only):**
