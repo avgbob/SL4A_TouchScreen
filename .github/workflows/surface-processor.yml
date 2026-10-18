@@ -115,8 +115,33 @@ jobs:
           print('PASS: all 8,232 real frames replayed; three M windows show one robust peak, two wide-contact controls show two.')
           print('CAUTION: published OS and raw time origins are not formally synchronized.')
           PY
+      - name: Audit pre-loss merging and independent-lift control alignment
+        run: |
+          set -euo pipefail
+          python3 userspace/surface-processor/pinch_transition_audit.py \
+            /tmp/sl4a-public-pinch.zip --output /tmp/sl4a-pinch-transition-audit.json
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          a=json.loads(Path('/tmp/sl4a-pinch-transition-audit.json').read_text())
+          assert a['dataset_frames']==8232
+          assert a['event_clock_qualification']['controls_found']==4
+          assert len(a['pinch_stage_releases'])==4
+          assert len(a['operator_m_times'])==3
+          rows=a['pinch_stage_releases']
+          assert [r['later_operator_two_physical_confirmation_before_new_DOWN'] for r in rows] == [False, True, True, True]
+          for name in ('M1','M2','M3'):
+              depths=a['weak_peak_sensitivity']['control_and_marker_windows'][name]['thresholds']
+              assert all(depths[d]['fraction_two_or_more']==0 for d in ('2','5','10','20'))
+          wide=a['weak_peak_sensitivity']['control_and_marker_windows']['TWO_WIDE_APART']
+          assert wide['thresholds']['2']['fraction_two_or_more']==1
+          print('PASS: 8232 sensor frames, 4 independent timing controls, 4 close-pinch releases, 3 M mismatches.')
+          print('Caution: behavioral clock offset, not independent ETL-QPC/UTC calibration or Microsoft classifier output.')
+          PY
       - uses: actions/upload-artifact@v4
         with:
           name: sl4a-public-pinch-processor-baseline
-          path: /tmp/pinch-baseline-report.json
+          path: |
+            /tmp/pinch-baseline-report.json
+            /tmp/sl4a-pinch-transition-audit.json
           if-no-files-found: error
