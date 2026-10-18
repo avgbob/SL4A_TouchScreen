@@ -1,7 +1,7 @@
 # SL4A Windows multi-touch observer V2: no driver/registry changes.
 # Windows PowerShell 5.1 -STA. Press SPACE for next stage, M to annotate
 # "two physical fingers on glass but the display counts fewer than two".
-param([switch]$SelfTest, [string]$OutputFolder = '')
+param([switch]$SelfTest, [string]$OutputFolder = '', [switch]$PhysicalTruthMode)
 
 $ErrorActionPreference='Stop'
 if (-not $SelfTest -and [Threading.Thread]::CurrentThread.GetApartmentState() -ne 'STA') {
@@ -62,6 +62,34 @@ public sealed class TouchModel {
   if(a.Active.Count!=0 || a.Down!=2 || a.Up!=2)throw new Exception("final release regression");
  }
 }
+public sealed class PhysicalTruthModel {
+ public int PhysicalCount=-1; // UNKNOWN until explicitly marked by operator
+ public int Corrections=0;
+ public int Marks=0;
+ public string Apply(char key) {
+  string action;
+  switch(char.ToUpperInvariant(key)) {
+   case 'B': PhysicalCount=2;action="BOTH_DOWN";break;
+   case 'T': PhysicalCount=2;action="BOTH_STILL_DOWN";break;
+   case 'R': PhysicalCount=2;action="SECOND_RETURNED";break;
+   case 'L': PhysicalCount=1;action="SECOND_INTENTIONALLY_LIFTED";break;
+   case 'N': PhysicalCount=0;action="BOTH_LIFTED";break;
+   case 'X': PhysicalCount=-1;Corrections++;action="ANNOTATION_INVALIDATED";break;
+   default: throw new ArgumentException("unknown physical marker");
+  }
+  Marks++;
+  return action;
+ }
+ public static void AssertSelfTest() {
+  var p=new PhysicalTruthModel();
+  if(p.PhysicalCount!=-1)throw new Exception("missing initial UNKNOWN state");
+  if(p.Apply('B')!="BOTH_DOWN"||p.PhysicalCount!=2)throw new Exception("two-finger mark");
+  if(p.Apply('L')!="SECOND_INTENTIONALLY_LIFTED"||p.PhysicalCount!=1)throw new Exception("physical lift mark");
+  if(p.Apply('R')!="SECOND_RETURNED"||p.PhysicalCount!=2)throw new Exception("physical return mark");
+  if(p.Apply('N')!="BOTH_LIFTED"||p.PhysicalCount!=0)throw new Exception("physical zero mark");
+  if(p.Apply('X')!="ANNOTATION_INVALIDATED"||p.PhysicalCount!=-1||p.Corrections!=1)throw new Exception("correction mark");
+ }
+}
 public sealed class PinchWindow : Form {
  const int UPDATE=0x245,DOWN=0x246,UP=0x247,ENTER=0x249,LEAVE=0x24a,LOST=0x24c;
  const uint TOUCH=2, INCONTACT=0x4, CANCELLED=0x400;
@@ -77,14 +105,35 @@ public sealed class PinchWindow : Form {
   "3 OF 4: PINCH. SAME two fingers: slowly pinch 3 times, no lift.",
   "4 OF 4: LIFT one only, hold second 3 seconds, then lift."
  };
+ static readonly string[] TruthSteps={
+  "1/8 BASELINE: all fingers OFF glass. Press N then SPACE.",
+  "2/8 TWO FAR: place both far apart; press B after BOTH touch.",
+  "3/8 PINCH: maintain BOTH physically down; press T as needed.",
+  "4/8 TWO CLOSE: hold both close WITHOUT lifting. Press T.",
+  "5/8 REAL LIFT: deliberately lift one, then press L immediately.",
+  "6/8 ONE HOLD: keep remaining finger down >=3s; no second touch.",
+  "7/8 REPLACE: return second to SAME close spot; press R after down.",
+  "8/8 ZERO: lift both fingers; press N after last finger leaves."
+ };
+ public static bool TruthMode=false;
+ int StageTotal {get {return TruthMode?TruthSteps.Length:Steps.Length;}}
+ string CurrentStep(int i){return TruthMode?TruthSteps[i]:Steps[i];}
+ static int TruthExpected(int i) {
+  int[] expected={0,2,2,2,1,1,2,0};
+  return expected[i];
+ }
  readonly TouchModel model=new TouchModel();
+ readonly PhysicalTruthModel physical=new PhysicalTruthModel();
+ readonly HashSet<Keys> heldKeys=new HashSet<Keys>();
  readonly StreamWriter events, samples;
  readonly Timer timer=new Timer();
  readonly string folder;
- readonly int[] ticks=new int[4],two=new int[4],one=new int[4],max=new int[4],marks=new int[4],frameTwo=new int[4];
- readonly int[] stageDown=new int[4],stageUp=new int[4],oneRun=new int[4],longestOneRun=new int[4];
- readonly double[] minDist={double.MaxValue,double.MaxValue,double.MaxValue,double.MaxValue}, maxDist=new double[4];
- readonly HashSet<uint>[] ids={new HashSet<uint>(),new HashSet<uint>(),new HashSet<uint>(),new HashSet<uint>()};
+ readonly int[] ticks=new int[8],two=new int[8],one=new int[8],max=new int[8],marks=new int[8],frameTwo=new int[8];
+ readonly int[] stageDown=new int[8],stageUp=new int[8],oneRun=new int[8],longestOneRun=new int[8];
+ readonly double[] minDist={double.MaxValue,double.MaxValue,double.MaxValue,double.MaxValue,double.MaxValue,double.MaxValue,double.MaxValue,double.MaxValue}, maxDist=new double[8];
+ readonly HashSet<uint>[] ids={
+ new HashSet<uint>(),new HashSet<uint>(),new HashSet<uint>(),new HashSet<uint>(),
+ new HashSet<uint>(),new HashSet<uint>(),new HashSet<uint>(),new HashSet<uint>()};
  readonly List<string> annotations=new List<string>();
  int stage=-1,frameContacts=-1,frameErr,errors,peak,framePeak;
  long messages;
@@ -93,12 +142,12 @@ public sealed class PinchWindow : Form {
  public PinchWindow(string target) {
   folder=target; Directory.CreateDirectory(target);
   events=new StreamWriter(Path.Combine(target,"events.csv"),false,Encoding.UTF8); events.AutoFlush=true;
-  events.WriteLine("Utc,StopwatchTicks,Stage,Event,PointerId,MessageActive,FrameContacts,FrameAgeMs,PointerFlags,FrameId,X,Y,RawX,RawY,ContactL,ContactT,ContactR,ContactB,Pressure,Orientation,ApiError,ActiveIds,Note");
+  events.WriteLine("Utc,StopwatchTicks,Stage,Event,PointerId,MessageActive,FrameContacts,FrameAgeMs,PointerFlags,FrameId,X,Y,RawX,RawY,ContactL,ContactT,ContactR,ContactB,Pressure,Orientation,ApiError,ActiveIds,Note,OperatorPhysical");
   samples=new StreamWriter(Path.Combine(target,"samples.csv"),false,Encoding.UTF8);samples.AutoFlush=true;
-  samples.WriteLine("Utc,Stage,Expected,MessageActive,FrameContacts,FrameAgeMs,ActiveIds");
-  Text="SL4A PINCH TEST V2";FormBorderStyle=FormBorderStyle.None;WindowState=FormWindowState.Maximized;
+  samples.WriteLine("Utc,Stage,Expected,MessageActive,FrameContacts,FrameAgeMs,ActiveIds,OperatorPhysical");
+  Text=TruthMode?"SL4A PHYSICAL TRUTH V3":"SL4A PINCH TEST V2";FormBorderStyle=FormBorderStyle.None;WindowState=FormWindowState.Maximized;
   BackColor=Color.FromArgb(16,24,38);ForeColor=Color.White;KeyPreview=true;DoubleBuffered=true;
-  KeyDown+=Key; timer.Interval=100;timer.Tick+=(s,e)=>Sample();timer.Start();
+  KeyDown+=Key;KeyUp+=(sender,e)=>heldKeys.Remove(e.KeyCode); timer.Interval=100;timer.Tick+=(s,e)=>Sample();timer.Start();
  }
  string ActiveIds(){return string.Join("|",model.Active.Keys.OrderBy(x=>x));}
  bool Fresh(){return frameAt!=DateTime.MinValue&&(DateTime.UtcNow-frameAt).TotalMilliseconds<400;}
@@ -114,33 +163,46 @@ public sealed class PinchWindow : Form {
    t.HasValue?c.L.ToString():"",t.HasValue?c.T.ToString():"",
    t.HasValue?c.R.ToString():"",t.HasValue?c.B.ToString():"",
    t.HasValue?t.Value.Pressure.ToString():"",t.HasValue?t.Value.Orientation.ToString():"",
-   apiErr.ToString(),ActiveIds(),note
+   apiErr.ToString(),ActiveIds(),note,physical.PhysicalCount.ToString()
   });events.WriteLine(value);
  }
  void Key(object sender,KeyEventArgs e){
+  if(TruthMode && !heldKeys.Add(e.KeyCode)) {e.Handled=true;return;}
   if(e.KeyCode==Keys.Escape){e.Handled=true;Close();return;}
-  if(e.KeyCode==Keys.M){
+  if(TruthMode && (e.KeyCode==Keys.B||e.KeyCode==Keys.T||e.KeyCode==Keys.L||
+                   e.KeyCode==Keys.R||e.KeyCode==Keys.N||e.KeyCode==Keys.X)) {
+   e.Handled=true;e.SuppressKeyPress=true;
+   char k=e.KeyCode.ToString()[0];
+   string action=physical.Apply(k);
+   WriteEvent("OPERATOR_"+action,0,0,0,new PointerInfo(),null,0,"KEY_"+k);
+   annotations.Add(Utc()+" stage="+(stage+1)+" OPERATOR_"+action+
+                   " physical="+physical.PhysicalCount+
+                   " windows="+model.Active.Count+" frame="+FCount());
+   Invalidate();
+   return;
+  }
+  if(!TruthMode && e.KeyCode==Keys.M){
    e.Handled=true;string a=Utc()+" stage="+(stage+1)+" observedMessage="+model.Active.Count+" observedFrame="+FCount();
-   annotations.Add(a);if(stage>=0&&stage<4)marks[stage]++;
+   annotations.Add(a);if(stage>=0&&stage<StageTotal)marks[stage]++;
    WriteEvent("PHYSICAL_TWO_MARK",0,0,0,new PointerInfo(),null,0,"USER_SAYS_TWO_ON_GLASS");
    Invalidate();return;
   }
   if(e.KeyCode==Keys.Space){
    e.Handled=true;
-   if(stage>=3){stage=4;Close();return;}
+   if(stage>=StageTotal-1){stage=StageTotal;Close();return;}
    stage++;WriteEvent("STAGE_START",0,0,0,new PointerInfo(),null,0,"STEP_"+(stage+1));
    Invalidate();
   }
  }
  void Sample(){
-  if(stage>=0&&stage<4&&!finished){
+  if(stage>=0&&stage<StageTotal&&!finished){
    ticks[stage]++;int n=model.Active.Count;
    if(n>=2)two[stage]++;else if(n==1)one[stage]++;
    if(Fresh()&&frameContacts>=2)frameTwo[stage]++;
    max[stage]=Math.Max(max[stage],n);
    // During the pinch stage, count drops AFTER a two-ID interval begins.
    // These are candidates, not physical truth unless also marked with M.
-   if(stage==2 && max[stage]>=2 && n==1) {
+   if(!TruthMode && stage==2 && max[stage]>=2 && n==1) {
     oneRun[stage]++;longestOneRun[stage]=Math.Max(longestOneRun[stage],oneRun[stage]);
    } else oneRun[stage]=0;
    if(n>=2){
@@ -152,7 +214,7 @@ public sealed class PinchWindow : Form {
    }
    foreach(uint id in model.Active.Keys) ids[stage].Add(id);
    samples.WriteLine(string.Join(",",new[]{Utc(),(stage+1).ToString(),
-     (stage==0?"1":"2"),n.ToString(),FCount(),FAge().ToString(),ActiveIds()}));
+     (TruthMode?TruthExpected(stage).ToString():(stage==0?"1":"2")),n.ToString(),FCount(),FAge().ToString(),ActiveIds(),physical.PhysicalCount.ToString()}));
   }
   Invalidate();
  }
@@ -181,7 +243,7 @@ public sealed class PinchWindow : Form {
   }else{frameErr=Marshal.GetLastWin32Error();errors++;}
   if((pi.Flags&CANCELLED)!=0)kind="CANCELLED";
   model.Apply(kind,id,new Point(x,y));
-  if(stage>=0&&stage<4) {
+  if(stage>=0&&stage<StageTotal) {
    if(kind=="DOWN")stageDown[stage]++;
    if(kind=="UP")stageUp[stage]++;
   }
@@ -197,16 +259,24 @@ public sealed class PinchWindow : Form {
   if(finished)return;finished=true;timer.Stop();events.Flush();samples.Flush();
   string p=Path.Combine(folder,"SUMMARY.txt");
   using(var w=new StreamWriter(p,false,Encoding.UTF8)){
-   w.WriteLine("SL4A WINDOWS V2 OBSERVER: FOREGROUND OS POINTERS, NOT PHYSICAL-SENSOR GROUND TRUTH");
+   w.WriteLine(TruthMode?
+     "SL4A PHYSICAL TRUTH V3: OPERATOR-ANNOUNCED CONTACT STATES + OS POINTERS, NOT INSTRUMENTED FINGER MOTION":
+     "SL4A WINDOWS V2 OBSERVER: FOREGROUND OS POINTERS, NOT PHYSICAL-SENSOR GROUND TRUTH");
+   if(TruthMode) {
+    w.WriteLine("Physical truth state labels are HUMAN KEY ANNOTATIONS, not a sensor measurement.");
+    w.WriteLine("Keyboard response delays and state changes between keys are UNKNOWN.");
+    w.WriteLine("X invalidates the latest interpretation without deleting original evidence; reinterpret invalid intervals.");
+    w.WriteLine("Valid physical-state key marks: "+physical.Marks+"; Corrections: "+physical.Corrections);
+   }
    w.WriteLine("Started UTC: "+begin.ToString("O")+"; finished "+Utc());
    w.WriteLine("Pointer events: "+messages+"; DOWN/UP: "+model.Down+"/"+model.Up);
    w.WriteLine("Duplicate DOWN: "+model.Duplicate+"; orphan UP: "+model.Orphan);
    w.WriteLine("Capture losses: "+model.CaptureLost+"; native pointer API failures: "+errors);
    w.WriteLine("Max message IDs: "+peak+"; max frame contacts: "+framePeak);
    w.WriteLine("Active at exit: "+(ActiveIds()==""?"NONE":ActiveIds()));
-   for(int i=0;i<4;i++){
-    w.WriteLine("");w.WriteLine(Steps[i]);
-    w.WriteLine("Expected physical contacts while holding: "+(i==0?"1":"2"));
+   for(int i=0;i<StageTotal;i++){
+    w.WriteLine("");w.WriteLine(CurrentStep(i));
+    w.WriteLine("Expected physical contacts while holding: "+(TruthMode?TruthExpected(i).ToString():(i==0?"1":"2")));
     w.WriteLine("Approx duration: "+(ticks[i]/10.0).ToString("F1")+" s");
     w.WriteLine("10Hz samples at message count >=2/1/0: "+two[i]+"/"+one[i]+"/"+(ticks[i]-two[i]-one[i]));
     w.WriteLine("Samples with native frame >=2: "+frameTwo[i]);
@@ -216,11 +286,11 @@ public sealed class PinchWindow : Form {
     w.WriteLine("Min/max two-ID distance (screen px): "+
        (minDist[i]==double.MaxValue?"N/A":minDist[i].ToString("F1"))+" / "+
        (minDist[i]==double.MaxValue?"N/A":maxDist[i].ToString("F1")));
-    if(i==2)w.WriteLine("Longest observed one-ID streak AFTER first two-ID frame: "+
+    if(!TruthMode && i==2)w.WriteLine("Longest observed one-ID streak AFTER first two-ID frame: "+
        (longestOneRun[i]/10.0).ToString("F1")+" seconds at 10 Hz");
     w.WriteLine("M markers (operator confirmed two fingers physically down): "+marks[i]);
    }
-   w.WriteLine("");w.WriteLine("PHYSICAL TWO-FINGER M MARKERS:");
+   w.WriteLine("");w.WriteLine(TruthMode?"OPERATOR PHYSICAL STATE MARKERS:":"PHYSICAL TWO-FINGER M MARKERS:");
    foreach(string a in annotations)w.WriteLine("  "+a);
    w.WriteLine("");
    w.WriteLine("Important: one-count samples during finger placement/removal are NOT faults.");
@@ -249,25 +319,28 @@ public sealed class PinchWindow : Form {
   using(var green=new SolidBrush(Color.FromArgb(94,224,167)))
   using(var red=new SolidBrush(Color.FromArgb(255,142,111))){
    g.DrawString("SL4A  •  TWO-FINGER DIAGNOSTIC V2",head,white,26,18);
-   if(stage<0)g.DrawString("SPACE starts. Lift after step 1; KEEP TWO FINGERS DOWN through steps 2-3.",body,white,30,85);
-   else if(stage<4)g.DrawString(Steps[stage],body,white,30,85);
+   if(stage<0)g.DrawString(TruthMode?"SPACE starts controlled physical-truth sequence.":"SPACE starts. Lift after step 1; KEEP TWO FINGERS DOWN through steps 2-3.",body,white,30,85);
+   else if(stage<StageTotal)g.DrawString(CurrentStep(stage),body,white,30,85);
    else g.DrawString("Finished.",body,white,30,85);
    g.DrawString(model.Active.Count.ToString(),number,
-       stage>=1&&stage<4&&model.Active.Count<2?red:green,29,143);
+       (TruthMode ? (physical.PhysicalCount>=0 && physical.PhysicalCount!=model.Active.Count) : (stage>=1&&stage<StageTotal&&model.Active.Count<2))?red:green,29,143);
    g.DrawString("Active contact IDs from DOWN/UP",detail,dim,35,255);
    g.DrawString("Latest frame (may be serial): "+FCount(),body,white,30,302);
    g.DrawString("Active IDs: "+(ActiveIds()==""?"none":ActiveIds()),body,white,30,348);
    g.DrawString("Peak message IDs: "+peak+" | Frame peak: "+framePeak,detail,dim,30,394);
-   if(stage>=1&&stage<4&&model.Active.Count<2)
+   if(TruthMode)g.DrawString("Operator physically down: "+(physical.PhysicalCount<0?"UNKNOWN":physical.PhysicalCount.ToString()),body,red,30,440);
+   else if(stage>=1&&stage<StageTotal&&model.Active.Count<2)
     g.DrawString("BOTH FINGERS DOWN? Press M to mark missing detection!",body,red,30,440);
-   g.DrawString("M markers: "+annotations.Count,detail,dim,30,488);
+   g.DrawString((TruthMode?"Physical state key marks: ":"M markers: ")+annotations.Count,detail,dim,30,488);
    if(model.Active.Count>=2){
     Point[] p=model.Active.Values.Take(2).ToArray();
     double dx=p[0].X-p[1].X,dy=p[0].Y-p[1].Y;
     g.DrawString("Two-contact separation: "+Math.Sqrt(dx*dx+dy*dy).ToString("F0")+" px",
       body,white,30,523);
    }
-   g.DrawString("SPACE = next step     M = I physically have TWO fingers down     ESC = save/quit",
+   g.DrawString(TruthMode?
+      "SPACE next | B both | T both still | L intentional lift | R return | N none | X invalid | ESC save":
+      "SPACE = next step     M = I physically have TWO fingers down     ESC = save/quit",
       detail,white,30,h-40);
    Color[] palette={Color.FromArgb(62,174,251),Color.FromArgb(247,198,82),
       Color.FromArgb(124,237,171),Color.FromArgb(238,141,203)};
@@ -287,7 +360,9 @@ public sealed class PinchWindow : Form {
 '@
 Add-Type -TypeDefinition $src -ReferencedAssemblies 'System.Windows.Forms','System.Drawing' -ErrorAction Stop
 if($SelfTest) {
+    [PinchWindow]::TruthMode=[bool]$PhysicalTruthMode
     [TouchModel]::AssertSelfTest()
+    [PhysicalTruthModel]::AssertSelfTest()
     if([IntPtr]::Size -eq 8) {
         $size=[TouchModel]::NativePointerSize()
         if($size -ne 96){throw "Win32 POINTER_INFO size wrong (expected 96, got $size)"}
@@ -297,9 +372,11 @@ if($SelfTest) {
     return
 }
 New-Item -ItemType Directory -Path $OutputFolder -Force | Out-Null
-Write-Host "Four stages; SPACE advances, M marks two real fingers when displayed count is wrong."
+if($PhysicalTruthMode) {Write-Host "EIGHT stages; press physical state B,T,L,R,N; X resets invalid; SPACE advance."}
+else {Write-Host "Four stages; SPACE advances, M marks two real fingers when displayed count is wrong."}
 Write-Host "Results: $OutputFolder"
 [PinchWindow]::TrySetDpiAware()
 [System.Windows.Forms.Application]::EnableVisualStyles()
+[PinchWindow]::TruthMode=[bool]$PhysicalTruthMode
 $form=New-Object PinchWindow($OutputFolder)
 try{[System.Windows.Forms.Application]::Run($form)}finally{$form.Dispose()}

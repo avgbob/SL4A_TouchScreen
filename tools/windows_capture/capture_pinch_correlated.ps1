@@ -4,7 +4,8 @@ param(
   [ValidateSet('Capture','Export','Preflight','SelfTest')]
   [string]$Mode='Capture',
   [string]$RunDir='',
-  [switch]$SkipCsvExport
+  [switch]$SkipCsvExport,
+  [switch]$PhysicalTruthMode
 )
 $ErrorActionPreference='Stop'
 Set-StrictMode -Version Latest
@@ -21,6 +22,9 @@ function Assert-Assets {
   if($touch.Count -ne 1 -or $spb.Count -ne 1){throw 'Profile missing expected TouchAndPen / SPB providers'}
   $source=Get-Content -LiteralPath $Pointer -Raw
   if($source -notmatch 'PHYSICAL_TWO_MARK'){throw 'This pointer logger has no M-annotation support'}
+  if($PhysicalTruthMode -and $source -notmatch 'OPERATOR_SECOND_INTENTIONALLY_LIFTED'){
+    throw 'This pointer logger is missing the controlled physical-truth V3 mode'
+  }
 }
 function Assert-Admin {
   $id=[Security.Principal.WindowsIdentity]::GetCurrent()
@@ -57,6 +61,7 @@ function Manifest {
     generated_utc=(Stamp);mode=$Mode;
     wpr_profile_sha256=(Get-FileHash -LiteralPath $Profile -Algorithm SHA256).Hash.ToLowerInvariant();
     pointer_v2_sha256=(Get-FileHash -LiteralPath $Pointer -Algorithm SHA256).Hash.ToLowerInvariant();
+    pointer_protocol=$(if($PhysicalTruthMode){'V3_PHYSICAL_TRUTH'}else{'V2_PINCH'});
     files=$records;
     warning='Enabling SPB providers does not guarantee complete raw 0x0C heatmaps. Verify decoded frames.'
   } | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath $target -Encoding utf8
@@ -77,7 +82,7 @@ if($Mode -eq 'Preflight'){
 }
 if(-not $RunDir){
   if($Mode -eq 'Export'){throw 'Export requires -RunDir from a previous capture'}
-  $name='SL4A-Correlated-'+(Get-Date -Format 'yyyyMMdd-HHmmss')
+  $name=$(if($PhysicalTruthMode){'SL4A-PhysicalTruth-'}else{'SL4A-Correlated-'})+(Get-Date -Format 'yyyyMMdd-HHmmss')
   $RunDir=Join-Path ([Environment]::GetFolderPath('Desktop')) $name
 }
 $RunDir=[IO.Path]::GetFullPath($RunDir)
@@ -104,9 +109,12 @@ if($Mode -eq 'Capture'){
     $started=$true
     Mark 'WPR_ACTIVE'
     Write-Host ''
-    Write-Host 'TRACE RECORDING. V2 opens now. SPACE advances stages; press M only if physically two fingers are down but display says one.'
+    Write-Host $(if($PhysicalTruthMode){'TRACE RECORDING. Physical-truth V3 opens: SPACE steps, B/T both, L lift, R return, N none, X invalid.'}else{'TRACE RECORDING. V2 opens now. SPACE advances stages; press M only if physically two fingers are down but display says one.'})
     Write-Host 'Finish V2 with SPACE or ESC. The trace will stop automatically.'
-    & (Join-Path $PSHOME 'powershell.exe') -NoProfile -STA -ExecutionPolicy Bypass -File $Pointer -OutputFolder $PointerOut 2>&1 | Tee-Object -FilePath (Join-Path $RunDir 'pointer-process.log')
+    $pointerArgs=@('-NoProfile','-STA','-ExecutionPolicy','Bypass','-File',$Pointer,'-OutputFolder',$PointerOut)
+    if($PhysicalTruthMode){$pointerArgs+='-PhysicalTruthMode'}
+    & (Join-Path $PSHOME 'powershell.exe') @pointerArgs 2>&1 |
+      Tee-Object -FilePath (Join-Path $RunDir 'pointer-process.log')
     $childExit=$LASTEXITCODE
     Mark ('POINTER_EXIT_'+$childExit)
   } catch {
