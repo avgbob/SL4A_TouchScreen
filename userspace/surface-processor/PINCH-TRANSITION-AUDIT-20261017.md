@@ -1,6 +1,6 @@
 # Correlated pinch — pre-loss transition audit (research PR #12)
 
-**Status:** Offline sensor/contact *behavioral* comparison. No Linux driver changes, no simulated HID output, no production policy switch. Reproducible from [the published privacy-hardened dataset](../../datasets/sl4a-amd-pinch/). This document does not claim exact Windows classifier reconstruction or clock synchronization.
+**Status:** Offline sensor/contact *behavioral* comparison. No Linux driver changes, no simulated HID output, no production policy switch. Reproducible from [the published privacy-hardened dataset](https://github.com/avgbob/SL4A_TouchScreen/tree/main/datasets/sl4a-amd-pinch/). This document does not claim exact Windows classifier reconstruction or clock synchronization.
 
 ## New result
 
