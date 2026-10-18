@@ -4,6 +4,9 @@
 from __future__ import annotations
 import unittest
 from datetime import datetime,timedelta,timezone
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'tools' / 'windows_capture'))
 from analyze_physical_truth import evaluate
 
 T=datetime(2026,10,17,22,0,0,tzinfo=timezone.utc)
