@@ -32,7 +32,10 @@ def replay(path:Path, ttl_seconds=(.2,.4,1.,2.), offset_seconds=.058212):
         raise ValueError('not the verified public 8,232-frame corpus')
     times=[v/TICKS_PER_SECOND_PROVISIONAL for v in ticks]
     proc=Processor(Config())
-    overlays={str(t):ShadowOverlay(ShadowConfig(ttl_seconds=t)) for t in ttl_seconds}
+    # Preserve this published audit's original immediate-recovery semantics.
+    # The physical-truth replay tests the newer three-frame hysteresis.
+    overlays={str(t):ShadowOverlay(ShadowConfig(ttl_seconds=t,recovery_frames=1))
+              for t in ttl_seconds}
     baseline=Counter();counts=Counter();candidate=Counter();shadow_tally={k:Counter() for k in overlays}
     observations={k:[] for k in overlays}; events_log={k:[] for k in overlays}
     markers=[float(e['relative_seconds_from_first_pointer_down']) for e in events
