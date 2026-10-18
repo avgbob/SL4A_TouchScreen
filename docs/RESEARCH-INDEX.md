@@ -1,6 +1,13 @@
 # Surface Laptop 4 AMD touchscreen — canonical research index
 
-> **NEXT PHYSICAL DISCRIMINATION TEST READY (2026-10-17):** [V3 staged two-down versus intentional-lift Windows WPR+pointer capture](PHYSICAL-TRUTH-V3-CAPTURE-20261017.md) with B/T/L/R/N/X keyboard annotations, conservative timing margins and guarded ZIP analysis. CI passed but **no V3 physical trial completed yet**. This is the missing control to evaluate shadow identity proposals against genuine lifts without guessing. No live kernel/Gate5 change.
+> **2026-10-18 processor rebuild boundary:**
+> [`WINDOWS-PROCESSOR-EVIDENCE-MANIFEST-20261018.md`](WINDOWS-PROCESSOR-EVIDENCE-MANIFEST-20261018.md)
+> is the canonical scope ledger for the v2 offline processor. The operator-
+> reported accidental `N` in the multi-key V3 session makes that run
+> non-canonical; the one-key guided V4 session supersedes it for physical-truth
+> regression. This does not erase the historical V3 method or observations.
+
+> **V3 METHOD SUPERSEDED (2026-10-18):** [The staged V3 procedure](PHYSICAL-TRUTH-V3-CAPTURE-20261017.md) used B/T/L/R/N/X annotations. A later operator run included an accidental `N`, so it is not canonical regression truth. The one-key guided V4 capture replaced it and is pinned in the processor evidence manifest above. No V3 morphology rule is authorized for Linux output.
 
 > **PUBLIC SANITIZED SENSOR DATASET (2026-10-17):** [Download and reproduction notes](../datasets/sl4a-amd-pinch/) — 8,232 raster-only 72×48 heatmaps, relative timestamps, 7 anonymous OS contact lifetimes and 3 two-finger M annotations. ZIP SHA-256 `2c77050b9356b141ff0b30acf0a99a896db86a31d43cde6922dca558174aed2a`. Original ETL, 0x0C vendor sections, full private tracing metadata are **not** public. Raw-to-OS clocks remain not formally calibrated.
 
