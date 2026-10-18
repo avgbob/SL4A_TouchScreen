@@ -96,7 +96,8 @@ tracks but does not emulate Windows' HID hold/lift emissions.
 | Ten-history samples, gap >5 reset | Surface tracker decomp | Recovered structure and release behavior |
 | 3-frame birth / internal retention | Current Linux defaults | *Experimental* semantics; Windows hold quality gate not implemented |
 | Merge-group/status-7 annotations | `FUN_1806025c0` and `tools/surface_tracker_oracle.py` | Recovered local behavior only; no final HID contact semantics |
-| Windows class semantics and candidate classifier, gain adaptation | DLL decomp + August MSI correction | NOT implemented |
+| Windows candidate score kernel | `FUN_180601690` plus typed producer xrefs | Ten-field/four-block common arithmetic implemented and unit-tested; runtime coefficients, overrides, winner propagation and class meanings remain unavailable |
+| Windows class semantics and gain adaptation | DLL decomp + August MSI correction | NOT implemented |
 | Windows virtual HID tracking-ID mapping | Windows HeatCore | Unknown; local IDs must not be treated as Windows IDs |
 
 **Important:** A Windows group annotation does **not** decide whether a finger is
@@ -114,8 +115,11 @@ behavior yet; it creates a reproducible platform for that work.
   classes, groups, or pre-publication IDs. Use it for count, lifetime,
   birth/lift and eventual coordinate comparisons; do not relabel it as
   internal Microsoft state.
-- Next: recover/implement `FUN_180601690` classification and
-  `FUN_180606370` hold/lift using evidence; add frame-aligned golden tests.
+- Next: recover the initialized 0C19 classifier configuration and downstream
+  score-selection path, then type the override paths. The parameterized common
+  score kernel is in `windows_classifier.py`; it deliberately cannot run with
+  guessed defaults. After that, reconstruct `FUN_180606370` hold/lift and add
+  frame-aligned golden tests.
 - Next: choose a bounded opt-in CapImg export path under #87; only after offline
   qualification, consider uinput adapter vs in-kernel processor.
 

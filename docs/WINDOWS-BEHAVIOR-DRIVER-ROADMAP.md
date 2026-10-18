@@ -34,7 +34,7 @@ hypothesis changes.
 | Linux in-kernel tracker | Produces Type-B MT input | Not Windows-qualified; many policies remain heuristic |
 | Windows raw corpus | 1,422 historical plus 8,232 and 17,018 correlated frames | Preserve privately and publish only sanitized aggregates |
 | OS-visible Windows reference | V4 frame-aligned pointer oracle and proxy transform exist | Recover classifier coordinate and expand comparison metrics |
-| Windows candidate classifier | Ten-feature/four-block structure recovered | Recover exact features, runtime config and class meanings |
+| Windows candidate classifier | Ten-field decoder and four-block score kernel implemented offline with exact mask/gate/triangular arithmetic | Recover initialized runtime config, overrides, winner propagation and class meanings |
 | Association/history | Major functions, 48 tracks and ten histories recovered | Exact units, costs and state transitions |
 | Hold/lift | Simple timer and morphology rules falsified | Reconstruct quality/history-conditioned logic |
 | Grouping/emission | Some grouping and HeatCore record paths recovered | Map internal IDs/flags to observable emission |
@@ -112,6 +112,14 @@ labelled as such.
 
 Gate: the same model handles far controls, established close occlusion,
 deliberate lift and returned-finger birth without stage-name special cases.
+
+R3 checkpoint (2026-10-18): the common `FUN_180601690` arithmetic is now an
+isolated, tested executable specification; see
+`WINDOWS-CLASSIFIER-TYPING-20261017.md`. The DLL static image is not a valid
+runtime coefficient snapshot (one interpreted block contains five NaNs), so
+the kernel intentionally has no default model and is not wired into replay.
+Candidate overrides, downstream score selection, hold/lift and emission remain
+open; R3's behavioral gate has **not** passed.
 
 ### R4 — Quantified comparison
 

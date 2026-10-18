@@ -31,9 +31,11 @@ GitHub Actions for this PR executes `python3 -m unittest discover -s userspace/s
 ## Unresolved / not Windows-equivalent
 
 1. Candidate detector is a **simple connected-component approximation**. Two real
-   fingers can become one connected component; the prototype does not implement
-   peak-guided split, the recovered candidate classifier `FUN_180601690`, per-cycle
-   gain, or quality-conditioned recovery.
+   fingers can become one connected component. The common `FUN_180601690` score
+   arithmetic now exists as a separate tested module, but the prototype cannot
+   use it without the initialized runtime coefficients, override paths and
+   downstream score-selection semantics. It also does not implement Windows'
+   peak-guided split, per-cycle gain, or quality-conditioned recovery.
 2. Current values for activation gating (`0.1`), min blob weight, birth age, and
    baseline drift are **provisional**. They do not establish Windows equivalence.
 3. The reported `hold_frames` setting retains internal tracks but **does not
@@ -74,3 +76,17 @@ with 501/507 exact candidate-count agreements against a separate raw-region
 proxy. This retires the earlier limitation that no real frames were run,
 **but does not retire the lack of final processed Windows contact truth**.
 See WINDOWS-EVIDENCE-INVENTORY.md and Actions run 39049773971.
+
+## Classifier reconstruction checkpoint — 2026-10-18
+
+The field order, suppression mask, count gates, packed upper-triangular
+transform, four-score equation and score-3 edge penalties are implemented in
+`windows_classifier.py` and covered by nine focused tests. The implementation
+is fail-closed: it rejects non-finite runtime configuration and has no bundled
+coefficients.
+
+Auditing the pinned 0C19 DLL's static `DAT_1808e0460` region as though it were
+the live layout yields five NaNs in score block 2 and packed-looking gate data.
+The static image is therefore not a valid replacement for a post-initialization
+snapshot. See `docs/WINDOWS-CLASSIFIER-TYPING-20261017.md`. No contact behavior,
+Gate5, uinput or kernel path changed at this checkpoint.
