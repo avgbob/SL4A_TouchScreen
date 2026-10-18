@@ -17,6 +17,7 @@ import zipfile
 from pathlib import Path
 
 from analyze_correlated_pinch import verify_wpr_csv, verify_pointer_events
+from analyze_physical_truth import evaluate as evaluate_physical, read_csv as physical_read_csv
 
 
 def sha256_file(path: Path) -> str:
@@ -50,6 +51,16 @@ def collect(folder: Path, *, skip_wpr: bool = False) -> dict:
               "clock_warning": "Do not convert tracerpt Clock-Time QPC to UTC without an explicit verified mapping"}
     if pointer_report["sha256"].lower() != expected["pointer/events.csv"]["sha256"].lower():
         raise ValueError("Pointer events differ from original manifest; refusing untraceable evidence")
+    # V3 physical truth controls are included in the same evidence archive.
+    # V2 recordings have no operator physical-state markers and stay unchanged.
+    counts = pointer_report.get("event_counts", {})
+    if any(k.startswith("OPERATOR_") for k in counts):
+        if not samples.is_file():
+            raise FileNotFoundError("V3 physical state labels require pointer/samples.csv")
+        truth = evaluate_physical(physical_read_csv(pointer),physical_read_csv(samples))
+        report["physical_truth_v3"] = truth
+        (result_dir/"physical-truth-report.json").write_text(
+            json.dumps(truth, indent=2, sort_keys=True)+"\n", encoding="utf-8")
     if not skip_wpr and wpr_csv.is_file():
         print("Streaming large tracerpt CSV to reconstruct and strictly decode V0 0x0C frames ...", flush=True)
         wpr_report = verify_wpr_csv(wpr_csv, result_dir)
@@ -81,6 +92,8 @@ def collect(folder: Path, *, skip_wpr: bool = False) -> dict:
         folder/"wpr-stop.log", folder/"tracerpt.log",
         pointer, samples, summary, result_path,
     ]
+    if (result_dir/"physical-truth-report.json").exists():
+        include.append(result_dir/"physical-truth-report.json")
     if (result_dir/"capimg-frames.hex").exists():
         include.append(result_dir/"capimg-frames.hex")
     with zipfile.ZipFile(archive, "w", compression=zipfile.ZIP_DEFLATED,
@@ -97,6 +110,8 @@ def collect(folder: Path, *, skip_wpr: bool = False) -> dict:
         "pointer_events": sum(pointer_report["event_counts"].values()),
         "physical_two_keypresses": len(pointer_report["raw_m_presses"]),
         "physical_two_with_one_os_pointer": len(pointer_report["raw_one_pointer_m_presses"]),
+        "v3_physical_truth_intervals": len(report.get("physical_truth_v3", {}).get("stage_intervals", [])),
+        "v3_truth_summary": report.get("physical_truth_v3", {}).get("totals"),
         "warnings": [
             "Raw M presses may include mistakes; user should identify any accidental M.",
             "Even verified raw 0x0C frames require a proper WPR-to-UTC timestamp mapping.",
