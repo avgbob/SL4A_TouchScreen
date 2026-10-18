@@ -33,7 +33,7 @@ hypothesis changes.
 | Strict V0 `0x0c` decoder | 4304-byte body and 72x48 raster replayed | Fuzz/static audit and any firmware variants |
 | Linux in-kernel tracker | Produces Type-B MT input | Not Windows-qualified; many policies remain heuristic |
 | Windows raw corpus | 1,422 historical plus 8,232 and 17,018 correlated frames | Preserve privately and publish only sanitized aggregates |
-| OS-visible Windows reference | V4 frame-aligned pointer oracle exists | Measure screen-to-sensor transform and comparison metrics |
+| OS-visible Windows reference | V4 frame-aligned pointer oracle and proxy transform exist | Recover classifier coordinate and expand comparison metrics |
 | Windows candidate classifier | Ten-feature/four-block structure recovered | Recover exact features, runtime config and class meanings |
 | Association/history | Major functions, 48 tracks and ten histories recovered | Exact units, costs and state transitions |
 | Hold/lift | Simple timer and morphology rules falsified | Reconstruct quality/history-conditioned logic |
@@ -92,7 +92,9 @@ Gate: exact-source E1 entry; no processor changes in the transport result.
 - Validate all 19 holds with `v4_oracle_contract.py`.
 - Measure a screen-to-sensor transform separately and version it.
 
-Gate: deterministic 17,018-frame oracle, balanced lifetimes, contract pass.
+Gate: **passed for the V4 OS-visible/proxy layer** — deterministic 17,018-frame
+oracle, balanced lifetimes, contract pass, and independent two-contact proxy
+validation p95 0.695 cells. This is not internal classifier geometry.
 
 ### R3 — Executable Windows reference model
 
@@ -120,6 +122,12 @@ failure is a reference limitation, not a bug Linux must intentionally copy.
 
 Gate: defined thresholds pass on V4, historical raw data and synthetic adverse
 inputs.
+
+Initial default-prototype baseline: complete 17,018-frame comparison; 1,611 of
+2,484 conservative guided frames had equal contact count. The 873 unequal
+frames concentrate in provisional baseline/birth behavior and close second-
+contact separation. Treat this as a discrepancy baseline, never a parity
+percentage.
 
 ### R5 — Opt-in userspace output
 

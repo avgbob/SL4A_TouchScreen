@@ -49,6 +49,26 @@ class CompareTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             compare({1: []}, {1: []}, max_distance=float('nan'))
 
+    def test_general_reference_affine(self):
+        reference = {1: [contact('windows', 10, 20)]}
+        experiment = {1: [contact('linux', 25, 3)]}
+        # x' = 2*x + 0*y + 5; y' = 0*x + .25*y - 2
+        affine = [[2, 0, 5], [0, .25, -2]]
+        result = compare(reference, experiment, affine=affine)
+        self.assertEqual(result['matched_contacts'], 1)
+        self.assertEqual(result['max_grid_error'], 0)
+
+    def test_affine_validation_and_scale_exclusion(self):
+        reference = {1: []}
+        with self.assertRaisesRegex(ValueError, '2x3'):
+            compare(reference, reference, affine=[[1, 2]])
+        with self.assertRaisesRegex(ValueError, 'nonfinite'):
+            compare(reference, reference,
+                    affine=[[1, 0, float('nan')], [0, 1, 0]])
+        with self.assertRaisesRegex(ValueError, 'mutually exclusive'):
+            compare(reference, reference,
+                    affine=[[1, 0, 0], [0, 1, 0]], scale_x=2)
+
 
 if __name__ == '__main__':
     unittest.main(verbosity=2)

@@ -108,11 +108,55 @@ which Windows correctly showed two, so it is not a Windows-output oracle.
    falsifiable prediction.  Production Gate5, the experimental kernel branch
    and upstream #87 remain unchanged.
 
+## Frame-aligned oracle and measured comparison baseline
+
+`windows_pointer_oracle.py` now reconstructs an OS-visible Windows pointer
+snapshot for every one of the 17,018 raw frames. It verifies the original CSV
+hash, monotonic clocks, balanced lifetimes, all guided holds and no active
+pointer at exit. The coordinate-bearing JSONL remains private.
+
+A general affine fit from 1,123 conservative one-pointer/one-region samples to
+the threshold-150 sensor proxy measured:
+
+```text
+sensor_x =  0.031084500254 * screen_x + 0.000659324595 * screen_y - 0.327983122275
+sensor_y = -0.000026187660 * screen_x + 0.031591444533 * screen_y - 0.229208157638
+```
+
+Training RMSE was 0.183 sensor cells. On 1,000 independent two-pointer/two-
+region frames (2,000 assigned contacts), median error was 0.294 cells, p95
+0.695, RMSE 0.409 and maximum 0.819. This is a measured coordinate transform
+to a connected-region centroid **proxy**, not proof that the proxy is the
+Windows detector or classifier coordinate.
+
+The unchanged default research processor was then replayed over all 17,018
+frames and compared with complete frame coverage. In the 2,484 conservative
+guided-hold frames it matched Windows **contact count** in 1,611 frames. This
+64.8551% count-only result is not a parity score. The failures locate the work:
+
+- horizontal returned-left: prototype produced zero/one where Windows had two;
+- horizontal returned-right: prototype stayed one for all 150 frames while
+  Windows had two;
+- vertical close light: prototype stayed one for all 150 while Windows had two;
+- vertical close firm: prototype reached two in only 34/153 frames;
+- vertical returned top: prototype stayed one through all 67 frames after
+  Windows returned to two;
+- two horizontal one-finger controls also exposed long prototype zero-contact
+  intervals from provisional baseline/birth behavior.
+
+Across all frames and a 2.5-cell match gate, 19,797 Windows contacts matched,
+7,553 were missed and none were counted as extra; mean matched-coordinate error
+was 0.293 cells. These numbers describe this prototype/configuration and this
+capture only. They do not prove zero ghost risk outside the labelled controls.
+
 Reproduce the private aggregate replay without exporting heatmaps:
 
 ```text
 python3 physical_truth_shadow_replay.py /path/to/V4-run \
   --output /tmp/shadow-physical-truth-v4.json
+python3 windows_pointer_oracle.py /path/to/V4-run \
+  --output /tmp/windows-pointer-oracle.jsonl
+python3 v4_oracle_contract.py /tmp/windows-pointer-oracle.jsonl.summary.json
 ```
 
 The replay now reports V4 confirmation markers and conservative guided-hold

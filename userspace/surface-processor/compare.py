@@ -57,11 +57,37 @@ def read_jsonl(path):
     return result
 
 
-def compare(reference, experimental, *, max_distance=2.5, scale_x=1, scale_y=1, allow_partial=False):
+def _reference_xy(contact, scale_x, scale_y, affine):
+    x, y = float(contact['x']), float(contact['y'])
+    if affine is None:
+        return x * scale_x, y * scale_y
+    return (affine[0][0] * x + affine[0][1] * y + affine[0][2],
+            affine[1][0] * x + affine[1][1] * y + affine[1][2])
+
+
+def _validate_affine(affine):
+    if affine is None:
+        return
+    if (not isinstance(affine, list) or len(affine) != 2 or
+            any(not isinstance(row, list) or len(row) != 3 for row in affine)):
+        raise ValueError('reference affine must be a 2x3 array')
+    try:
+        values = [float(value) for row in affine for value in row]
+    except (TypeError, ValueError, OverflowError) as exc:
+        raise ValueError('reference affine contains an invalid value') from exc
+    if not all(math.isfinite(value) for value in values):
+        raise ValueError('reference affine contains a nonfinite value')
+
+
+def compare(reference, experimental, *, max_distance=2.5, scale_x=1,
+            scale_y=1, affine=None, allow_partial=False):
     if not math.isfinite(max_distance) or not 0 < max_distance < 1e6:
         raise ValueError('max_distance must be positive finite (< 1e6)')
     if not all(math.isfinite(x) and x > 0 for x in (scale_x, scale_y)):
         raise ValueError('reference scales must be positive finite')
+    _validate_affine(affine)
+    if affine is not None and (scale_x != 1 or scale_y != 1):
+        raise ValueError('reference scale and affine are mutually exclusive')
     for label, frames in [('reference', reference), ('experiment', experimental)]:
         for frame, contacts in frames.items():
             if type(frame) is not int or frame < 0:
@@ -83,7 +109,7 @@ def compare(reference, experimental, *, max_distance=2.5, scale_x=1, scale_y=1, 
         ref, got = reference[f], experimental[f]
         distances = []
         for a in ref:
-            ax, ay = float(a['x']) * scale_x, float(a['y']) * scale_y
+            ax, ay = _reference_xy(a, scale_x, scale_y, affine)
             distances.append([math.hypot(ax - float(b['x']), ay - float(b['y']))
                               for b in got])
         nr, ng = len(ref), len(got)
@@ -131,11 +157,21 @@ def main(argv=None):
     parser.add_argument('--max-distance', type=float, default=2.5)
     parser.add_argument('--reference-scale-x', type=float, default=1.0)
     parser.add_argument('--reference-scale-y', type=float, default=1.0)
+    parser.add_argument('--reference-affine-json', type=Path,
+                        help='JSON calibration report containing matrix_screen_pixels_to_sensor_proxy')
     parser.add_argument('--allow-partial', action='store_true', help='compare only shared frames (reports coverage gaps)')
     a = parser.parse_args(argv)
+    affine = None
+    if a.reference_affine_json:
+        calibration = json.loads(a.reference_affine_json.read_text(encoding='utf-8'))
+        try:
+            affine = calibration['matrix_screen_pixels_to_sensor_proxy']
+        except (TypeError, KeyError) as exc:
+            raise ValueError('calibration JSON lacks matrix_screen_pixels_to_sensor_proxy') from exc
     report = compare(read_jsonl(a.reference), read_jsonl(a.experiment),
                      max_distance=a.max_distance,
                      scale_x=a.reference_scale_x, scale_y=a.reference_scale_y,
+                     affine=affine,
                      allow_partial=a.allow_partial)
     print(json.dumps(report, indent=2, allow_nan=False))
     return 0

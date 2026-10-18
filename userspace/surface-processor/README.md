@@ -53,10 +53,22 @@ python3 windows_pointer_oracle.py /path/to/V4-run \
   --output /tmp/windows-pointer-oracle.jsonl \
   --summary /tmp/windows-pointer-oracle-summary.json
 python3 v4_oracle_contract.py /tmp/windows-pointer-oracle-summary.json
+python3 calibrate_pointer_oracle.py /path/to/V4-run \
+  /tmp/windows-pointer-oracle.jsonl \
+  --output /tmp/pointer-sensor-calibration.json
+python3 replay.py /path/to/V4-run/offline-analysis/capimg-frames.hex \
+  > /tmp/prototype.jsonl
+python3 compare.py /tmp/windows-pointer-oracle.jsonl /tmp/prototype.jsonl \
+  --reference-affine-json /tmp/pointer-sensor-calibration.json \
+  > /tmp/prototype-vs-windows.json
+python3 guided_hold_compare.py /tmp/windows-pointer-oracle.jsonl \
+  /tmp/prototype.jsonl --output /tmp/guided-counts.json
 ```
 
 The oracle keeps coordinates in Windows screen pixels. A later comparison may
-apply a measured screen-to-sensor transform; this tool does not guess one.
+apply the measured proxy transform; the oracle generator itself does not guess
+one. The calibration target is explicitly a threshold-region centroid proxy,
+not a recovered Windows classifier coordinate.
 
 Inputs: a directory of numbered `heat-*.bin` HID reports, a single binary V0
 report, a one-hex-frame-per-line SPB capture (optional leading 5 `ff` bytes),
