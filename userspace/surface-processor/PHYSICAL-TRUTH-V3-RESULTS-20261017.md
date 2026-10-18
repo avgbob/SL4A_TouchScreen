@@ -84,3 +84,37 @@ This does **not** yet authorize automatic Linux contact emission. Thresholds
 must be normalized against each track's own history and tested on the earlier
 8,232-frame corpus plus additional lift orders/orientations. Production Gate5,
 the experimental kernel, and upstream PR #87 remain unchanged.
+
+## Post-coalescing shadow replay
+
+The morphology rule was then placed at the relevant pipeline boundary: after
+the recovered six-cell close-contact coalescing policy. A three-frame recovery
+hysteresis prevents a one-frame raw split from prematurely consuming a shadow.
+The replay remains an internal identity diagnostic and cannot add a contact.
+
+With a deliberately stricter relative-collapse rule (mass at most 0.70 and
+major variance at most 0.55 of the merge reference for three frames), the V3
+replay produced two qualified occlusions and two morphology releases. The
+release for the controlled second-finger lift occurred about 8 ms before the
+corresponding Windows UP event. The later one-track return correctly created no
+new shadow and no second contact.
+
+The older 8,232-frame corpus is the decisive counterexample. The same replay
+held a shadow at only two of the three `PHYSICAL_TWO_MARK` events. Before the
+third mark, the merged morphology fell to approximately 0.671 of its reference
+mass and 0.037 of its reference major variance for long enough to trigger a
+release even though the operator still reported two physical fingers. This is
+more collapse—not less—than the V3 controlled lift on those normalized fields.
+
+Therefore these two morphology ratios are not a general physical-lift
+classifier. The implementation remains useful for reproducible diagnostics and
+for rejecting one-frame recovery flicker, but automatic contact preservation or
+identity reuse remains blocked. More independently labelled lift/overlap trials
+with different fingers, lift orders, pressures, and orientations are required.
+
+Reproduce locally without publishing private sensor data:
+
+```text
+python3 physical_truth_shadow_replay.py /path/to/correlated-run \
+  --output /tmp/shadow-physical-truth.json
+```

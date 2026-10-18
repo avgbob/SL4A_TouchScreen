@@ -27,9 +27,10 @@ class ShadowConfig:
     gap_reset_seconds: float = .20
     min_visible_age: int = 3
     max_shadows: int = 8
-    morphology_mass_ratio: float = 0.82
+    morphology_mass_ratio: float = 0.70
     morphology_major_ratio: float = 0.55
     morphology_release_frames: int = 3
+    recovery_frames: int = 3
     allow_provisional_id_reuse: bool = False  # NEVER recommended for normal output
 
     def __post_init__(self):
@@ -40,6 +41,7 @@ class ShadowConfig:
               self.morphology_mass_ratio, self.morphology_major_ratio))
             or self.max_shadows < 1 or self.max_shadows > 48
             or self.min_visible_age < 1 or self.morphology_release_frames < 1
+            or self.recovery_frames < 1
             or self.morphology_mass_ratio >= 1
             or self.morphology_major_ratio >= 1):
             raise ValueError('invalid shadow research policy')
@@ -91,6 +93,7 @@ class ShadowOverlay:
         self.next_label = 1
         self.last_frame: int | None = None
         self.last_time: float | None = None
+        self.multi_visible_streak = 0
         self.totals = {key: 0 for key in (
             'occluded', 'reassociated', 'expired', 'cleared_after_no_contacts',
             'cleared_on_gap', 'unqualified_loss', 'ambiguous_reassociation',
@@ -133,6 +136,7 @@ class ShadowOverlay:
                 self.totals['cleared_on_gap'] += len(self.shadows)
             self.visible.clear()
             self.shadows.clear()
+            self.multi_visible_streak = 0
             self.totals['frame_reset'] += 1
             events.append({'action':'gap_reset'})
         self.last_frame, self.last_time = frame, seconds
@@ -145,6 +149,7 @@ class ShadowOverlay:
         old_ids = set(prev)
         current_ids = set(parsed)
         gone = sorted(old_ids - current_ids)
+        self.multi_visible_streak = self.multi_visible_streak + 1 if len(parsed) >= 2 else 0
         if not current_ids:
             self.totals['cleared_after_no_contacts'] += len(self.shadows)
             self.shadows.clear()
@@ -154,7 +159,8 @@ class ShadowOverlay:
             prior_anchor = prev.get(anchor.source)
             d = hypot(lost.x - prior_anchor.x, lost.y - prior_anchor.y) if prior_anchor else float('inf')
             if (lost.age >= self.cfg.min_visible_age and prior_anchor is not None and
-                    d <= self.cfg.max_merge_distance and len(self.shadows) < self.cfg.max_shadows):
+                    d <= self.cfg.max_merge_distance and len(self.shadows) < self.cfg.max_shadows and
+                    not any(s.anchor_label == prior_anchor.label for s in self.shadows.values())):
                 self.shadows[lost.label] = Shadow(
                     lost.label, lost.x, lost.y, seconds, prior_anchor.label,
                     morphology.mass if morphology else None,
@@ -185,42 +191,47 @@ class ShadowOverlay:
         for key in sorted(current_ids & old_ids):
             parsed[key].label = prev[key].label
         newborn = sorted(current_ids - old_ids)
-        # Reassociation is only possible when 2+ *detected* contacts are on hand.
-        # Never emit a shadow as a second output contact during occlusion.
         for source in newborn:
-            obs = parsed[source]
-            eligible = []
-            if len(parsed) >= 2:
-                for s in self.shadows.values():
-                    anchors = [v for v in parsed.values() if v.label == s.anchor_label]
-                    if len(anchors) != 1:
+            parsed[source].label = self.next_label
+            self.next_label += 1
+            self.totals['new_identity'] += 1
+        # Reassociation is only considered after 2+ *detected* contacts persist.
+        # A one-frame split is common in the real corpus and is not recovery.
+        # Never emit a shadow as a second output contact during occlusion.
+        recovered_sources: set[int] = set()
+        if self.multi_visible_streak >= self.cfg.recovery_frames:
+            for label, shadow in list(self.shadows.items()):
+                anchors = [v for v in parsed.values() if v.label == shadow.anchor_label]
+                if len(anchors) != 1:
+                    continue
+                eligible = []
+                for obs in parsed.values():
+                    if obs.source in recovered_sources or obs.label == shadow.anchor_label:
                         continue
                     if hypot(obs.x-anchors[0].x, obs.y-anchors[0].y) < self.cfg.min_recovery_separation:
                         continue
-                    d = hypot(obs.x-s.x,obs.y-s.y)
+                    d = hypot(obs.x-shadow.x, obs.y-shadow.y)
                     if d <= self.cfg.max_recovery_distance:
-                        eligible.append((d,s.label))
-            eligible.sort()
-            if eligible and (len(eligible)==1 or eligible[1][0]-eligible[0][0]>=self.cfg.ambiguity_margin):
-                distance, label = eligible[0]
-                del self.shadows[label]
-                self.totals['proposed_reassociation'] += 1
-                events.append({'action':'proposed_reassociation','label':label,'source':source,
-                               'last_distance':round(distance,3),
-                               'id_reused':self.cfg.allow_provisional_id_reuse})
-                if self.cfg.allow_provisional_id_reuse:
-                    obs.label = label
-                    self.totals['reassociated'] += 1
-                else:
-                    obs.label = self.next_label
-                    self.next_label += 1
-                    self.totals['new_identity'] += 1
-            else:
-                if len(eligible)>1:
+                        eligible.append((d,obs.source))
+                eligible.sort()
+                if eligible and (len(eligible) == 1 or
+                                  eligible[1][0] - eligible[0][0] >= self.cfg.ambiguity_margin):
+                    distance, source = eligible[0]
+                    obs = parsed[source]
+                    del self.shadows[label]
+                    recovered_sources.add(source)
+                    self.totals['proposed_reassociation'] += 1
+                    events.append({'action':'proposed_reassociation','label':label,'source':source,
+                                   'last_distance':round(distance,3),
+                                   'confirmation_frames':self.multi_visible_streak,
+                                   'id_reused':self.cfg.allow_provisional_id_reuse})
+                    if self.cfg.allow_provisional_id_reuse:
+                        obs.label = label
+                        self.totals['reassociated'] += 1
+                elif len(eligible) > 1:
                     self.totals['ambiguous_reassociation'] += 1
-                obs.label = self.next_label
-                self.next_label += 1
-                self.totals['new_identity'] += 1
+        # New identities were assigned above even while a recovery hypothesis was
+        # pending. Conservative output therefore never depends on shadow memory.
         self.visible = parsed
         result = [{'source_id':v.source,'stable_label':v.label,'x':v.x,'y':v.y,'age':v.age}
                   for v in sorted(parsed.values(),key=lambda x:x.source)]

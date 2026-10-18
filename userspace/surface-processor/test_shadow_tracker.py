@@ -19,9 +19,11 @@ class ShadowTrackerTest(unittest.TestCase):
         for i in range(2,202):
             r=s.observe(i,i/100,[c(1,12,12)],RegionMorphology(325,2.60))
         self.assertEqual(r['internal_shadow_count'],1)
-        # Approximate V3 post-lift ratios: mass .80, major variance .34.
+        # A conservative release uses a deeper mass collapse than the aggregate
+        # medians; the V3 transition frame reached approximately .68 mass and
+        # .07 major-variance ratios.
         for i in range(202,205):
-            r=s.observe(i,i/100,[c(1,12,12)],RegionMorphology(266,.927))
+            r=s.observe(i,i/100,[c(1,12,12)],RegionMorphology(225,.19))
         self.assertEqual(r['internal_shadow_count'],0)
         self.assertEqual(s.totals['morphology_release'],1)
         self.assertEqual(r['events'][0]['action'],'morphology_release')
@@ -53,7 +55,7 @@ class ShadowTrackerTest(unittest.TestCase):
         self.assertEqual(s.last_frame,0)
 
     def test_close_occlusion_reassociates_only_when_real_second_contact_exists(self):
-        s=ShadowOverlay(ShadowConfig(allow_provisional_id_reuse=True))
+        s=ShadowOverlay(ShadowConfig(allow_provisional_id_reuse=True,recovery_frames=1))
         a=s.observe(0,0,[c(1,11,12),c(2,15,12)])
         original={i['source_id']:i['stable_label'] for i in a['observed_contacts']}
         during=s.observe(1,.01,[c(1,12,12)])
@@ -66,7 +68,7 @@ class ShadowTrackerTest(unittest.TestCase):
         self.assertEqual(s.totals['reassociated'],1)
 
     def test_default_only_proposes_but_never_reuses_identity(self):
-        s=ShadowOverlay()
+        s=ShadowOverlay(ShadowConfig(recovery_frames=1))
         start=s.observe(0,0,[c(1,10,10),c(2,14,10)])
         lost_label=start['observed_contacts'][1]['stable_label']
         s.observe(1,.01,[c(1,11,10)])
@@ -79,7 +81,7 @@ class ShadowTrackerTest(unittest.TestCase):
     def test_adversarial_genuine_lift_then_new_touch_same_place(self):
         # This sequence is physically INDETERMINATE without synchronized ground truth.
         # The conservative default must not silently stitch IDs across it.
-        s=ShadowOverlay()
+        s=ShadowOverlay(ShadowConfig(recovery_frames=1))
         start=s.observe(0,0,[c(1,10,10),c(2,14,10)])
         s.observe(1,.01,[c(1,11,10)])  # finger 2 genuinely lifts
         new=s.observe(2,.02,[c(1,11,10),c(3,14,10)])  # DIFFERENT finger touches
@@ -87,6 +89,29 @@ class ShadowTrackerTest(unittest.TestCase):
         self.assertNotEqual(new['observed_contacts'][1]['stable_label'],start['observed_contacts'][1]['stable_label'])
         self.assertEqual(s.totals['proposed_reassociation'],1)  # a potential FALSE POSITIVE
         self.assertEqual(s.totals['reassociated'],0)
+
+    def test_one_frame_split_does_not_destroy_shadow(self):
+        s=ShadowOverlay(ShadowConfig(ttl_seconds=5.0,recovery_frames=3))
+        s.observe(0,0,[c(1,11,12),c(2,14,12)])
+        s.observe(1,.01,[c(1,12,12)])
+        split=s.observe(2,.02,[c(1,12,12),c(3,14,12)])
+        self.assertEqual(split['internal_shadow_count'],1)
+        self.assertEqual(s.totals['proposed_reassociation'],0)
+        merged=s.observe(3,.03,[c(1,12,12)])
+        self.assertEqual(merged['internal_shadow_count'],1)
+
+    def test_recovery_requires_sustained_observed_second_contact(self):
+        s=ShadowOverlay(ShadowConfig(allow_provisional_id_reuse=True,recovery_frames=3))
+        start=s.observe(0,0,[c(1,11,12),c(2,14,12)])
+        old_label=start['observed_contacts'][1]['stable_label']
+        s.observe(1,.01,[c(1,12,12)])
+        for frame in (2,3):
+            r=s.observe(frame,frame/100,[c(1,12,12),c(3,14,12)])
+            self.assertEqual(r['internal_shadow_count'],1)
+        r=s.observe(4,.04,[c(1,12,12),c(3,14,12)])
+        self.assertEqual(r['internal_shadow_count'],0)
+        self.assertEqual(r['observed_contacts'][1]['stable_label'],old_label)
+        self.assertEqual(r['events'][0]['confirmation_frames'],3)
 
     def test_no_ghost_contact_after_close_independent_lift(self):
         s=ShadowOverlay()
