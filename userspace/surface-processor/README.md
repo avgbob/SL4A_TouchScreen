@@ -96,7 +96,7 @@ tracks but does not emulate Windows' HID hold/lift emissions.
 | Ten-history samples, gap >5 reset | Surface tracker decomp | Recovered structure and release behavior |
 | 3-frame birth / internal retention | Current Linux defaults | *Experimental* semantics; Windows hold quality gate not implemented |
 | Merge-group/status-7 annotations | `FUN_1806025c0` and `tools/surface_tracker_oracle.py` | Recovered local behavior only; no final HID contact semantics |
-| Windows candidate score kernel | `FUN_180601690` plus typed producer xrefs | Ten-field/four-block common arithmetic implemented and unit-tested; runtime coefficients, overrides, winner propagation and class meanings remain unavailable |
+| Windows candidate score and transition gates | `FUN_180601690`, `FUN_180607050`, `FUN_1806071c0` plus initializer/xrefs | Ten-field/four-block arithmetic, corrected config pointer, numeric argmax and current/history gates implemented and unit-tested; overrides, outer policy and class meanings remain unavailable |
 | Windows class semantics and gain adaptation | DLL decomp + August MSI correction | NOT implemented |
 | Windows virtual HID tracking-ID mapping | Windows HeatCore | Unknown; local IDs must not be treated as Windows IDs |
 
@@ -115,11 +115,12 @@ behavior yet; it creates a reproducible platform for that work.
   classes, groups, or pre-publication IDs. Use it for count, lifetime,
   birth/lift and eventual coordinate comparisons; do not relabel it as
   internal Microsoft state.
-- Next: recover the initialized 0C19 classifier configuration and downstream
-  score-selection path, then type the override paths. The parameterized common
-  score kernel is in `windows_classifier.py`; it deliberately cannot run with
-  guessed defaults. After that, reconstruct `FUN_180606370` hold/lift and add
-  frame-aligned golden tests.
+- Next: type the candidate score overrides, finish the outer
+  `FUN_1806067d0` class-selection policy and later correction path, then
+  reconstruct hold/lift and add frame-aligned golden tests. The parameterized
+  score and transition gates are in `windows_classifier.py` and
+  `windows_class_transition.py`; neither is wired to emission or supplied with
+  bundled proprietary defaults.
 - Next: choose a bounded opt-in CapImg export path under #87; only after offline
   qualification, consider uinput adapter vs in-kernel processor.
 

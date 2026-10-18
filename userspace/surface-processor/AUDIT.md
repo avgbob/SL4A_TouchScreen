@@ -32,10 +32,11 @@ GitHub Actions for this PR executes `python3 -m unittest discover -s userspace/s
 
 1. Candidate detector is a **simple connected-component approximation**. Two real
    fingers can become one connected component. The common `FUN_180601690` score
-   arithmetic now exists as a separate tested module, but the prototype cannot
-   use it without the initialized runtime coefficients, override paths and
-   downstream score-selection semantics. It also does not implement Windows'
-   peak-guided split, per-cycle gain, or quality-conditioned recovery.
+   arithmetic and numeric transition gates now exist as separate tested
+   modules, but the prototype has no bundled coefficient view and still lacks
+   the override paths and outer score-selection semantics. It also does not
+   implement Windows' peak-guided split, per-cycle gain, or quality-conditioned
+   recovery.
 2. Current values for activation gating (`0.1`), min blob weight, birth age, and
    baseline drift are **provisional**. They do not establish Windows equivalence.
 3. The reported `hold_frames` setting retains internal tracks but **does not
@@ -81,12 +82,15 @@ See WINDOWS-EVIDENCE-INVENTORY.md and Actions run 39049773971.
 
 The field order, suppression mask, count gates, packed upper-triangular
 transform, four-score equation and score-3 edge penalties are implemented in
-`windows_classifier.py` and covered by nine focused tests. The implementation
-is fail-closed: it rejects non-finite runtime configuration and has no bundled
-coefficients.
+`windows_classifier.py`. `windows_class_transition.py` now adds the recovered
+lower-index-tie argmax plus current-frame and history transition gates over the
+five-stored-class by four-proposed-class numeric table.
 
-Auditing the pinned 0C19 DLL's static `DAT_1808e0460` region as though it were
-the live layout yields five NaNs in score block 2 and packed-looking gate data.
-The static image is therefore not a valid replacement for a post-initialization
-snapshot. See `docs/WINDOWS-CLASSIFIER-TYPING-20261017.md`. No contact behavior,
-Gate5, uinput or kernel path changed at this checkpoint.
+The original static-image audit decoded the wrong base. The tracker initializer
+stores `DAT_1808e0460 + 0xecc`, not `DAT_1808e0460`, at context `+0x16480`;
+the shifted bytes decode as finite and internally plausible. The code accepts
+caller-supplied bytes but bundles no proprietary coefficients. The outer
+`FUN_1806067d0` policy, later correction, class meanings, contact behavior,
+Gate5, uinput and kernel paths remain unchanged. See
+`docs/WINDOWS-CLASSIFIER-TYPING-20261017.md` and
+`docs/WINDOWS-CLASS-TRANSITIONS-20261018.md`.

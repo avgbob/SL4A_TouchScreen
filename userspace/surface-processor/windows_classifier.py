@@ -4,8 +4,8 @@
 
 Names intentionally describe storage and arithmetic, not unproved Windows
 contact classes.  This module does not choose a class, emit a contact, or
-provide configuration coefficients: the runtime 0C19 configuration has not
-yet been captured.
+provide configuration coefficients.  Callers must supply bytes beginning at
+the classifier configuration object, not at the enclosing product record.
 """
 
 from dataclasses import dataclass
@@ -125,11 +125,13 @@ class ClassifierConfig:
 
 
 def classifier_config_from_runtime_bytes(data):
-    """Decode the recovered fields from a *runtime* 0C19 config snapshot.
+    """Decode recovered fields from a classifier-configuration byte view.
 
-    The DLL's on-disk ``DAT_1808e0460`` bytes are not such a snapshot: this
-    parser intentionally rejects their non-finite float interpretation.  A
-    usable snapshot must be collected after the Windows initialization path.
+    For the pinned 0C19 image, initialization stores
+    ``DAT_1808e0460 + 0xecc`` at tracker-context offset ``0x16480``.  The
+    enclosing product-record base is therefore not a valid input to this
+    function.  Keeping that pointer adjustment outside this parser makes the
+    layout decoder usable with both an image view and a live memory snapshot.
     """
     view = memoryview(data)
     if len(view) < RUNTIME_CONFIG_MIN_SIZE:

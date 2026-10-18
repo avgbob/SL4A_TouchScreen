@@ -10,10 +10,11 @@ upper-triangular quadratic score blocks, and applies the recovered score-3 edge
 penalty.
 
 It is **not a complete Windows classifier**. It does not assign semantic class
-names, choose a winning score, implement the special override paths, or emit a
-contact. Most importantly, no valid post-initialization runtime coefficient
-snapshot has been recovered. The module therefore has no invented default
-model and is not connected to replay, Gate 5, uinput, or the kernel driver.
+names, implement the special override paths, or emit a contact. The later
+initialization audit recovered the correct static configuration-object base,
+but no Microsoft coefficient bytes are bundled in this repository. The module
+therefore still has no implicit default model and is not connected to replay,
+Gate 5, uinput, or the kernel driver.
 
 ## Pinned sources
 
@@ -84,26 +85,35 @@ candidate `+0xa0..+0xac`, score 3 is reduced by `config.f32[0x8d0]` when byte
 `+0x4c == 1`; otherwise it is reduced by `config.f32[0x8d4]` when byte
 `+0x4d == 1`.
 
-## Static-image audit and missing runtime state
+## Corrected configuration base
 
-The selector for product `0x0c19` points to `DAT_1808e0460`, whose PE file
-offset is `0x8df060`. Reinterpreting its on-disk bytes using the runtime layout
-does not produce a usable model:
+The first static-image audit decoded the enclosing product record from the
+wrong address. It is retained as a useful fail-closed test, but its conclusion
+was wrong.
 
-- forced mask bytes at `+0x10c` are `ff 07 00 00 00 00 00 00 01 00`;
-- conditional mask bytes at `+0x11c` are `00 47 00 2f 00 00 00 00 00 00`;
-- the four apparent `u32` gates at `+0x870` become `10`, `22937850`,
-  `39322050`, and `58983150`;
-- across the four interpreted score blocks, block 2 contains five NaN float
-  values;
-- the same region visibly contains byte sequences and `0xffff`-style
-  sentinels, consistent with the prior MSI static-image correction.
+The corrected initialization chain is:
 
-Therefore the static bytes are initialization/configuration storage that must
-not be presented as live classifier coefficients. The exact indirect producer
-or mutation path remains unresolved. `classifier_config_from_runtime_bytes()`
-accepts only a post-initialization layout and rejects non-finite fields, making
-this missing evidence fail closed.
+1. `FUN_180625d60` maps product `0x0c19` to `DAT_1808e0460`;
+2. the PE exception table bounds the previously unidentified device
+   initializer at `0x18068bfc0..0x18068d335`;
+3. that initializer passes `DAT_1808e0460 + 0xecc` as the fifth argument to
+   the tracker initializer at `0x1805ff7e0`;
+4. `0x1805ff8f4` stores that argument at tracker context `+0x16480`;
+5. `FUN_180601690`, `FUN_180607050`, and `FUN_1806071c0` address their
+   classifier and transition fields through that pointer.
+
+Decoding the pinned image from the shifted base produces four finite score
+blocks with maximum-component gates `25, 9999, 30, 50`, score-3 penalties
+`50.0` and `20.0`, and plausible finite means and transforms. This proves the
+address correction; it does not authorize copying proprietary coefficient
+bytes into the repository or treating the model as portable to another
+processor version. A later write to the shared object has not been completely
+excluded, so a live-memory comparison remains useful validation rather than a
+prerequisite for understanding this initialization path.
+
+`classifier_config_from_runtime_bytes()` now explicitly accepts a byte view
+beginning at the object stored in context `+0x16480`. Supplying the enclosing
+`DAT_1808e0460` base still fails on non-finite fields.
 
 ## Deliberately excluded paths
 
@@ -116,21 +126,22 @@ this missing evidence fail closed.
 
 Those paths are documented but not folded into the kernel because they require
 more configuration typing and upstream state. The downstream winner/history
-logic also remains separate. Implementing only the visible arithmetic prevents
-a structurally correct score function from being mislabeled a complete class
-decision.
+gates are implemented separately in `windows_class_transition.py`; the
+surrounding state machine remains excluded. Keeping these layers separate
+prevents a structurally correct score function from being mislabeled a
+complete class decision.
 
 ## Integration gate
 
 Before this stage may influence emitted Linux contacts:
 
-1. capture or otherwise recover the initialized 0C19 configuration region and
-   its relevant tracker-mode bytes;
+1. independently compare the shifted image configuration with a live Windows
+   memory view, or prove the pointed-to object is never mutated;
 2. independently reproduce at least one candidate vector and four score values
    from Windows;
 3. type and test all three override paths;
-4. recover how the four scores are selected and propagated through track
-   history without assigning guessed class names;
+4. finish the outer class-selection and later correction paths without
+   assigning guessed class names;
 5. replay V4 and far-contact controls, then verify deliberate lift and close
    returned-finger cases against the OS-visible oracle.
 
