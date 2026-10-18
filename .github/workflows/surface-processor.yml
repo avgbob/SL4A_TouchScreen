@@ -138,10 +138,36 @@ jobs:
           print('PASS: 8232 sensor frames, 4 independent timing controls, 4 close-pinch releases, 3 M mismatches.')
           print('Caution: behavioral clock offset, not independent ETL-QPC/UTC calibration or Microsoft classifier output.')
           PY
+      - name: Replay conservative internal-only shadow tracker with real pinch data
+        run: |
+          set -euo pipefail
+          python3 userspace/surface-processor/shadow_replay.py \
+            /tmp/sl4a-public-pinch.zip --output /tmp/sl4a-shadow-sweep.json
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          a=json.loads(Path('/tmp/sl4a-shadow-sweep.json').read_text())
+          assert a['dataset_frames']==8232
+          assert a['shadow_is_internal_only'] is True
+          assert a['source_processor_modified'] is False
+          assert a['processor_output_contact_histogram']=={'0':66,'1':3529,'2':4637}
+          assert len(a['reference_marker_windows_provisional_raw_frames'])==3
+          expected={'0.2':16,'0.4':17,'1.0':18,'2.0':19}
+          for ttl,value in a['ttl_sweep'].items():
+              c=value['counters']
+              assert c['occluded']==22, (ttl,c)
+              assert c['proposed_reassociation']==expected[ttl], (ttl,c)
+              assert c['reassociated']==0, (ttl,c)
+              assert value['default_actual_id_reuse_is_disabled'], ttl
+              assert c['frame_reset']==1, (ttl,c)
+          print('PASS: 8232 frames; 22 occlusion proposals; 16-19 candidate rejoins; ZERO output ID reuse.')
+          print('NOTICE: proposals are not proof of physical identity continuity or safe Linux output.')
+          PY
       - uses: actions/upload-artifact@v4
         with:
           name: sl4a-public-pinch-processor-baseline
           path: |
             /tmp/pinch-baseline-report.json
             /tmp/sl4a-pinch-transition-audit.json
+            /tmp/sl4a-shadow-sweep.json
           if-no-files-found: error
