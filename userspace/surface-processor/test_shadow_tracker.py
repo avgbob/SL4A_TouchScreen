@@ -2,7 +2,7 @@
 """Independent offline guardrails for temporary *internal-only* occlusion memory."""
 import unittest
 
-from shadow_tracker import ShadowConfig, ShadowOverlay
+from shadow_tracker import RegionMorphology, ShadowConfig, ShadowOverlay
 
 
 def c(cid,x,y,age=5):
@@ -10,6 +10,48 @@ def c(cid,x,y,age=5):
 
 
 class ShadowTrackerTest(unittest.TestCase):
+    def test_morphology_keeps_known_merge_then_retires_on_real_lift_shape(self):
+        s=ShadowOverlay(ShadowConfig(ttl_seconds=5.0))
+        merged=RegionMorphology(mass=332,major_variance=2.714)
+        s.observe(0,0,[c(1,11,12),c(2,14,12)])
+        r=s.observe(1,.01,[c(1,12,12)],merged)
+        self.assertEqual(r['internal_shadow_count'],1)
+        for i in range(2,202):
+            r=s.observe(i,i/100,[c(1,12,12)],RegionMorphology(325,2.60))
+        self.assertEqual(r['internal_shadow_count'],1)
+        # Approximate V3 post-lift ratios: mass .80, major variance .34.
+        for i in range(202,205):
+            r=s.observe(i,i/100,[c(1,12,12)],RegionMorphology(266,.927))
+        self.assertEqual(r['internal_shadow_count'],0)
+        self.assertEqual(s.totals['morphology_release'],1)
+        self.assertEqual(r['events'][0]['action'],'morphology_release')
+
+    def test_morphology_requires_both_mass_and_shape_collapse(self):
+        s=ShadowOverlay(ShadowConfig(ttl_seconds=5.0,morphology_release_frames=2))
+        m=RegionMorphology(332,2.714)
+        s.observe(0,0,[c(1,11,12),c(2,14,12)])
+        s.observe(1,.01,[c(1,12,12)],m)
+        s.observe(2,.02,[c(1,12,12)],RegionMorphology(250,2.5))
+        r=s.observe(3,.03,[c(1,12,12)],RegionMorphology(250,2.5))
+        self.assertEqual(r['internal_shadow_count'],1)
+        s.observe(4,.04,[c(1,12,12)],RegionMorphology(325,.8))
+        r=s.observe(5,.05,[c(1,12,12)],RegionMorphology(325,.8))
+        self.assertEqual(r['internal_shadow_count'],1)
+
+    def test_morphology_never_invents_shadow_from_one_track(self):
+        s=ShadowOverlay(ShadowConfig(ttl_seconds=5.0))
+        for i in range(10):
+            r=s.observe(i,i/100,[c(1,12,12)],RegionMorphology(350,3.0))
+        self.assertEqual(r['internal_shadow_count'],0)
+        self.assertEqual(len(r['observed_contacts']),1)
+
+    def test_invalid_morphology_rejected_before_state_mutation(self):
+        s=ShadowOverlay()
+        s.observe(0,0,[c(1,5,5)])
+        with self.assertRaises(ValueError):
+            s.observe(1,.01,[c(1,5,5)],{'mass':1,'major_variance':1})
+        self.assertEqual(s.last_frame,0)
+
     def test_close_occlusion_reassociates_only_when_real_second_contact_exists(self):
         s=ShadowOverlay(ShadowConfig(allow_provisional_id_reuse=True))
         a=s.observe(0,0,[c(1,11,12),c(2,15,12)])
