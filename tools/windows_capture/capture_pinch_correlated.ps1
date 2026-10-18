@@ -69,7 +69,7 @@ function Manifest {
 
 Assert-Assets
 if($Mode -eq 'SelfTest'){
-  Write-Host 'PASS: Both tools exist, profile XML parsed, SPB + TouchAndPen GUIDs and V2 M annotation present.'
+  Write-Host $(if($PhysicalTruthMode){'PASS: V3 physical-truth logger, profile XML, SPB and TouchAndPen providers verified.'}else{'PASS: V2 pointer logger, profile XML, SPB and TouchAndPen providers verified.'})
   return
 }
 Assert-Admin
@@ -109,8 +109,8 @@ if($Mode -eq 'Capture'){
     $started=$true
     Mark 'WPR_ACTIVE'
     Write-Host ''
-    Write-Host $(if($PhysicalTruthMode){'TRACE RECORDING. Physical-truth V3 opens: SPACE steps, B/T both, L lift, R return, N none, X invalid.'}else{'TRACE RECORDING. V2 opens now. SPACE advances stages; press M only if physically two fingers are down but display says one.'})
-    Write-Host 'Finish V2 with SPACE or ESC. The trace will stop automatically.'
+    Write-Host $(if($PhysicalTruthMode){'TRACE RECORDING. V3 opens now. Follow the large instruction for EACH stage; do not guess from the key legend.'}else{'TRACE RECORDING. V2 opens now. SPACE advances stages; press M only if physically two fingers are down but display says one.'})
+    Write-Host $(if($PhysicalTruthMode){'Finish V3 by pressing SPACE after stage 8. ESC saves a partial run. The trace stops automatically.'}else{'Finish V2 with SPACE or ESC. The trace will stop automatically.'})
     $pointerArgs=@('-NoProfile','-STA','-ExecutionPolicy','Bypass','-File',$Pointer,'-OutputFolder',$PointerOut)
     if($PhysicalTruthMode){$pointerArgs+='-PhysicalTruthMode'}
     & (Join-Path $PSHOME 'powershell.exe') @pointerArgs 2>&1 |
@@ -137,7 +137,7 @@ if($Mode -eq 'Capture'){
   }
   if(-not $started){throw "Trace did not start; see $RunDir. $failure"}
   if(-not $stopOk){throw "Trace could not be preserved; see $RunDir. $failure"}
-  if($childExit -ne 0){throw "V2 exited with code $childExit; ETL still saved: $Etl"}
+  if($childExit -ne 0){$protocol=$(if($PhysicalTruthMode){'V3'}else{'V2'});throw "$protocol exited with code $childExit; ETL still saved: $Etl"}
   if($failure){throw "Capture failed but ETL was preserved. $failure"}
   Write-Host "Original ETL saved: $Etl"
 }
