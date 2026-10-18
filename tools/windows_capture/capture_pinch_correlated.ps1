@@ -22,7 +22,7 @@ function Assert-Assets {
   if($touch.Count -ne 1 -or $spb.Count -ne 1){throw 'Profile missing expected TouchAndPen / SPB providers'}
   $source=Get-Content -LiteralPath $Pointer -Raw
   if($source -notmatch 'PHYSICAL_TWO_MARK'){throw 'This pointer logger has no M-annotation support'}
-  if($PhysicalTruthMode -and $source -notmatch 'OPERATOR_SECOND_INTENTIONALLY_LIFTED'){
+  if($PhysicalTruthMode -and $source -notmatch 'SECOND_INTENTIONALLY_LIFTED'){
     throw 'This pointer logger is missing the controlled physical-truth V3 mode'
   }
 }
