@@ -1,5 +1,11 @@
 # SL4A Distribution Refactor Roadmap
 
+> **Scope note (2026-10-17):** This is the historical distribution/DKMS
+> refactor plan. Its older qualification wording is not the current contact-
+> fidelity roadmap. For transport versus Windows-behavior status and gates, use
+> [WINDOWS-BEHAVIOR-DRIVER-ROADMAP.md](WINDOWS-BEHAVIOR-DRIVER-ROADMAP.md) and
+> [EVIDENCE.md](EVIDENCE.md).
+
 ## Scope
 
 This branch prepares a maintainable GitHub/DKMS distribution for the Microsoft

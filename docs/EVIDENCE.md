@@ -35,6 +35,8 @@ wire protocol.
 | The raw pipeline creates beta multitouch contacts. | Requires replay comparison and hardware gesture matrix. | `driver/spi-hid-core.c` |
 | 2026-09-21 targeted SL4 AMD pinch regression preserved two tracking IDs through far -> pinch -> close hold -> expand -> far; the trace exercised weak-component rescue and one armed occlusion episode with a 20-frame detector blackout, then released normally on intentional lift. | Targeted non-E1 hardware regression evidence only; full blinded matrix and release qualification remain incomplete. | `docs/HARDWARE_VALIDATION.md` |
 | The current controller driver forces physical ALT_CS 1. | Implementation behavior; board mapping needs target-machine verification. | `driver/spi-amd.c` |
+| Guided V4 decoded 17,018 strict CapImg frames and aligned them directly to balanced 14 DOWN / 14 UP OS-visible Windows pointer lifetimes over 19 guided holds. | Strong E2/E3 research evidence for this capture, but not Linux hardware release qualification or HeatCore internal state. | `userspace/surface-processor/PHYSICAL-TRUTH-V4-RESULTS-20261017.md`, `windows_pointer_oracle.py`, `v4_oracle_contract.py` |
+| In V4, horizontal close physical-two remained one Windows pointer for all 160 conservative raw frames; a genuine vertical lift remained one for 157; a returned close finger transitioned from one for 86 frames to two for 67 while the region proxy remained one. | Falsifies connected-component count and morphology-only release as parity rules. It does not reveal Microsoft's internal classifier. | `userspace/surface-processor/PHYSICAL-TRUTH-V4-RESULTS-20261017.md` |
 
 ## Open Discrepancies
 

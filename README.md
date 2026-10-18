@@ -70,6 +70,12 @@ The standard SL4 profile therefore keeps:
 
 The stylus HID node is created, but **pen behavior is not yet qualified**.
 
+The CapImg tracker produces usable Linux multitouch, but it is not a Windows-
+equivalent contact processor. The synchronized V4 evidence disproves simple
+connected-component counting, fixed hold timers, and morphology-only release.
+See [the Windows-behavior driver roadmap](docs/WINDOWS-BEHAVIOR-DRIVER-ROADMAP.md)
+for the evidence boundary and ordered path to a qualified processor.
+
 ## What This Fork Adds
 
 This fork builds on the original

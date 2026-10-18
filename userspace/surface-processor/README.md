@@ -2,6 +2,14 @@
 
 > **Guided V4 result (2026-10-17):** [The 17,018-frame physical-truth replay](PHYSICAL-TRUTH-V4-RESULTS-20261017.md) directly aligns raw and pointer QPC clocks and falsifies the V3 two-field morphology release rule.  During a deliberate lift, the surviving one-finger region became stronger/larger rather than collapsing; the diagnostic shadow remained active through the entire hold and would have ghosted had it been emitted.  Conversely, Windows maintained or eventually created two pointers in several holds where the threshold proxy still had one region.  Shadow state remains internal-only, with no ID reuse or contact emission; no Gate5 or kernel change is authorized.
 
+> **Frame-aligned pointer oracle:** `windows_pointer_oracle.py` now converts the
+> private V4 run into one OS-visible Windows contact snapshot per raw frame. It
+> verifies the original pointer CSV hash, monotonic clocks, 17,018 raw frames,
+> balanced 14 DOWN / 14 UP lifetimes, and all 19 guided holds.
+> `v4_oracle_contract.py` locks the close-contact, genuine-lift and returned-
+> finger counterexamples. The generated JSONL remains private because it
+> contains touch coordinates and timing; it is not internal HeatCore truth.
+
 > **Newest research gate (2026-10-17):** [V3 physical-truth and post-coalescing replay](PHYSICAL-TRUTH-V3-RESULTS-20261017.md). The controlled V3 lift produces a sharp morphology collapse, but the same normalized rule falsely retires a shadow before one of the older corpus's three physical-two markers. Recovery hysteresis now rejects one-frame split flicker, yet morphology is still diagnostic-only: it emits no contact and reuses no identity by default. Use `python3 physical_truth_shadow_replay.py /path/to/correlated-run --output /tmp/shadow-physical-truth.json` for the private-run replay or `python3 shadow_replay.py /path/to/SL4A_heatmaps_privacy_hardened.zip --output /tmp/shadow-audit.json` for the published 8,232-frame sweep; no Gate5 or upstream driver change.
 
 
@@ -37,6 +45,18 @@ python3 -m unittest discover -p 'test_*.py' -v
 python3 replay.py /path/to/sl4a-heat/heat-captures > contacts.jsonl
 python3 replay.py /path/to/real-frames.txt --association-scale 1 > contacts.jsonl
 ```
+
+For a private guided V4 correlated run:
+
+```sh
+python3 windows_pointer_oracle.py /path/to/V4-run \
+  --output /tmp/windows-pointer-oracle.jsonl \
+  --summary /tmp/windows-pointer-oracle-summary.json
+python3 v4_oracle_contract.py /tmp/windows-pointer-oracle-summary.json
+```
+
+The oracle keeps coordinates in Windows screen pixels. A later comparison may
+apply a measured screen-to-sensor transform; this tool does not guess one.
 
 Inputs: a directory of numbered `heat-*.bin` HID reports, a single binary V0
 report, a one-hex-frame-per-line SPB capture (optional leading 5 `ff` bytes),
@@ -77,9 +97,11 @@ behavior yet; it creates a reproducible platform for that work.
 - Python unit tests cover V0/numbered/SPB formats, invalid sections, baseline,
   two contacts, optimal assignment, strict merge threshold, stable IDs,
   discontinuity, lift/debounce, and malformed input.
-- Next: run the retained **537 raw frames**, compare against the existing Linux
-  tracker, and collect aligned **Windows processed contact output** for ground
-  truth. Raw capacitive cells alone are insufficient to prove equivalent IDs.
+- The retained **537 raw frames** have been replayed. V4 now supplies
+  frame-aligned OS-visible Windows pointer output, but not HeatCore internal
+  classes, groups, or pre-publication IDs. Use it for count, lifetime,
+  birth/lift and eventual coordinate comparisons; do not relabel it as
+  internal Microsoft state.
 - Next: recover/implement `FUN_180601690` classification and
   `FUN_180606370` hold/lift using evidence; add frame-aligned golden tests.
 - Next: choose a bounded opt-in CapImg export path under #87; only after offline

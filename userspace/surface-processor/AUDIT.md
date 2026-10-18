@@ -45,9 +45,11 @@ GitHub Actions for this PR executes `python3 -m unittest discover -s userspace/s
 5. Gap `>5` is applied to the caller's monotonically increasing frame number;
    the replay enumerator synthesizes numbers from file order. Without hardware
    timestamps/counters, a missing physical frame may be invisible to it.
-6. No synchronized raw/processed Windows reference capture was available in the
-   execution environment. The historic 537-frame raw capture was **not** run;
-   comparison to Windows processed contacts remains **unverified**.
+6. The clean guided V4 run now provides synchronized raw frames and OS-visible
+   Win32 pointer contacts on a shared QPC scale. It does **not** expose
+   HeatCore's internal candidate classes, groups, pre-publication IDs, or every
+   intermediate rejection decision. Screen-to-sensor coordinate calibration
+   remains to be measured rather than guessed.
 7. A 48-candidate exhaustive adversarial scene is a host robustness check, not
    evidence of practical 48-finger support or acceptable hardware latency.
 
@@ -55,10 +57,11 @@ GitHub Actions for this PR executes `python3 -m unittest discover -s userspace/s
 
 - Remain a **draft research PR**.
 - Keep existing touchscreen driver unchanged.
-- Run the retained raw corpus and synthetic close-birth/pinch/occlusion traces;
-  record counts and ID continuity, not only pass/fail tests.
-- Acquire a frame/time-aligned **processed Windows contact** oracle; establish
-  classifications and actual emission semantics before claiming parity.
+- Keep the retained raw corpus and synthetic close-birth/pinch/occlusion traces
+  in CI; record counts and ID continuity, not only pass/fail tests.
+- Use `windows_pointer_oracle.py` and `v4_oracle_contract.py` as the OS-visible
+  output gate. Recover classifier/group semantics separately before claiming
+  internal Windows equivalence.
 - Only then consider opt-in CapImg export, userspace uinput, or in-kernel port.
 
 ## Post-audit addendum — archived Windows corpus

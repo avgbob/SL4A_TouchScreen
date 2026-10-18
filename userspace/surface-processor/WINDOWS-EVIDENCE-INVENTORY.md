@@ -87,7 +87,32 @@ passed: 638+247+537 = **1422** validated frames. The 537-frame touch session
 ran 30 baseline and 507 tracking frames. This is still not a processed-contact
 oracle. See workflow run 39049773971 for the extraction and replay logs.
 
-## Processed-contact evidence: known search target, not verified present
+## Processed-contact evidence: V4 OS-visible pointer oracle
+
+The October 17 guided V4 capture supplies synchronized raw CapImg frames and
+Win32 pointer events on the same boot-relative QPC scale. The strict converter
+`windows_pointer_oracle.py` reconstructs one active-contact snapshot for each
+of 17,018 raw frames while preserving DOWN/UP transitions and guided physical
+holds. Its generated JSONL is private because it contains pointer coordinates
+and timing. Only aggregate counterexamples and hashes are tracked.
+
+This closes the prior lack of an **OS-visible** processed-contact reference for
+the V4 session. It does not expose HeatCore's internal track IDs, candidate
+classes, groups, or rejected contacts. The V4 contract is:
+
+- balanced 14 DOWN / 14 UP lifetimes and no active pointer at exit;
+- horizontal close/both physical: Windows one contact in all 160 conservative
+  raw frames;
+- vertical deliberate top lift: Windows one contact in all 157 conservative
+  raw frames;
+- vertical returned top finger: Windows one contact for 86 raw frames and two
+  for 67 raw frames;
+- all 19 guided holds present.
+
+`v4_oracle_contract.py` validates those sanitized facts without publishing the
+coordinate-bearing oracle.
+
+## Internal processed-contact evidence: still a search target
 
 `tools/windows_capture/README.md` names the
 `Microsoft.Surface.TouchAndPen.Prod` TraceLogging provider (GUID
@@ -95,8 +120,9 @@ oracle. See workflow run 39049773971 for the extraction and replay logs.
 `TouchBlobCoMY`. The profile requests that provider, but a `.wprp` declaration
 **is not proof the preserved ETL or CSV contains its events**. The extractor
 reports matching provider events if decoded CSV rows carry them; it does not
-pretend coordinates are stable Windows HID IDs. A processed-contact benchmark
-still requires actual relevant provider events or matching HID/pointer output.
+pretend coordinates are stable Windows HID IDs. The V4 pointer oracle now
+covers final OS-visible count, lifetime and coordinates; provider events would
+still be valuable for internal classifier/group reconstruction.
 
 ## External historical paths to recover if available
 
@@ -138,9 +164,10 @@ surface_boot_auto.csv, surface_init.csv, and surface_touch.csv. This does
 **not** establish that the original binary ETL files contained no such
 records, that the Windows processor did not generate touch events, or that
 no later runtime TouchAndPen ETL was collected. It means only that the
-three preserved *decoded CSV inputs* do not supply processed-contact truth.
-The Gate2 compact lifecycle JSONL likewise records transport, not a
-Windows final-contact stream.
+three preserved *decoded CSV inputs* do not supply internal processed-contact
+truth. The Gate2 compact lifecycle JSONL likewise records transport, not a
+Windows final-contact stream. The later V4 pointer logger is the OS-visible
+reference; it does not change what those July CSVs contain.
 
 Prioritize searching the historical TouchAndPen runtime ETL and local
 touchpen0c19_fullheat_20260716/heatcore_20260716 decompiler exports.
