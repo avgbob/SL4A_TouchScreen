@@ -1,0 +1,173 @@
+name: Surface processor offline tests
+on:
+  pull_request:
+    paths:
+      - "userspace/surface-processor/**"
+      - ".github/workflows/surface-processor.yml"
+  push:
+    branches:
+      - "research/windows-contact-processor-v1"
+    paths:
+      - "userspace/surface-processor/**"
+      - ".github/workflows/surface-processor.yml"
+
+jobs:
+  offline-tests:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Compile Python
+        run: python3 -m compileall -q userspace/surface-processor
+      - name: Run isolated processor tests
+        run: python3 -m unittest discover -s userspace/surface-processor -p 'test_*.py' -v
+      - name: Reconstruct historical Windows V0 corpus (638 + 247 + 537 frames)
+        run: |
+          set -euo pipefail
+          python3 userspace/surface-processor/windows_evidence.py \
+            traces/surface_boot_auto.csv \
+            traces/surface_init.csv \
+            traces/surface_touch.csv \
+            --output-dir /tmp/sl4a-windows-corpus --check-known-counts \
+            > /tmp/sl4a-windows-corpus-summary.json
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          summary = json.loads(Path('/tmp/sl4a-windows-corpus-summary.json').read_text())
+          counts = {x['source']: x['decoded_capimg_frames'] for x in summary['traces']}
+          assert counts == {'surface_boot_auto.csv': 638,
+                            'surface_init.csv': 247, 'surface_touch.csv': 537}, counts
+          print('Real captured CapImg corpus:', counts, 'total', sum(counts.values()))
+          PY
+      - name: Replay archived Windows touch session without device access
+        run: |
+          set -euo pipefail
+          python3 userspace/surface-processor/replay.py \
+            /tmp/sl4a-windows-corpus/surface_touch/frames.txt \
+            > /tmp/sl4a-windows-touch-output.jsonl
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          rows = [json.loads(x) for x in Path('/tmp/sl4a-windows-touch-output.jsonl').read_text().splitlines()]
+          assert len(rows) == 537, len(rows)
+          stages = {stage: sum(x['stage'] == stage for x in rows) for stage in ('baseline', 'tracking')}
+          print('Real captured heatmap replay:', stages)
+          PY
+      - name: Analyze Windows sensor regions versus prototype candidates (NOT HID truth)
+        run: |
+          set -euo pipefail
+          python3 userspace/surface-processor/analyze_windows_proxy.py \
+            /tmp/sl4a-windows-corpus/surface_touch/frames.txt \
+            /tmp/sl4a-windows-touch-output.jsonl \
+            > /tmp/sl4a-windows-proxy-summary.json
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          m = json.loads(Path('/tmp/sl4a-windows-proxy-summary.json').read_text())
+          assert m['frames'] == 537
+          assert m['counts']['tracking_frames'] == 507
+          print('Sensor-region proxy totals (NOT Windows contacts):', m['counts'])
+          print('Candidate vs raw-region proxy:', m['candidate_versus_raw_proxy'])
+          print('Candidate histogram:', m['histograms']['prototype_candidates'])
+          print('Raw-region histogram:', m['histograms']['raw_qualified_regions'])
+          PY
+      - name: Report upper-layer TouchAndPen provider coverage (not HID truth)
+        run: |
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          base = Path('/tmp/sl4a-windows-corpus')
+          for name in ('surface_boot_auto', 'surface_init', 'surface_touch'):
+              manifest = json.loads((base / name / 'manifest.json').read_text())
+              found = manifest.get('processed_touch_provider_probe', {})
+              print(f'{name}: upper-layer provider event types={len(found)} {found}')
+          PY
+
+      - name: Replay published 8,232-frame physical pinch corpus (NOT Windows HID parity)
+        run: |
+          set -euo pipefail
+          curl -fL --retry 3 --retry-delay 1 \
+            'https://raw.githubusercontent.com/avgbob/SL4A_TouchScreen/0bf5a9e39df89f5572a7eef6430b4730a067f721/datasets/sl4a-amd-pinch/SL4A_heatmaps_privacy_hardened.zip' \
+            -o /tmp/sl4a-public-pinch.zip
+          echo '2c77050b9356b141ff0b30acf0a99a896db86a31d43cde6922dca558174aed2a  /tmp/sl4a-public-pinch.zip' | sha256sum -c -
+          python3 userspace/surface-processor/pinch_dataset.py \
+            /tmp/sl4a-public-pinch.zip --out /tmp/pinch-baseline-report.json
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          p=json.loads(Path('/tmp/pinch-baseline-report.json').read_text())
+          assert p['frames']==8232, p['frames']
+          assert p['operator_markers']==3, p['operator_markers']
+          assert p['raw_gap_indices']==[1224], p['raw_gap_indices']
+          assert p['prototype_replay']['processed']==8232
+          assert p['prototype_replay']['tracker_reset_on_200ms_real_capture_gap']==1
+          for region in ('two_far_apart_reference', 'two_recovered_reference'):
+              assert p[region]['threshold_150_region_histogram']=={'2':50}
+              assert p[region]['smoothed_peak_histogram']=={'2':50}
+          for w in p['marker_windows']:
+              assert w['threshold_150_region_histogram']=={'1':50},w
+              assert w['threshold_165_region_histogram']=={'1':50},w
+              assert w['smoothed_peak_histogram']=={'1':50},w
+          print('PASS: all 8,232 real frames replayed; three M windows show one robust peak, two wide-contact controls show two.')
+          print('CAUTION: published OS and raw time origins are not formally synchronized.')
+          PY
+      - name: Audit pre-loss merging and independent-lift control alignment
+        run: |
+          set -euo pipefail
+          python3 userspace/surface-processor/pinch_transition_audit.py \
+            /tmp/sl4a-public-pinch.zip --output /tmp/sl4a-pinch-transition-audit.json
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          a=json.loads(Path('/tmp/sl4a-pinch-transition-audit.json').read_text())
+          assert a['dataset_frames']==8232
+          assert a['event_clock_qualification']['controls_found']==4
+          assert len(a['pinch_stage_releases'])==4
+          assert len(a['operator_m_times'])==3
+          rows=a['pinch_stage_releases']
+          assert [r['later_operator_two_physical_confirmation_before_new_DOWN'] for r in rows] == [False, True, True, True]
+          for name in ('M1','M2','M3'):
+              depths=a['weak_peak_sensitivity']['control_and_marker_windows'][name]['thresholds']
+              assert all(depths[d]['fraction_two_or_more']==0 for d in ('2','5','10','20'))
+          wide=a['weak_peak_sensitivity']['control_and_marker_windows']['TWO_WIDE_APART']
+          assert wide['thresholds']['2']['fraction_two_or_more']==1
+          print('PASS: 8232 sensor frames, 4 independent timing controls, 4 close-pinch releases, 3 M mismatches.')
+          print('Caution: behavioral clock offset, not independent ETL-QPC/UTC calibration or Microsoft classifier output.')
+          PY
+      - name: Replay conservative internal-only shadow tracker with real pinch data
+        run: |
+          set -euo pipefail
+          python3 userspace/surface-processor/shadow_replay.py \
+            /tmp/sl4a-public-pinch.zip --output /tmp/sl4a-shadow-sweep.json
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          a=json.loads(Path('/tmp/sl4a-shadow-sweep.json').read_text())
+          assert a['dataset_frames']==8232
+          assert a['shadow_is_internal_only'] is True
+          assert a['source_processor_modified'] is False
+          assert a['processor_output_contact_histogram']=={'0':66,'1':3529,'2':4637}
+          assert len(a['reference_marker_windows_provisional_raw_frames'])==3
+          expected={'0.2':16,'0.4':17,'1.0':18,'2.0':19}
+          for ttl,value in a['ttl_sweep'].items():
+              c=value['counters']
+              assert c['occluded']==22, (ttl,c)
+              assert c['proposed_reassociation']==expected[ttl], (ttl,c)
+              assert c['reassociated']==0, (ttl,c)
+              assert value['default_actual_id_reuse_is_disabled'], ttl
+              assert c['frame_reset']==1, (ttl,c)
+          print('PASS: 8232 frames; 22 occlusion proposals; 16-19 candidate rejoins; ZERO output ID reuse.')
+          print('NOTICE: proposals are not proof of physical identity continuity or safe Linux output.')
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sl4a-public-pinch-processor-baseline
+          path: |
+            /tmp/pinch-baseline-report.json
+            /tmp/sl4a-pinch-transition-audit.json
+            /tmp/sl4a-shadow-sweep.json
+          if-no-files-found: error
