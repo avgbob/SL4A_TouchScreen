@@ -1,5 +1,7 @@
 # MSHW0231 Windows-derived contact processor (offline research)
 
+> **Guided V4 result (2026-10-17):** [The 17,018-frame physical-truth replay](PHYSICAL-TRUTH-V4-RESULTS-20261017.md) directly aligns raw and pointer QPC clocks and falsifies the V3 two-field morphology release rule.  During a deliberate lift, the surviving one-finger region became stronger/larger rather than collapsing; the diagnostic shadow remained active through the entire hold and would have ghosted had it been emitted.  Conversely, Windows maintained or eventually created two pointers in several holds where the threshold proxy still had one region.  Shadow state remains internal-only, with no ID reuse or contact emission; no Gate5 or kernel change is authorized.
+
 > **Newest research gate (2026-10-17):** [V3 physical-truth and post-coalescing replay](PHYSICAL-TRUTH-V3-RESULTS-20261017.md). The controlled V3 lift produces a sharp morphology collapse, but the same normalized rule falsely retires a shadow before one of the older corpus's three physical-two markers. Recovery hysteresis now rejects one-frame split flicker, yet morphology is still diagnostic-only: it emits no contact and reuses no identity by default. Use `python3 physical_truth_shadow_replay.py /path/to/correlated-run --output /tmp/shadow-physical-truth.json` for the private-run replay or `python3 shadow_replay.py /path/to/SL4A_heatmaps_privacy_hardened.zip --output /tmp/shadow-audit.json` for the published 8,232-frame sweep; no Gate5 or upstream driver change.
 
 

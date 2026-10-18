@@ -20,6 +20,13 @@ from processor import CELLS, COLS, ROWS, Candidate, Config, Tracker, decode_fram
 from shadow_tracker import RegionMorphology, ShadowConfig, ShadowOverlay
 
 
+GUIDED_CONFIRM_PREFIX = 'OPERATOR_CONFIRM_'
+GUIDED_HOLD_COMPLETE = 'GUIDED_HOLD_COMPLETE'
+GUIDED_GUARD_AFTER_TICKS = 3_500_000
+GUIDED_GUARD_BEFORE_TICKS = 1_500_000
+MAX_MARKER_FRAME_DELTA_TICKS = 1_000_000
+
+
 @dataclass(frozen=True)
 class RawRegion:
     candidate: Candidate
@@ -92,6 +99,61 @@ def load_run(run_dir: Path):
     return frames, ticks, pointer
 
 
+def marker_summary(pointer: list[dict], ticks: list[int],
+                   frame_results: list[tuple[int, int]]) -> list[dict]:
+    legacy = {'PHYSICAL_TWO_MARK', 'OPERATOR_SECOND_INTENTIONALLY_LIFTED',
+              'OPERATOR_SECOND_RETURNED'}
+    markers = []
+    for row in pointer:
+        event = row.get('Event', '')
+        if event not in legacy and not event.startswith(GUIDED_CONFIRM_PREFIX):
+            continue
+        target = int(row['StopwatchTicks'])
+        index = min(range(len(ticks)), key=lambda i: abs(ticks[i] - target))
+        delta = ticks[index] - target
+        item = {'event': event, 'stage': int(row['Stage']),
+                'operator_physical': int(row.get('OperatorPhysical', '-1')),
+                'windows_at_marker': int(row.get('MessageActive', '-1'))}
+        if abs(delta) <= MAX_MARKER_FRAME_DELTA_TICKS:
+            visible_count, shadow_count = frame_results[index]
+            item.update({'nearest_raw_frame': index,
+                         'nearest_delta_ms': round(delta / 1e4, 3),
+                         'visible_count': visible_count,
+                         'shadow_active': bool(shadow_count)})
+        else:
+            item.update({'nearest_raw_frame': None, 'nearest_delta_ms': None,
+                         'visible_count': None, 'shadow_active': False})
+        markers.append(item)
+    return markers
+
+
+def guided_hold_summary(pointer: list[dict], ticks: list[int],
+                        frame_results: list[tuple[int, int]]) -> list[dict]:
+    pending: dict[int, dict] = {}
+    holds = []
+    for row in pointer:
+        event = row.get('Event', '')
+        stage = int(row.get('Stage', '-1'))
+        if event.startswith(GUIDED_CONFIRM_PREFIX):
+            pending[stage] = row
+        elif event == GUIDED_HOLD_COMPLETE and stage in pending:
+            start = int(pending[stage]['StopwatchTicks']) + GUIDED_GUARD_AFTER_TICKS
+            end = int(row['StopwatchTicks']) - GUIDED_GUARD_BEFORE_TICKS
+            indices = [i for i, tick in enumerate(ticks) if start <= tick < end]
+            visible = Counter(frame_results[i][0] for i in indices)
+            shadow = Counter(frame_results[i][1] for i in indices)
+            confirm = pending.pop(stage)
+            holds.append({
+                'stage': stage,
+                'event': confirm['Event'],
+                'operator_physical': int(confirm.get('OperatorPhysical', '-1')),
+                'raw_frames': len(indices),
+                'prototype_visible_histogram': dict(sorted(visible.items())),
+                'internal_shadow_histogram': dict(sorted(shadow.items())),
+            })
+    return holds
+
+
 def replay(run_dir: Path, coalesce_distance: float = 6.0) -> dict:
     frames, ticks, pointer = load_run(run_dir)
     tracker = Tracker(Config(birth_frames=1, association_scale=10, hold_frames=0))
@@ -126,20 +188,8 @@ def replay(run_dir: Path, coalesce_distance: float = 6.0) -> dict:
                 events.append({'frame': index,
                                'seconds_from_first_raw': round((tick - ticks[0]) / 1e7, 6),
                                **event})
-    marker_names = {'PHYSICAL_TWO_MARK', 'OPERATOR_SECOND_INTENTIONALLY_LIFTED',
-                    'OPERATOR_SECOND_RETURNED'}
-    markers = []
-    for row in pointer:
-        if row['Event'] not in marker_names:
-            continue
-        target = int(row['StopwatchTicks'])
-        index = min(range(len(ticks)), key=lambda i: abs(ticks[i] - target))
-        visible_count, shadow_count = frame_results[index]
-        markers.append({'event': row['Event'], 'stage': int(row['Stage']),
-                        'nearest_raw_frame': index,
-                        'nearest_delta_ms': round((ticks[index] - target) / 1e4, 3),
-                        'visible_count': visible_count,
-                        'shadow_active': bool(shadow_count)})
+    markers = marker_summary(pointer, ticks, frame_results)
+    holds = guided_hold_summary(pointer, ticks, frame_results)
     return {
         'status': 'DIAGNOSTIC_ONLY_NO_CONTACT_EMISSION',
         'frames': len(frames),
@@ -148,6 +198,7 @@ def replay(run_dir: Path, coalesce_distance: float = 6.0) -> dict:
         'internal_shadow_histogram': dict(sorted(shadow_histogram.items())),
         'counters': overlay.totals,
         'operator_markers': markers,
+        'guided_holds': holds,
         'diagnostic_events': events,
         'limits': [
             'Threshold/coalescing and morphology ratios are experimental.',
