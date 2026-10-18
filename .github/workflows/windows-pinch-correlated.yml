@@ -11,6 +11,9 @@ on:
       - 'tests/test_correlated_pinch_capture.py'
       - 'tools/windows_capture/build_pinch_evidence_bundle.py'
       - 'tests/test_build_pinch_evidence_bundle.py'
+      - 'tools/windows_capture/analyze_physical_truth.py'
+      - 'tests/test_analyze_physical_truth.py'
+      - 'tests/test_v3_bundle.py'
   pull_request:
     paths:
       - 'tools/windows_capture/capture_pinch_correlated.ps1'
@@ -76,3 +79,5 @@ jobs:
         run: |
           python3 -m unittest discover -s tests -p 'test_correlated_pinch_capture.py' -v
           python3 -m unittest discover -s tests -p 'test_build_pinch_evidence_bundle.py' -v
+          python3 -m unittest discover -s tests -p 'test_analyze_physical_truth.py' -v
+          python3 -m unittest discover -s tests -p 'test_v3_bundle.py' -v
