@@ -1,5 +1,14 @@
 # MSHW0231 Windows-derived contact processor (offline research)
 
+> **Latest empirical next gate:** [Pre-loss sensor-region collapse and independent-lift control audit](PINCH-TRANSITION-AUDIT-20261017.md). Four clear Windows contact transitions anchor only a **behavioral** estimate of sensor/event time offset. Across four close-pinch secondary `UP` events, distinct raw regions collapsed **0.43–1.45 seconds before** Windows released the corresponding pointer by that estimate. Three subsequent M markers independently confirm two physical fingers at later points. Even a peak threshold of 2 recovers no second 4-cell-separated lobe in the sampled failure windows. **No hold timer or synthetic second contact has been implemented**.
+
+**Reproduce pre-loss audit (Python stdlib, public dataset only):**
+```bash
+python3 pinch_transition_audit.py /path/to/SL4A_heatmaps_privacy_hardened.zip --output /tmp/pinch-transition.json
+python3 -m unittest discover -p 'test_*.py' -v
+```
+
+
 **Status: prototype, not a Windows-equivalent driver.** The default Linux driver,
 Gate5 transport, and #87 remain unchanged. This directory cannot open `/dev/hidraw`,
 issue GET6/SET5, emit `uinput` events, or modify a running machine.
