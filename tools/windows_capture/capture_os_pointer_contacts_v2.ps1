@@ -106,18 +106,31 @@ public sealed class PinchWindow : Form {
   "4 OF 4: LIFT one only, hold second 3 seconds, then lift."
  };
  static readonly string[] TruthSteps={
-  "1/8 BASELINE: all fingers OFF glass. Press N then SPACE.",
-  "2/8 TWO FAR: place both far apart; press B after BOTH touch.",
-  "3/8 PINCH: maintain BOTH physically down; press T as needed.",
-  "4/8 TWO CLOSE: hold both close WITHOUT lifting. Press T.",
-  "5/8 REAL LIFT: deliberately lift one, then press L immediately.",
-  "6/8 ONE HOLD: keep remaining finger down >=3s; no second touch.",
-  "7/8 REPLACE: return second to SAME close spot; press R after down.",
-  "8/8 ZERO: lift both fingers; press N after last finger leaves."
+  "1/8 NO TOUCH: remove ALL fingers. Press N. Hold 2 seconds, then SPACE.",
+  "2/8 TWO FAR APART: place two fingers far apart. Press B. Hold 3 seconds, then SPACE. KEEP THEM DOWN.",
+  "3/8 PINCH - DO NOT LIFT: pinch/separate the SAME fingers 3 times. Press T when close or Windows shows 1. End close, then SPACE.",
+  "4/8 CLOSE HOLD - DO NOT LIFT: keep both fingers close and still. Press T. Hold 3 seconds, then SPACE.",
+  "5/8 LIFT SECOND ONLY: keep the original finger down. Lift only the other finger. Press L. Hold 3 seconds, then SPACE.",
+  "6/8 ONE FINGER ONLY: keep the original finger down. Do NOT touch the second finger and press NO marker. Hold 3 seconds, then SPACE.",
+  "7/8 RETURN SECOND: touch the second finger near its old close spot. Press R after it touches. Hold 3 seconds, then SPACE.",
+  "8/8 LIFT BOTH: remove both fingers. Press N when the glass is empty. Hold 3 seconds, then SPACE to finish."
  };
  public static bool TruthMode=false;
  int StageTotal {get {return TruthMode?TruthSteps.Length:Steps.Length;}}
  string CurrentStep(int i){return TruthMode?TruthSteps[i]:Steps[i];}
+ static string TruthKeyHelp(int i) {
+  string[] help={
+   "THIS STAGE: N = no fingers",
+   "THIS STAGE: B = both down",
+   "THIS STAGE: T = both still down",
+   "THIS STAGE: T = both still down",
+   "THIS STAGE: L = second intentionally lifted",
+   "THIS STAGE: NO MARKER - just hold one finger",
+   "THIS STAGE: R = second returned",
+   "THIS STAGE: N = no fingers"
+  };
+  return help[i];
+ }
  static int TruthExpected(int i) {
   int[] expected={0,2,2,2,1,1,2,0};
   return expected[i];
@@ -318,8 +331,8 @@ public sealed class PinchWindow : Form {
   using(var dim=new SolidBrush(Color.FromArgb(169,189,211)))
   using(var green=new SolidBrush(Color.FromArgb(94,224,167)))
   using(var red=new SolidBrush(Color.FromArgb(255,142,111))){
-   g.DrawString("SL4A  •  TWO-FINGER DIAGNOSTIC V2",head,white,26,18);
-   if(stage<0)g.DrawString(TruthMode?"SPACE starts controlled physical-truth sequence.":"SPACE starts. Lift after step 1; KEEP TWO FINGERS DOWN through steps 2-3.",body,white,30,85);
+   g.DrawString(TruthMode?"SL4A  •  PHYSICAL TRUTH V3":"SL4A  •  TWO-FINGER DIAGNOSTIC V2",head,white,26,18);
+   if(stage<0)g.DrawString(TruthMode?"Press SPACE to begin. Read and perform ONLY the large instruction shown for each stage.":"SPACE starts. Lift after step 1; KEEP TWO FINGERS DOWN through steps 2-3.",body,white,30,85);
    else if(stage<StageTotal)g.DrawString(CurrentStep(stage),body,white,30,85);
    else g.DrawString("Finished.",body,white,30,85);
    g.DrawString(model.Active.Count.ToString(),number,
@@ -328,10 +341,13 @@ public sealed class PinchWindow : Form {
    g.DrawString("Latest frame (may be serial): "+FCount(),body,white,30,302);
    g.DrawString("Active IDs: "+(ActiveIds()==""?"none":ActiveIds()),body,white,30,348);
    g.DrawString("Peak message IDs: "+peak+" | Frame peak: "+framePeak,detail,dim,30,394);
-   if(TruthMode)g.DrawString("Operator physically down: "+(physical.PhysicalCount<0?"UNKNOWN":physical.PhysicalCount.ToString()),body,red,30,440);
+   if(TruthMode) {
+    g.DrawString("Operator physically down: "+(physical.PhysicalCount<0?"UNKNOWN":physical.PhysicalCount.ToString()),body,red,30,440);
+    if(stage>=0&&stage<StageTotal)g.DrawString(TruthKeyHelp(stage)+"   |   X = invalidate a mistaken marker",detail,white,30,478);
+   }
    else if(stage>=1&&stage<StageTotal&&model.Active.Count<2)
     g.DrawString("BOTH FINGERS DOWN? Press M to mark missing detection!",body,red,30,440);
-   g.DrawString((TruthMode?"Physical state key marks: ":"M markers: ")+annotations.Count,detail,dim,30,488);
+   g.DrawString((TruthMode?"Physical state key marks: ":"M markers: ")+annotations.Count,detail,dim,30,510);
    if(model.Active.Count>=2){
     Point[] p=model.Active.Values.Take(2).ToArray();
     double dx=p[0].X-p[1].X,dy=p[0].Y-p[1].Y;
@@ -339,7 +355,7 @@ public sealed class PinchWindow : Form {
       body,white,30,523);
    }
    g.DrawString(TruthMode?
-      "SPACE next | B both | T both still | L intentional lift | R return | N none | X invalid | ESC save":
+      "Perform only this stage's instruction | SPACE = next | X = correct mistake | ESC = save partial":
       "SPACE = next step     M = I physically have TWO fingers down     ESC = save/quit",
       detail,white,30,h-40);
    Color[] palette={Color.FromArgb(62,174,251),Color.FromArgb(247,198,82),
@@ -372,7 +388,7 @@ if($SelfTest) {
     return
 }
 New-Item -ItemType Directory -Path $OutputFolder -Force | Out-Null
-if($PhysicalTruthMode) {Write-Host "EIGHT stages; press physical state B,T,L,R,N; X resets invalid; SPACE advance."}
+if($PhysicalTruthMode) {Write-Host "EIGHT stages. Follow the large instruction shown for each stage. X invalidates a mistaken marker; SPACE advances."}
 else {Write-Host "Four stages; SPACE advances, M marks two real fingers when displayed count is wrong."}
 Write-Host "Results: $OutputFolder"
 [PinchWindow]::TrySetDpiAware()
