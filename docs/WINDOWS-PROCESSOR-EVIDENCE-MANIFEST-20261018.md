@@ -68,10 +68,16 @@ Passing an earlier state never implies a later one.
    `0x94` normalization/oversize branches. This is not raw-frame candidate
    production. The overlapping `_DAT_180765c20` double is pinned from the
    hash-identified DLL bytes rather than guessed.
-6. V0 conversion, conditional split CCL, surrounding walks, outer class
-   policy, association, hold/lift and final emission remain open until
-   separately implemented and tested.
-7. No uinput or kernel output is authorized by these offline gates.
+6. V0 `0x0100` section parsing/staging is structurally reproduced from
+   `FUN_18068e990`, including its full-run direct view, 288-byte multi-run
+   placement, and calibrated 16-bit conversion. The section does not encode
+   geometry; actual runtime height/width from configuration `+0x3c/+0x3e`
+   remain open and raw 72×48 capture analysis must not be treated as detector
+   coordinates.
+7. Conditional split CCL, surrounding walks, outer class policy, association,
+   hold/lift and final emission remain open until separately implemented and
+   tested.
+8. No uinput or kernel output is authorized by these offline gates.
 
 ## Maintenance rule
 

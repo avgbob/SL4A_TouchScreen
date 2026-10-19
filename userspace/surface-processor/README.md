@@ -5,8 +5,12 @@ not a live HID driver, uinput daemon, or complete Windows contact processor.
 
 ## Current foundation
 
-- `capimg_v0.py` strictly decodes the observed MSHW0231 V0 envelopes and
-  validates the section structure before returning a 72x48 raster.
+- `capimg_v0.py` strictly decodes the observed MSHW0231 V0 envelopes, can
+  retain the complete validated `0x0100` section, and keeps the historical
+  72x48 capture-analysis view separate from Windows detector geometry.
+- `windows_section_staging.py` reproduces `FUN_18068e990` section runs, the
+  full-run direct view, 288-byte multi-run placement, and calibrated 16-bit
+  conversion. Width and height must come from external runtime configuration.
 - `windows_pointer_oracle.py` aligns a private guided V4 pointer log to its raw
   frame clock after verifying the original pointer-file hash.
 - `v4_oracle_contract.py` locks privacy-safe V4 counts and counterexamples
@@ -27,6 +31,8 @@ not a live HID driver, uinput daemon, or complete Windows contact processor.
   recovered covariance-feature operation order and pinned double constant.
 - `c_oracle/windows_initial_ccl_oracle.c` independently checks LUT, threshold,
   and adjusted-weight float operation order.
+- `c_oracle/windows_section_staging_oracle.c` independently checks run-address
+  arithmetic and calibrated 16-bit conversion.
 
 The score model excludes the three recovered override paths, outer class
 selection, later correction, full candidate detection, association, hold/lift,
@@ -35,9 +41,12 @@ transcribed common path, not a Windows runtime golden-vector comparison. See
 [`docs/WINDOWS-CANDIDATE-FEATURES-20261019.md`](../../docs/WINDOWS-CANDIDATE-FEATURES-20261019.md)
 for the precise upstream boundary.
 
-The CCL input boundary is documented separately in
+The staging and CCL boundaries are documented separately in
+[`docs/WINDOWS-SECTION-STAGING-20261019.md`](../../docs/WINDOWS-SECTION-STAGING-20261019.md)
+and
 [`docs/WINDOWS-INITIAL-CCL-20261019.md`](../../docs/WINDOWS-INITIAL-CCL-20261019.md);
-the captured V0 raster must not yet be treated as the converted Windows grid.
+the captured 3,456-byte raster must not yet be assigned Windows detector
+coordinates without the selected runtime width and height.
 
 ## Verification
 

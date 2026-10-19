@@ -39,17 +39,24 @@ later stages resolve provisional labels through the table.
 Each canonical result can also serialize the initial fields of its 0xb0 Windows
 candidate record; offsets owned by later stages remain zero.
 
-## Hard boundary: converted grid, not V0 wire raster
+## Hard boundary: staged grid geometry, not assumed 72×48 coordinates
 
-The CCL consumes a byte grid with Windows' converted-buffer semantics. Static
-analysis shows a 288-byte physical row stride in the runtime context, while the
-captured V0 section contains a packed 72×48 raster. No recovered function yet
-proves the conversion, expansion, ordering, or calibration between those two
-representations.
+The section parser and staging routine are now structurally reproduced from
+`FUN_18068e990`; see
+[`WINDOWS-SECTION-STAGING-20261019.md`](WINDOWS-SECTION-STAGING-20261019.md).
+It confirms a 288-byte physical row stride for staged 8-bit runs and a direct
+view when the first run's sample count equals configured `width * height`.
 
-The Python API uses a packed representation of the **already converted active
-rectangle** and takes explicit width and height. Passing `decode_frame()` output
-directly would be an unproved proxy and is not part of the reference pipeline.
+It does **not** establish that Windows configures the detector as 72×48. The
+section carries no width or height. Windows loads those from selected runtime
+configuration fields `+0x3e` and `+0x3c`. The captured section has 3,456 bytes,
+which can be viewed as 72×48 for capture analysis, but that factorization is
+not yet a Windows detector-coordinate claim.
+
+The CCL Python API still uses a packed representation of the **already staged
+active rectangle** and takes explicit width and height. Callers must first
+provide the recovered runtime geometry and use `packed_active_grid()`; passing
+`decode_frame()` output directly remains an unproved proxy.
 
 ## Verification state
 
@@ -64,7 +71,8 @@ directly would be an unproved proxy and is not part of the reference pipeline.
 
 ## Next evidence gates
 
-1. Recover or instrument the V0-raster-to-converted-grid stage.
+1. Recover the selected 0C19 runtime configuration and its `+0x3c/+0x3e`
+   height/width values on this machine.
 2. Obtain Windows internal candidate/label records for golden comparison.
 3. Reproduce the conditional three-threshold split CCL, whose neighbor mode is
    not identical to the initial pass.

@@ -4,7 +4,7 @@ from struct import pack, pack_into
 from pathlib import Path
 import unittest
 
-from capimg_v0 import CELLS, decode_frame
+from capimg_v0 import CELLS, decode_frame, decode_heatmap_section
 
 
 def v0_frame(raster: bytes) -> bytes:
@@ -27,6 +27,11 @@ class CapImgV0Test(unittest.TestCase):
         self.assertEqual(decode_frame(self.body), self.raster)
         self.assertEqual(decode_frame(b'\xff' * 5 + self.body), self.raster)
         self.assertEqual(decode_frame(self.body[2:]), self.raster)
+
+    def test_complete_heatmap_section_is_retained_exactly(self):
+        expected = self.body[12:12 + 16 + CELLS]
+        self.assertEqual(decode_heatmap_section(self.body), expected)
+        self.assertEqual(decode_heatmap_section(self.raster), expected)
 
     def test_all_eight_tracked_hardware_fixtures(self):
         root = Path(__file__).parents[2]
