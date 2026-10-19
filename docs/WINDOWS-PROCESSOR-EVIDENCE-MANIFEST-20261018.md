@@ -58,15 +58,20 @@ Passing an earlier state never implies a later one.
    sanitized 17,018-frame behavioral contract.
 3. Candidate score kernel: use 32-bit float operations in recovered order and
    cross-check against a compiled C oracle.
-4. Labelled-component feature kernels: reproduce the exact no-resegmentation
+4. Initial converted-grid CCL: reproduce the 255 initialized LUT entries,
+   raw threshold gate, eight-connected provisional scan, equivalence merging,
+   accumulator records and initial component acceptance. The V0-to-converted
+   grid transformation remains open, so raw captures are not fed into this
+   stage as if they were Windows runtime buffers.
+5. Labelled-component feature kernels: reproduce the exact no-resegmentation
    split-byte fallback, covariance-derived `0x8c`/`0x90` fields, and final
    `0x94` normalization/oversize branches. This is not raw-frame candidate
    production. The overlapping `_DAT_180765c20` double is pinned from the
    hash-identified DLL bytes rather than guessed.
-5. Initial CCL, conditional split CCL, surrounding walks, outer class policy,
-   association, hold/lift and final emission remain open until separately
-   implemented and tested.
-6. No uinput or kernel output is authorized by these offline gates.
+6. V0 conversion, conditional split CCL, surrounding walks, outer class
+   policy, association, hold/lift and final emission remain open until
+   separately implemented and tested.
+7. No uinput or kernel output is authorized by these offline gates.
 
 ## Maintenance rule
 

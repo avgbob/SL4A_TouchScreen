@@ -1,6 +1,12 @@
 # Surface TouchPenProcessor0C19 — **historical Linux approximation**
 
-> **NOT A WINDOWS-EQUIVALENCE SPECIFICATION.** This file documents the Linux heatmap tracker and the hypotheses used during its development. Its alignment percentages are **not measurements** against Windows processed touch contacts. Some algorithm labels are conjectural; the Windows classifier and real hold/lift/reporting remain unresolved. Read [RESEARCH-INDEX.md](RESEARCH-INDEX.md) and [RESEARCH-CONTRADICTIONS.md](RESEARCH-CONTRADICTIONS.md) first. The older Mahalanobis-matrix interpretation is falsified by the August 0C19 MSI analysis.\n\n## Pipeline Overview
+> **NOT A WINDOWS-EQUIVALENCE SPECIFICATION.** This file documents the Linux heatmap tracker and the hypotheses used during its development. Its alignment percentages are **not measurements** against Windows processed touch contacts. Some algorithm labels are conjectural; the Windows classifier and real hold/lift/reporting remain unresolved. Read [RESEARCH-INDEX.md](RESEARCH-INDEX.md) and [RESEARCH-CONTRADICTIONS.md](RESEARCH-CONTRADICTIONS.md) first. The older Mahalanobis-matrix interpretation is falsified by the August 0C19 MSI analysis.
+
+## Pipeline Overview
+
+> **2026-10-19 v2 correction:** the recovered Windows initial pass is an
+> eight-connected row-major provisional-label scan, not the four-connected BFS
+> described below. See [WINDOWS-INITIAL-CCL-20261019.md](WINDOWS-INITIAL-CCL-20261019.md).
 
 ```
 Frame (heatmap grid — 72×48/3456 cells on SL4 MSHW0231, 78×52/4056 on SL3 MSHW0162; selected by ACPI ID)
