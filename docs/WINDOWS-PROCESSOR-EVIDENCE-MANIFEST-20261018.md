@@ -58,9 +58,15 @@ Passing an earlier state never implies a later one.
    sanitized 17,018-frame behavioral contract.
 3. Candidate score kernel: use 32-bit float operations in recovered order and
    cross-check against a compiled C oracle.
-4. Candidate production, outer class policy, association, hold/lift and final
-   emission remain open until separately implemented and tested.
-5. No uinput or kernel output is authorized by these offline gates.
+4. Labelled-component feature kernels: reproduce the exact no-resegmentation
+   split-byte fallback, covariance-derived `0x8c`/`0x90` fields, and final
+   `0x94` normalization/oversize branches. This is not raw-frame candidate
+   production. The overlapping `_DAT_180765c20` double is pinned from the
+   hash-identified DLL bytes rather than guessed.
+5. Initial CCL, conditional split CCL, surrounding walks, outer class policy,
+   association, hold/lift and final emission remain open until separately
+   implemented and tested.
+6. No uinput or kernel output is authorized by these offline gates.
 
 ## Maintenance rule
 

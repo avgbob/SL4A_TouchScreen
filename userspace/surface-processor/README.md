@@ -14,13 +14,21 @@ not a live HID driver, uinput daemon, or complete Windows contact processor.
 - `windows_classifier.py` implements the common four-block
   `FUN_180601690` score path with binary32 rounding after every recovered
   arithmetic operation.
+- `windows_candidate_features.py` implements the source-grounded portion from
+  an already labelled component to the classifier's ten fields: exact
+  no-resegmentation byte pairs, covariance features, and the final surrounding
+  score branches. It does not perform raw-frame CCL or the unresolved walks.
 - `c_oracle/windows_classifier_oracle.c` independently checks that score
   operation order with compiled C `float` arithmetic.
+- `c_oracle/windows_candidate_features_oracle.c` independently checks the
+  recovered covariance-feature operation order and pinned double constant.
 
 The score model excludes the three recovered override paths, outer class
-selection, later correction, candidate production, association, hold/lift,
+selection, later correction, full candidate detection, association, hold/lift,
 grouping, and final emission. Its C agreement is numerical reproduction of the
-transcribed common path, not a Windows runtime golden-vector comparison.
+transcribed common path, not a Windows runtime golden-vector comparison. See
+[`docs/WINDOWS-CANDIDATE-FEATURES-20261019.md`](../../docs/WINDOWS-CANDIDATE-FEATURES-20261019.md)
+for the precise upstream boundary.
 
 ## Verification
 
