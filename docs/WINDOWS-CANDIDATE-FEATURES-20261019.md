@@ -53,14 +53,18 @@ semidefinite moment inputs.
 
 The module refuses to imply an end-to-end producer. These remain open:
 
-1. per-frame LUT/baseline/config selection in `FUN_180600820`;
-2. initial thresholding and connected-component labelling in
-   `FUN_180604ab0`/`FUN_180604bd0` and their helpers;
-3. candidate selection, peak suppression and record lifecycle;
-4. three thresholded split CCL passes when `FUN_1806042f0`'s condition is true;
-5. the two neighbourhood walks that create the small-box `0x94` accumulator;
-6. comparison of produced candidate records against instrumented Windows
+1. per-frame baseline/grid conversion and non-geometry configuration use in
+   `FUN_180600820`;
+2. candidate selection, peak suppression and record lifecycle;
+3. three thresholded split CCL passes when `FUN_1806042f0`'s condition is true;
+4. the two neighbourhood walks that create the small-box `0x94` accumulator;
+5. comparison of produced candidate records against instrumented Windows
    runtime records.
+
+The selected 0C19 stream-0 geometry and the initial eight-connected CCL are
+now structurally recovered in the adjacent staging and initial-CCL modules.
+That closes their former static-analysis gates, but not the raw-frame-to-grid
+conversion or Windows-runtime output-comparison gates above.
 
 Until those gates close, callers must supply labelled-component statistics and
 must label their provenance. This code can feed the recovered classifier for

@@ -11,9 +11,15 @@ import unittest
 
 from windows_classifier import f32
 from windows_section_staging import (
+    PSDB_HEIGHT_OFFSET,
+    PSDB_STREAM_RECORD_SIZE,
+    PSDB_WIDTH_OFFSET,
     WINDOWS_16BIT_RETURN_LENGTH,
+    WINDOWS_0C19_STREAM0_HEIGHT,
+    WINDOWS_0C19_STREAM0_WIDTH,
     WINDOWS_8BIT_RETURN_LENGTH,
     convert_u16_sample,
+    read_psdb_stream_geometry,
     stage_heatmap_section,
 )
 
@@ -38,20 +44,29 @@ class WindowsSectionStagingTests(unittest.TestCase):
     def test_complete_8bit_run_uses_direct_view(self):
         samples = bytes(range(256)) * 13 + bytes(range(128))
         result = stage_heatmap_section(
-            section8((0, samples)), width=288, height=12)
+            section8((0, samples)), width=WINDOWS_0C19_STREAM0_WIDTH,
+            height=WINDOWS_0C19_STREAM0_HEIGHT)
         self.assertTrue(result.direct_view)
         self.assertEqual(result.pixels, samples)
         self.assertEqual(result.packed_active_grid(), samples)
         self.assertEqual(result.windows_return_length,
                          WINDOWS_8BIT_RETURN_LENGTH)
 
-    def test_capture_shape_is_not_proof_of_windows_geometry(self):
-        samples = bytes(72 * 48)
-        result = stage_heatmap_section(
-            section8((0, samples)), width=72, height=48)
-        self.assertTrue(result.direct_view)
-        with self.assertRaisesRegex(ValueError, 'cannot satisfy'):
-            result.packed_active_grid()
+    def test_psdb_geometry_layout_and_pinned_0c19_values(self):
+        config = bytearray(PSDB_STREAM_RECORD_SIZE * 2 + 4)
+        # Privacy-safe four-byte slice at pinned DLL file offset 0x8df09c:
+        # little-endian stream-0 height followed by width.
+        config[PSDB_HEIGHT_OFFSET:PSDB_WIDTH_OFFSET + 2] = bytes.fromhex(
+            '30004800')
+        self.assertEqual(read_psdb_stream_geometry(bytes(config)), (72, 48))
+        self.assertEqual((WINDOWS_0C19_STREAM0_WIDTH,
+                          WINDOWS_0C19_STREAM0_HEIGHT), (72, 48))
+        self.assertEqual(read_psdb_stream_geometry(bytes(config), 1), (0, 0))
+
+        with self.assertRaisesRegex(ValueError, 'truncated'):
+            read_psdb_stream_geometry(bytes(config[:PSDB_WIDTH_OFFSET + 1]))
+        with self.assertRaisesRegex(ValueError, 'non-negative'):
+            read_psdb_stream_geometry(bytes(config), -1)
 
     def test_multirun_8bit_destination_translation_is_once_per_run(self):
         result = stage_heatmap_section(
@@ -69,6 +84,12 @@ class WindowsSectionStagingTests(unittest.TestCase):
         self.assertEqual(result.pixels[:6], bytes((0, 0, 0, 0, 7, 255)))
         self.assertEqual(result.windows_return_length,
                          WINDOWS_16BIT_RETURN_LENGTH)
+
+    def test_16bit_converted_grid_is_packed_not_288_strided(self):
+        result = stage_heatmap_section(
+            section16((0, (1, 2, 3, 4, 5, 6))), width=3, height=2)
+        self.assertEqual(result.packed_active_grid(),
+                         bytes((1, 2, 3, 4, 5, 6)))
 
     def test_rejects_malformed_sections_and_impossible_geometry(self):
         truncated_run = bytearray(section8((0, b'abc')))

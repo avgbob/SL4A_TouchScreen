@@ -39,24 +39,27 @@ later stages resolve provisional labels through the table.
 Each canonical result can also serialize the initial fields of its 0xb0 Windows
 candidate record; offsets owned by later stages remain zero.
 
-## Hard boundary: staged grid geometry, not assumed 72×48 coordinates
+## Staged-grid boundary and recovered 72×48 coordinates
 
 The section parser and staging routine are now structurally reproduced from
 `FUN_18068e990`; see
 [`WINDOWS-SECTION-STAGING-20261019.md`](WINDOWS-SECTION-STAGING-20261019.md).
-It confirms a 288-byte physical row stride for staged 8-bit runs and a direct
-view when the first run's sample count equals configured `width * height`.
+It confirms a 288-byte physical row stride for copied partial/multi-run 8-bit
+data and a packed direct view when the first run's sample count equals
+configured `width * height`.
 
-It does **not** establish that Windows configures the detector as 72×48. The
-section carries no width or height. Windows loads those from selected runtime
-configuration fields `+0x3e` and `+0x3c`. The captured section has 3,456 bytes,
-which can be viewed as 72×48 for capture analysis, but that factorization is
-not yet a Windows detector-coordinate claim.
+The section carries no width or height, but the selector chain and selected
+static PSDB record are now recovered for the hash-pinned 0C19 profile. Stream
+0's configuration fields contain height 48 and width 72; stream 1 is
+unconfigured (`0×0`). Thus the observed 3,456-byte full run is a packed 72×48
+Windows detector grid for this profile, not merely a capture factorization.
 
-The CCL Python API still uses a packed representation of the **already staged
-active rectangle** and takes explicit width and height. Callers must first
-provide the recovered runtime geometry and use `packed_active_grid()`; passing
-`decode_frame()` output directly remains an unproved proxy.
+The CCL Python API uses a packed representation of the **already staged active
+rectangle** and takes explicit width and height. For pinned 0C19 stream 0,
+callers can pass the section through `stage_heatmap_section(..., width=72,
+height=48)` and then feed `packed_active_grid()` to the initial CCL. This
+proves the byte/coordinate boundary; it does not make the later pipeline
+Windows-output-equivalent.
 
 ## Verification state
 
@@ -71,11 +74,10 @@ provide the recovered runtime geometry and use `packed_active_grid()`; passing
 
 ## Next evidence gates
 
-1. Recover the selected 0C19 runtime configuration and its `+0x3c/+0x3e`
-   height/width values on this machine.
-2. Obtain Windows internal candidate/label records for golden comparison.
-3. Reproduce the conditional three-threshold split CCL, whose neighbor mode is
+1. Obtain Windows internal staged-grid or candidate/label records for golden
+   comparison.
+2. Reproduce the conditional three-threshold split CCL, whose neighbor mode is
    not identical to the initial pass.
-4. Reproduce the two surrounding-neighborhood walks feeding candidate `0x94`.
-5. Join accepted records to centroid/covariance post-processing and the
+3. Reproduce the two surrounding-neighborhood walks feeding candidate `0x94`.
+4. Join accepted records to centroid/covariance post-processing and the
    recovered classifier without bypassing record-status gates.

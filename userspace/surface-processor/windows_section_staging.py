@@ -3,9 +3,9 @@
 """Recovered Windows CapImg ``0x0100`` section staging behavior.
 
 This module transcribes ``FUN_18068e990`` from the hash-pinned
-TouchPenProcessor0C19 DLL. Geometry is explicit because the section itself does
-not carry width or height; Windows loads those values from runtime
-configuration before calling this routine.
+TouchPenProcessor0C19 DLL. The section itself does not carry width or height;
+Windows loads them from the selected PSDB configuration record. The pinned
+0C19 record configures stream 0 as 72 columns by 48 rows.
 """
 from __future__ import annotations
 
@@ -19,6 +19,11 @@ HEATMAP_SECTION_TYPE = 0x0100
 WINDOWS_ROW_STRIDE = 0x120
 WINDOWS_8BIT_RETURN_LENGTH = 0xB468
 WINDOWS_16BIT_RETURN_LENGTH = 0xB467
+PSDB_STREAM_RECORD_SIZE = 0x3C
+PSDB_HEIGHT_OFFSET = 0x3C
+PSDB_WIDTH_OFFSET = 0x3E
+WINDOWS_0C19_STREAM0_WIDTH = 72
+WINDOWS_0C19_STREAM0_HEIGHT = 48
 
 
 @dataclass(frozen=True)
@@ -42,16 +47,40 @@ class StagedHeatmap:
 
     def packed_active_grid(self) -> bytes:
         """Pack the explicit active rectangle, failing on impossible geometry."""
-        if self.width > self.row_stride:
-            raise ValueError('width exceeds physical row stride')
-        required = (self.height - 1) * self.row_stride + self.width
+        # Windows returns a full 8-bit run as its original packed sample view.
+        # Converted 16-bit runs are also written at packed destinations. Only
+        # copied 8-bit partial/multi-run data uses the 288-byte staging stride.
+        source_stride = (self.row_stride
+                         if self.encoding == 1 and not self.direct_view
+                         else self.width)
+        if self.width > source_stride:
+            raise ValueError('width exceeds source row stride')
+        required = (self.height - 1) * source_stride + self.width
         if required > len(self.pixels):
             raise ValueError('staged buffer cannot satisfy supplied geometry')
+        if source_stride == self.width:
+            return self.pixels[:self.width * self.height]
         return b''.join(
-            self.pixels[row * self.row_stride:
-                        row * self.row_stride + self.width]
+            self.pixels[row * source_stride:
+                        row * source_stride + self.width]
             for row in range(self.height)
         )
+
+
+def read_psdb_stream_geometry(config: bytes, stream_index: int = 0,
+                              ) -> tuple[int, int]:
+    """Read ``(width, height)`` from a selected PSDB configuration record."""
+    if not isinstance(config, bytes):
+        raise TypeError('config must be bytes')
+    if type(stream_index) is not int or stream_index < 0:
+        raise ValueError('stream_index must be a non-negative integer')
+    record = stream_index * PSDB_STREAM_RECORD_SIZE
+    end = record + PSDB_WIDTH_OFFSET + 2
+    if end > len(config):
+        raise ValueError('truncated PSDB stream geometry')
+    height = struct.unpack_from('<H', config, record + PSDB_HEIGHT_OFFSET)[0]
+    width = struct.unpack_from('<H', config, record + PSDB_WIDTH_OFFSET)[0]
+    return width, height
 
 
 def _validate_geometry(width: int, height: int, row_stride: int) -> None:

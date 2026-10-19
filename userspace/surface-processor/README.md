@@ -6,11 +6,12 @@ not a live HID driver, uinput daemon, or complete Windows contact processor.
 ## Current foundation
 
 - `capimg_v0.py` strictly decodes the observed MSHW0231 V0 envelopes, can
-  retain the complete validated `0x0100` section, and keeps the historical
-  72x48 capture-analysis view separate from Windows detector geometry.
+  retain the complete validated `0x0100` section, and exposes the 72x48 raster
+  matched independently by the pinned 0C19 Windows PSDB configuration.
 - `windows_section_staging.py` reproduces `FUN_18068e990` section runs, the
   full-run direct view, 288-byte multi-run placement, and calibrated 16-bit
-  conversion. Width and height must come from external runtime configuration.
+  conversion. It also exposes the recovered PSDB geometry-field layout and
+  pinned 0C19 stream-0 values.
 - `windows_pointer_oracle.py` aligns a private guided V4 pointer log to its raw
   frame clock after verifying the original pointer-file hash.
 - `v4_oracle_contract.py` locks privacy-safe V4 counts and counterexamples
@@ -45,8 +46,8 @@ The staging and CCL boundaries are documented separately in
 [`docs/WINDOWS-SECTION-STAGING-20261019.md`](../../docs/WINDOWS-SECTION-STAGING-20261019.md)
 and
 [`docs/WINDOWS-INITIAL-CCL-20261019.md`](../../docs/WINDOWS-INITIAL-CCL-20261019.md);
-the captured 3,456-byte raster must not yet be assigned Windows detector
-coordinates without the selected runtime width and height.
+the selected 0C19 stream-0 configuration now establishes that the captured
+3,456-byte full run is a packed 72x48 Windows detector grid.
 
 ## Verification
 

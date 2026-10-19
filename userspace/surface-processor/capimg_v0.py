@@ -3,15 +3,16 @@
 """Strict, side-effect-free decoder for MSHW0231 CapImg V0 frames.
 
 The decoder accepts only the three observed transport envelopes or an explicit
-72x48 capture-analysis raster used by offline tests. It does not access HID,
-SPI, uinput, or a live device.
+72x48 raster used by offline tests. For the hash-pinned 0C19 Windows processor,
+that geometry is also present in the selected static PSDB configuration. It
+does not access HID, SPI, uinput, or a live device.
 """
 from __future__ import annotations
 
 from struct import unpack_from
 
 
-# Capture-analysis geometry; not yet proven as Windows detector coordinates.
+# MSHW0231 capture geometry, independently matched by the pinned 0C19 PSDB.
 COLS = 72
 ROWS = 48
 CELLS = COLS * ROWS
@@ -53,10 +54,10 @@ def _validate_heatmap_section(section: bytes) -> None:
 def decode_heatmap_section(raw: bytes) -> bytes:
     """Return the complete validated ``0x0100`` section from a V0 frame.
 
-    A bare 3,456-byte capture-analysis raster is wrapped as the canonical
-    single-run 8-bit section used by the retained fixtures. Width and height
-    are deliberately not inferred from the section because Windows obtains
-    those values from separate runtime configuration.
+    A bare 3,456-byte raster is wrapped as the canonical single-run 8-bit
+    section used by the retained fixtures. Width and height are deliberately
+    not inferred from the section: Windows obtains them from the separately
+    selected PSDB configuration, whose pinned 0C19 stream-0 values are 72x48.
     """
     if not isinstance(raw, bytes):
         raise TypeError('raw frame must be bytes')

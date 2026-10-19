@@ -71,9 +71,10 @@ Passing an earlier state never implies a later one.
 6. V0 `0x0100` section parsing/staging is structurally reproduced from
    `FUN_18068e990`, including its full-run direct view, 288-byte multi-run
    placement, and calibrated 16-bit conversion. The section does not encode
-   geometry; actual runtime height/width from configuration `+0x3c/+0x3e`
-   remain open and raw 72×48 capture analysis must not be treated as detector
-   coordinates.
+   geometry, but the recovered `0x0c19` selector maps to static record
+   `DAT_1808e0460`, whose stream-0 configuration `+0x3c/+0x3e` is height 48,
+   width 72; stream 1 is unconfigured. Full 8-bit runs and converted 16-bit
+   runs are packed; only copied partial/multi-run 8-bit data uses stride 288.
 7. Conditional split CCL, surrounding walks, outer class policy, association,
    hold/lift and final emission remain open until separately implemented and
    tested.
