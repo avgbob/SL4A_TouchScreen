@@ -10,12 +10,18 @@ import tempfile
 import unittest
 
 from windows_classifier import f32
+from windows_frame_setup import (
+    FrameSignalSchedule,
+    WINDOWS_0C19_FRAME_SIGNAL_SCHEDULE,
+    maximum_frame_metric,
+)
 from windows_initial_ccl import (
     WINDOWS_SIGNAL_LUT,
     adjusted_weight,
     initial_ccl,
     threshold_raw_index,
 )
+from windows_section_staging import stage_heatmap_section
 
 
 def float_bits(value):
@@ -23,6 +29,54 @@ def float_bits(value):
 
 
 class WindowsInitialCclTests(unittest.TestCase):
+    def test_full_0c19_section_flows_directly_into_initial_ccl(self):
+        pixels = bytearray((255,)) * (72 * 48)
+        pixels[72 + 10:72 + 13] = bytes((100, 100, 100))
+        body = bytes((1, 8)) + struct.pack('<II', 0, len(pixels)) + pixels
+        section = struct.pack('<IH', 6 + len(body), 0x0100) + body
+        staged = stage_heatmap_section(section, width=72, height=48)
+        schedule = WINDOWS_0C19_FRAME_SIGNAL_SCHEDULE
+        result = initial_ccl(
+            staged.packed_active_grid(), width=72, height=48,
+            signal_threshold=schedule.select(maximum_frame_metric(())),
+            minimum_peak_signal=schedule.minimum_peak_signal)
+        self.assertTrue(staged.direct_view)
+        self.assertEqual(result.eligible_cells, 3)
+        self.assertEqual(result.accepted_count, 1)
+        self.assertEqual(result.candidates[0].component_cells, 3)
+
+    def test_pinned_frame_threshold_schedule_boundaries(self):
+        schedule = WINDOWS_0C19_FRAME_SIGNAL_SCHEDULE
+        self.assertEqual(len(schedule.steps), 20)
+        self.assertEqual(float_bits(schedule.lower), bytes.fromhex('0ad7233d'))
+        self.assertEqual(float_bits(schedule.upper), bytes.fromhex('8fc2f53d'))
+        self.assertEqual(float_bits(schedule.minimum_peak_signal),
+                         bytes.fromhex('ae47613d'))
+        for metric, expected_index in ((0, 0), (40, 0), (41, 1), (58, 1),
+                                       (59, 2), (104, 3), (105, 4),
+                                       (866, 18), (867, 19), (65535, 19)):
+            selected = schedule.select(metric)
+            expected = schedule.steps[expected_index][0]
+            expected = min(schedule.upper, max(schedule.lower, expected))
+            self.assertEqual(float_bits(selected), float_bits(expected), metric)
+
+    def test_frame_threshold_config_parser_and_metric_maximum(self):
+        config = bytearray(0x24)
+        struct.pack_into('<ff', config, 0, 0.04, 0.12)
+        struct.pack_into('<fI', config, 0x0C, 0.055, 2)
+        struct.pack_into('<fI', config, 0x14, 0.03, 41)
+        struct.pack_into('<fI', config, 0x1C, 0.08, 80)
+        schedule = FrameSignalSchedule.from_config_bytes(bytes(config))
+        self.assertEqual(float_bits(schedule.select(40)), float_bits(f32(0.04)))
+        self.assertEqual(float_bits(schedule.select(41)), float_bits(f32(0.08)))
+        self.assertEqual(maximum_frame_metric(()), 0)
+        self.assertEqual(maximum_frame_metric((12, 9, 600, 41)), 600)
+
+        with self.assertRaisesRegex(ValueError, 'truncated'):
+            FrameSignalSchedule.from_config_bytes(bytes(config[:0x23]))
+        with self.assertRaisesRegex(ValueError, 'u16'):
+            maximum_frame_metric((0x10000,))
+
     def test_lut_has_only_the_255_initialized_windows_slots(self):
         self.assertEqual(len(WINDOWS_SIGNAL_LUT), 255)
         self.assertEqual(float_bits(WINDOWS_SIGNAL_LUT[0]),
@@ -146,6 +200,13 @@ class CompiledInitialCclScalarOracleTests(unittest.TestCase):
         cls.c_weight = dll.windows_adjusted_weight
         cls.c_weight.argtypes = [ctypes.c_uint8, ctypes.c_float]
         cls.c_weight.restype = ctypes.c_float
+        cls.c_select = dll.windows_select_frame_threshold
+        cls.c_select.argtypes = [ctypes.c_uint16, ctypes.c_float,
+                                 ctypes.c_float,
+                                 ctypes.POINTER(ctypes.c_float),
+                                 ctypes.POINTER(ctypes.c_uint32),
+                                 ctypes.c_uint32]
+        cls.c_select.restype = ctypes.c_float
 
     @classmethod
     def tearDownClass(cls):
@@ -162,6 +223,18 @@ class CompiledInitialCclScalarOracleTests(unittest.TestCase):
                              self.c_threshold(threshold), case)
             self.assertEqual(float_bits(adjusted_weight(raw, threshold)),
                              float_bits(self.c_weight(raw, threshold)), case)
+
+    def test_python_matches_c_frame_threshold_selection(self):
+        schedule = WINDOWS_0C19_FRAME_SIGNAL_SCHEDULE
+        thresholds = (ctypes.c_float * len(schedule.steps))(
+            *(threshold for threshold, _ in schedule.steps))
+        cutoffs = (ctypes.c_uint32 * len(schedule.steps))(
+            *(cutoff for _, cutoff in schedule.steps))
+        for metric in range(0x10000):
+            expected = self.c_select(metric, schedule.lower, schedule.upper,
+                                     thresholds, cutoffs, len(schedule.steps))
+            self.assertEqual(float_bits(schedule.select(metric)),
+                             float_bits(expected), metric)
 
 
 if __name__ == '__main__':

@@ -53,8 +53,8 @@ semidefinite moment inputs.
 
 The module refuses to imply an end-to-end producer. These remain open:
 
-1. per-frame baseline/grid conversion and non-geometry configuration use in
-   `FUN_180600820`;
+1. provenance and meaning of the per-frame metadata used by
+   `FUN_180600820`'s recovered threshold schedule;
 2. candidate selection, peak suppression and record lifecycle;
 3. three thresholded split CCL passes when `FUN_1806042f0`'s condition is true;
 4. the two neighbourhood walks that create the small-box `0x94` accumulator;
@@ -63,8 +63,10 @@ The module refuses to imply an end-to-end producer. These remain open:
 
 The selected 0C19 stream-0 geometry and the initial eight-connected CCL are
 now structurally recovered in the adjacent staging and initial-CCL modules.
-That closes their former static-analysis gates, but not the raw-frame-to-grid
-conversion or Windows-runtime output-comparison gates above.
+Frame setup is also recovered: it sends staged bytes directly into the main
+CCL after selecting a threshold, rather than performing the previously assumed
+baseline/grid conversion. That closes the former conversion gate, but not the
+metadata-provenance or Windows-runtime output-comparison gates above.
 
 Until those gates close, callers must supply labelled-component statistics and
 must label their provenance. This code can feed the recovered classifier for

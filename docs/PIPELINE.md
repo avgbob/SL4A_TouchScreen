@@ -7,6 +7,10 @@
 > **2026-10-19 v2 correction:** the recovered Windows initial pass is an
 > eight-connected row-major provisional-label scan, not the four-connected BFS
 > described below. See [WINDOWS-INITIAL-CCL-20261019.md](WINDOWS-INITIAL-CCL-20261019.md).
+> `FUN_180600820` selects a threshold from static configuration and sends the
+> staged byte grid directly to that scan; it is not a per-cycle gain or
+> baseline-conversion function. See
+> [WINDOWS-FRAME-SETUP-20261019.md](WINDOWS-FRAME-SETUP-20261019.md).
 
 ```
 Frame (heatmap grid — 72×48/3456 cells on SL4 MSHW0231, 78×52/4056 on SL3 MSHW0162; selected by ACPI ID)
@@ -73,8 +77,8 @@ Frame (heatmap grid — 72×48/3456 cells on SL4 MSHW0231, 78×52/4056 on SL3 MS
 | Association radii | config+0x8DC-0x8EC | 100% (DLL values verified) |
 | EMA smoothing | FUN_180608000 | ~80% (alpha=2) |
 | Hold/lift | FUN_180606370 | ~40% (simplified, hold_frames=0) |
-| Classifier | FUN_180601690 | 0% (Mahalanobis runtime-matrix) |
-| Per-cycle gain | FUN_180600820 | 0% (runtime from firmware) |
+| Classifier | FUN_180601690 | Common score kernel structurally reproduced; overrides/final semantics open |
+| Frame threshold selection | FUN_1806003b0/FUN_180600820 | Structurally reproduced; frame-metadata producer/meaning still open |
 
 ## Config Table Values
 
@@ -91,7 +95,7 @@ Extracted from DLL `DAT_1808e0460` (file offset `0x8DF060`):
 | +0x8D4 | 0.228140 | Bottom edge penalty |
 | +0x8D8 | 0xB3 (enabled) | Hold policy enable |
 | +0xC98 | 36.0 | Coalescing threshold (distance²) |
-| +0xECC | 0.04 | Noise floor |
+| +0xECC | 0.04 | Initial signal-threshold lower clamp |
 | +0x8C0 | 0.611209 | Pre-assoc ratio (disabled) |
 | +0x958 | 0.17 | Touch detect pct (not used standalone) |
 

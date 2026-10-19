@@ -2,7 +2,7 @@
 
 > **2026-10-17 correction:** The DLL constants are recovered static values. The `Linux Equivalent` column and any finger-count multiplier interpretation below are **Linux approximations, NOT verified Windows radius policy**; consult the specific `FUN_180607a20` branches in [decomp/SURFACE_TRACKER_DECOMP.md](decomp/SURFACE_TRACKER_DECOMP.md) and [RESEARCH-CONTRADICTIONS.md](RESEARCH-CONTRADICTIONS.md) D16 before using them.\n\nComplete configuration table extracted from `TouchPenProcessor0C19.dll`
 data segment at virtual address `0x1808E0460` (file offset `0x8DF060`,
-section `.rdata`, product ID 0x0C19).
+section `.data`, product ID 0x0C19).
 
 ## Association Radii (offset +0x8DC to +0x8EC)
 
@@ -58,17 +58,22 @@ the strongest candidate's weight.
 | +0x8C0 | 0.611209 | Primary pre-assoc ratio threshold |
 | +0x8C4 | **0.7553579807** | Secondary ratio threshold |
 
-Disabled in Linux (`pre_assoc_ratio=0`). Without verified Windows candidate classification and gain handling, this filter is potentially too aggressive
-for multi-finger scenarios.
+Disabled in Linux (`pre_assoc_ratio=0`). Without verified Windows candidate
+classification and frame-threshold metadata handling, this filter is
+potentially too aggressive for multi-finger scenarios.
 
-## Noise Floor (offset +0xECC)
+## Initial CCL threshold schedule (offset +0xECC)
 
 | Offset | DLL Value | Description | Linux Equivalent |
 |--------|-----------|-------------|-----------------|
-| +0xECC | 0.04 | Signal fraction below which cells are noise | c590 < 400 suppressed |
+| +0xECC | 0.04 | Lower clamp for the per-frame signal threshold | No direct equivalent |
 
-0.04 × 10000 (c590 max range) = 400. Cells with absolute c590 value
-below this threshold are treated as noise in baseline subtraction.
+`FUN_180600820` selects a signal threshold from the 20-entry schedule beginning
+at `+0xee0`, using the maximum u16 value from frame metadata
+`+0xb6c1/+0xb6c2`, then clamps the selection to `+0xecc` (0.04) through
+`+0xed0` (0.12). `FUN_180604ab0` converts that signal threshold to a raw-byte
+gate and scans the staged grid directly. This is not a per-pixel baseline
+subtraction. See [WINDOWS-FRAME-SETUP-20261019.md](WINDOWS-FRAME-SETUP-20261019.md).
 
 ## Hold Policy (offset +0x8D8)
 
@@ -88,10 +93,8 @@ signal > 0.095. Our simplified implementation caused scrolling to
 |--------|-----------|-------------|
 | +0x958 | 0.17 | Touch detection as fraction of peak signal |
 
-Not directly used in Linux. This threshold applies after per-cycle
-gain adaptation (FUN_180600820), which adjusts global signal gain
-based on noise floor measurements. Without the gain pipeline, this
-threshold is meaningless as a standalone value.
+Not directly used in Linux. It belongs to a later detector path and must not be
+substituted for the initial CCL threshold selected by `FUN_180600820`.
 
 ## Static versus runtime data: corrected by August MSI audit
 
@@ -104,14 +107,15 @@ assuming SurfaceSystemTelemetryDriver is their producer.
 |---|---|---|
 | +0xD40 .. +0xD78 | Structured **nonzero byte/index** data with 0xFF sentinels; **not** a 10×11 floating-point Mahalanobis matrix | Meaning and consuming xrefs |
 | +0xE20 .. +0xE48 | Statically zero | Runtime producer and exact purpose |
-| +0xE60 .. +0xE98 | Statically zero | Runtime producer and per-cycle gain interpretation |
+| +0xE60 .. +0xE98 | Statically zero | Runtime producer and exact purpose |
 | +0xEA0 .. +0xEC0 | Statically zero | Noise/adaptation fields and producer |
-| +0xED0 onward | Structured **static** floats, count and 20-entry quadratic lookup | Which detector path consumes it |
+| +0xECC .. +0xF80 | Structured **static** frame/initial-CCL configuration | Meanings outside the now-recovered threshold schedule |
 
-At +0xED0: floats 0.12, 0.06, 0.055, integer 20, then
-pairs x (0.025..0.120 in increments of 0.005) and approximately
-round(65536 * x²) (41..944). The 15-inch 0x0C18 table differs
-in at least the preceding +0xED8 parameter.
+At +0xECC: lower/upper clamps 0.04/0.12, another 0.06 field, the
+small-component peak gate 0.055, integer count 20, then pairs of thresholds
+0.025..0.120 and cutoffs 41..944. `FUN_180600820` consumes this schedule; its
+loop uses cutoffs through 867 and selects the final 0.120 entry thereafter.
+The 15-inch 0x0C18 table differs and is not covered by the 0C19 result.
 
 The old description of +0xD40 as an all-zero runtime Mahalanobis
 float matrix and +0xED0 as runtime-only regional sensitivity are
@@ -124,8 +128,10 @@ cross-product comparison in docs/SL4_MSI_Mining_Report.md.
 
 ## Data Type Notes
 
-All values at offsets +0x8C0 through +0xECC are IEEE 754 single-precision
-floats (32-bit). The hold flag at +0x8D8 is a byte interpreted as boolean
+The individually identified values in these ranges are IEEE 754
+single-precision floats; the `+0xedc` count and threshold cutoffs are u32. Do
+not blanket-type every intervening byte as float. The hold flag at +0x8D8 is a
+byte interpreted as boolean
 (0xB3 is a non-zero "enabled" value, though the exact interpretation may
 depend on the pipeline logic at FUN_180606370).
 

@@ -22,3 +22,24 @@ float windows_adjusted_weight(uint8_t raw, float threshold)
     float weight = windows_c590_value(raw) - (threshold - signal_step);
     return weight <= weight_epsilon ? weight_epsilon : weight;
 }
+
+float windows_select_frame_threshold(uint16_t maximum_metric, float lower,
+                                     float upper, const float *thresholds,
+                                     const uint32_t *cutoffs, uint32_t count)
+{
+    uint8_t index = 0;
+
+    if (count != 1) {
+        do {
+            if (maximum_metric < cutoffs[index])
+                break;
+            index++;
+        } while ((uint32_t)index < count - 1);
+    }
+    float selected = thresholds[index];
+    if (selected <= lower)
+        selected = lower;
+    if (upper <= selected)
+        selected = upper;
+    return selected;
+}

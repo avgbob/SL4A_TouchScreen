@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-2.0
-"""Initial Windows candidate CCL over an already converted byte grid.
+"""Initial Windows candidate CCL over a staged byte grid.
 
 This is a transcription of the main-pass behavior recovered from
-``FUN_180604ab0``, ``FUN_180604fe0``, and ``FUN_180604bd0``.  It accepts the
-converted byte grid consumed by TouchPenProcessor0C19; it does not claim that a
-wire-format V0 heatmap can be passed here without the still-unrecovered
-conversion stage.
+``FUN_180604ab0``, ``FUN_180604fe0``, and ``FUN_180604bd0``. It accepts the
+active rectangle packed from ``FUN_18068e990``'s staged bytes. Windows scans
+those bytes directly; the c590 LUT converts raw byte values to signal only for
+candidate accumulation.
 
 The main pass uses row-major provisional labels, four already-visited
 neighbours (left, upper-left, up, upper-right), equivalence merging, and one
@@ -137,7 +137,7 @@ class InitialCclResult:
     canonical_labels: tuple[int, ...]
     candidates: tuple[InitialCandidate, ...]
     provenance: str = ('FUN_180604ab0/FUN_180604fe0/FUN_180604bd0:'
-                       'main converted-grid pass')
+                       'main staged-grid pass')
 
 
 @dataclass
@@ -217,24 +217,24 @@ class _Record:
         source.live = False
 
 
-def initial_ccl(converted_grid: bytes, *, width: int, height: int,
+def initial_ccl(staged_grid: bytes, *, width: int, height: int,
                 signal_threshold: float, minimum_peak_signal: float,
                 max_labels: int = WINDOWS_MAX_PROVISIONAL_LABELS,
                 max_equivalence_pairs: int = WINDOWS_MAX_EQUIVALENCE_PAIRS,
                 ) -> InitialCclResult:
-    """Run the recovered initial main-pass CCL on a packed converted grid.
+    """Run the recovered initial main-pass CCL on a packed staged grid.
 
     ``minimum_peak_signal`` is configuration float ``+0x0c`` used by
     FUN_180604bd0 to retain one- and two-cell components.  Components with more
     than two cells pass independently of this peak gate.
     """
-    if not isinstance(converted_grid, bytes):
-        raise TypeError('converted_grid must be bytes')
+    if not isinstance(staged_grid, bytes):
+        raise TypeError('staged_grid must be bytes')
     for value, label in ((width, 'width'), (height, 'height')):
         if type(value) is not int or value <= 0 or value > 0xFFFF:
             raise ValueError(f'{label} must be a positive u16')
-    if len(converted_grid) != width * height:
-        raise ValueError('converted_grid length does not match width * height')
+    if len(staged_grid) != width * height:
+        raise ValueError('staged_grid length does not match width * height')
     if type(max_labels) is not int or not 1 <= max_labels <= 0xFF:
         raise ValueError('max_labels must be in 1..255')
     if (type(max_equivalence_pairs) is not int or
@@ -252,7 +252,7 @@ def initial_ccl(converted_grid: bytes, *, width: int, height: int,
     for y in range(height):
         for x in range(width):
             index = y * width + x
-            raw = converted_grid[index]
+            raw = staged_grid[index]
             if raw > raw_gate:
                 continue
             eligible_cells += 1

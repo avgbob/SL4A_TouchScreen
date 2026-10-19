@@ -58,11 +58,12 @@ Passing an earlier state never implies a later one.
    sanitized 17,018-frame behavioral contract.
 3. Candidate score kernel: use 32-bit float operations in recovered order and
    cross-check against a compiled C oracle.
-4. Initial converted-grid CCL: reproduce the 255 initialized LUT entries,
+4. Initial staged-grid CCL: reproduce the 255 initialized LUT entries,
    raw threshold gate, eight-connected provisional scan, equivalence merging,
-   accumulator records and initial component acceptance. The V0-to-converted
-   grid transformation remains open, so raw captures are not fed into this
-   stage as if they were Windows runtime buffers.
+   accumulator records and initial component acceptance. `FUN_180600820`
+   passes the staged byte grid directly to this scan; there is no separate
+   pixel conversion at this boundary. Its exact per-frame threshold still
+   depends on the maximum u16 metadata value at frame `+0xb6c1/+0xb6c2`.
 5. Labelled-component feature kernels: reproduce the exact no-resegmentation
    split-byte fallback, covariance-derived `0x8c`/`0x90` fields, and final
    `0x94` normalization/oversize branches. This is not raw-frame candidate
@@ -75,10 +76,14 @@ Passing an earlier state never implies a later one.
    `DAT_1808e0460`, whose stream-0 configuration `+0x3c/+0x3e` is height 48,
    width 72; stream 1 is unconfigured. Full 8-bit runs and converted 16-bit
    runs are packed; only copied partial/multi-run 8-bit data uses stride 288.
-7. Conditional split CCL, surrounding walks, outer class policy, association,
+7. Frame threshold selection is reproduced from `FUN_1806003b0` and
+   `FUN_180600820`, including selected PSDB block `+0xecc`, the 20-entry
+   float32/u32 schedule, clamps and all-u16 C-oracle comparison. The metadata
+   producer and physical meaning remain open.
+8. Conditional split CCL, surrounding walks, outer class policy, association,
    hold/lift and final emission remain open until separately implemented and
    tested.
-8. No uinput or kernel output is authorized by these offline gates.
+9. No uinput or kernel output is authorized by these offline gates.
 
 ## Maintenance rule
 

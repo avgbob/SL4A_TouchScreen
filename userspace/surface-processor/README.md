@@ -25,13 +25,16 @@ not a live HID driver, uinput daemon, or complete Windows contact processor.
   score branches. It does not perform raw-frame CCL or the unresolved walks.
 - `windows_initial_ccl.py` reproduces the initial eight-connected Windows
   scanline CCL, provisional-label merging, 0xb0 accumulator fields, and
-  small-component acceptance gate over an already converted byte grid.
+  small-component acceptance gate over the packed staged byte grid.
+- `windows_frame_setup.py` reproduces the preceding per-frame maximum-metadata
+  threshold schedule and the exact pinned 0C19 float32 configuration. It does
+  not invent a meaning or producer for the still-unresolved metadata values.
 - `c_oracle/windows_classifier_oracle.c` independently checks that score
   operation order with compiled C `float` arithmetic.
 - `c_oracle/windows_candidate_features_oracle.c` independently checks the
   recovered covariance-feature operation order and pinned double constant.
 - `c_oracle/windows_initial_ccl_oracle.c` independently checks LUT, threshold,
-  and adjusted-weight float operation order.
+  adjusted-weight and frame-threshold selection behavior.
 - `c_oracle/windows_section_staging_oracle.c` independently checks run-address
   arithmetic and calibrated 16-bit conversion.
 
@@ -48,6 +51,8 @@ and
 [`docs/WINDOWS-INITIAL-CCL-20261019.md`](../../docs/WINDOWS-INITIAL-CCL-20261019.md);
 the selected 0C19 stream-0 configuration now establishes that the captured
 3,456-byte full run is a packed 72x48 Windows detector grid.
+The intervening threshold selector is documented in
+[`docs/WINDOWS-FRAME-SETUP-20261019.md`](../../docs/WINDOWS-FRAME-SETUP-20261019.md).
 
 ## Verification
 

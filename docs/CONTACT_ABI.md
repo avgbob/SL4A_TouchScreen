@@ -34,10 +34,12 @@ MSI binary audit**: the region contains structured bytes and `0xFF`
 sentinels, and interpreting the words as floats yields NaNs. Its actual
 indices and their use need targeted decompilation xrefs.
 
-The precise classifier, gain adaptation, quality-conditional hold/lift and
-Microsoft virtual-HID ID allocator remain unimplemented in the Linux research
-processor. Do not substitute estimated coefficients or convert Windows
-internal fields to Linux events until their roles are verified.
+The common classifier kernel and initial frame-threshold schedule are now
+structurally reproduced, but classifier overrides/final policy,
+quality-conditional hold/lift and the Microsoft virtual-HID ID allocator remain
+unimplemented in the Linux research processor. Do not substitute estimated
+coefficients or convert Windows internal fields to Linux events until their
+roles are verified.
 
 ## Contact limits are layer-specific
 
