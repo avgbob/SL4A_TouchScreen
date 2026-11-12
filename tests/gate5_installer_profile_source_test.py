@@ -44,7 +44,7 @@ qualified = (
 )
 assert qualified in sl4_branch, "MSHW0231 profile drifted from Gate5 qualification"
 
-assert "# SL4A_TouchScreen conservative standard HID profile (SL4 AMD MSHW0230 / SL3 AMD MSHW0162)" in fallback
+assert "# SL4A_TouchScreen standard HID profile (Surface Laptop 3 AMD)" in fallback
 assert "options sl4a_spi_hid raw_mode=N wire_double_opcode=1" in fallback
 
 for forbidden in ("raw_input_beta=Y", "std_raw_transition=1", "skip_std_getfeat=1"):
