@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Pin the device-specific Gate5 installer profile.
 
-MSHW0231 must get the exact field-qualified mode-1 profile while MSHW0162
-retains the conservative standard-HID fallback.
+MSHW0231 must get the exact field-qualified mode-1 profile while MSHW0230
+and MSHW0162 retain the conservative standard-HID fallback.
 """
 
 from pathlib import Path
@@ -48,7 +48,7 @@ assert "# SL4A_TouchScreen standard HID profile (Surface Laptop 3 AMD)" in fallb
 assert "options sl4a_spi_hid raw_mode=N wire_double_opcode=1" in fallback
 
 for forbidden in ("raw_input_beta=Y", "std_raw_transition=1", "skip_std_getfeat=1"):
-    assert forbidden not in fallback, f"SL3 fallback unexpectedly enables {forbidden}"
+    assert forbidden not in fallback, f"conservative fallback unexpectedly enables {forbidden}"
 
 # User-facing installer text must describe the current architecture correctly:
 # SL4 production multitouch is the standard Gate5 transport, while --raw is a
