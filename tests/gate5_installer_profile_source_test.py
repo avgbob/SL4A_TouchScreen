@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Pin the device-specific Gate5 installer profile.
 
-MSHW0231 must get the exact field-qualified mode-1 profile while MSHW0162
-retains the conservative standard-HID fallback.
+MSHW0231 must get the exact field-qualified mode-1 profile while MSHW0230
+and MSHW0162 retain the conservative standard-HID fallback.
 """
 
 from pathlib import Path
@@ -20,11 +20,14 @@ gate_pos = block.find(gate)
 assert gate_pos >= 0, "Gate5 installer profile is not scoped to MSHW0231"
 
 device_block = block[gate_pos:]
-device_end = device_block.find("\n\t\tfi")
+device_end = device_block.find("
+		fi")
 assert device_end > 0, "MSHW0231 profile conditional is not closed"
 device_block = device_block[:device_end]
 
-split = device_block.split("\n\t\telse\n", 1)
+split = device_block.split("
+		else
+", 1)
 assert len(split) == 2, "expected explicit MSHW0231/fallback split"
 sl4_branch, fallback = split
 
@@ -44,11 +47,11 @@ qualified = (
 )
 assert qualified in sl4_branch, "MSHW0231 profile drifted from Gate5 qualification"
 
-assert "# SL4A_TouchScreen standard HID profile (Surface Laptop 3 AMD)" in fallback
+assert "# SL4A_TouchScreen conservative standard HID profile (SL4 AMD MSHW0230 / SL3 AMD MSHW0162)" in fallback
 assert "options sl4a_spi_hid raw_mode=N wire_double_opcode=1" in fallback
 
 for forbidden in ("raw_input_beta=Y", "std_raw_transition=1", "skip_std_getfeat=1"):
-    assert forbidden not in fallback, f"SL3 fallback unexpectedly enables {forbidden}"
+    assert forbidden not in fallback, f"conservative fallback unexpectedly enables {forbidden}"
 
 # User-facing installer text must describe the current architecture correctly:
 # SL4 production multitouch is the standard Gate5 transport, while --raw is a
