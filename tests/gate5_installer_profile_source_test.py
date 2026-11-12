@@ -20,14 +20,11 @@ gate_pos = block.find(gate)
 assert gate_pos >= 0, "Gate5 installer profile is not scoped to MSHW0231"
 
 device_block = block[gate_pos:]
-device_end = device_block.find("
-		fi")
+device_end = device_block.find("\n\t\tfi")
 assert device_end > 0, "MSHW0231 profile conditional is not closed"
 device_block = device_block[:device_end]
 
-split = device_block.split("
-		else
-", 1)
+split = device_block.split("\n\t\telse\n", 1)
 assert len(split) == 2, "expected explicit MSHW0231/fallback split"
 sl4_branch, fallback = split
 
