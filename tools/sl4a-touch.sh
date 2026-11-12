@@ -112,7 +112,7 @@ acpi_device_present() {
 # or nothing (and non-zero) if neither is present.
 touchscreen_acpi_id() {
 	local id
-	for id in MSHW0231 MSHW0162; do
+	for id in MSHW0230 MSHW0231 MSHW0162; do
 		if acpi_device_present "$id"; then
 			echo "$id"
 			return 0
@@ -670,8 +670,8 @@ cmd_install() {
 	info "Step 1: Checking hardware..."
 	local missing_hardware=""
 	# SL4 uses MSHW0231, SL3 (AMD) uses MSHW0162 — either is fine, AMDI0060 is required.
-	if ! acpi_device_present "MSHW0231" && ! acpi_device_present "MSHW0162"; then
-		missing_hardware="MSHW0231/MSHW0162"
+	if ! acpi_device_present "MSHW0230" && ! acpi_device_present "MSHW0231" && ! acpi_device_present "MSHW0162"; then
+		missing_hardware="MSHW0230/MSHW0231/MSHW0162"
 	fi
 	if ! acpi_device_present "AMDI0060"; then missing_hardware="${missing_hardware:+$missing_hardware, }AMDI0060"; fi
 	if [ -n "$missing_hardware" ]; then
@@ -681,7 +681,7 @@ cmd_install() {
 			fail "expected Surface Laptop 3/4 AMD hardware not found: $missing_hardware (use --force to override)"
 		fi
 	else
-		pass "MSHW0231/MSHW0162 and AMDI0060 found"
+		pass "MSHW0230/MSHW0231/MSHW0162 and AMDI0060 found"
 	fi
 
 	if [ -r "$DMI_ROOT/product_name" ]; then
@@ -1035,7 +1035,7 @@ options sl4a_spi_hid raw_mode=N raw_input_beta=Y wire_double_opcode=1 gate3_obse
 EOF
 		else
 			cat > "$tmp_config" <<'EOF'
-# SL4A_TouchScreen standard HID profile (Surface Laptop 3 AMD)
+# SL4A_TouchScreen conservative standard HID profile (SL4 AMD MSHW0230 / SL3 AMD MSHW0162)
 options sl4a_spi_hid raw_mode=N wire_double_opcode=1
 EOF
 		fi
@@ -1192,7 +1192,7 @@ EOF
 	elif acpi_device_present "MSHW0231"; then
 		echo -e "${GREEN}${BOLD}Install complete${NC} ${GREEN}— production SL4 Gate5 standard-transport CapImg multitouch profile selected.${NC}"
 	else
-		echo -e "${GREEN}${BOLD}Install complete${NC} ${GREEN}— conservative SL3 standard HID profile selected.${NC}"
+		echo -e "${GREEN}${BOLD}Install complete${NC} ${GREEN}— conservative standard HID profile selected (MSHW0230 or MSHW0162).${NC}"
 	fi
 	echo "  To remove:  sudo ./tools/sl4a-touch.sh uninstall"
 	rule
@@ -1388,11 +1388,11 @@ cmd_activate() {
 	# Touchscreen node: MSHW0231 (SL4) or MSHW0162 (SL3 AMD) — exactly one of the two.
 	local touches=()
 	local mshw
-	for mshw in MSHW0231 MSHW0162; do
+	for mshw in MSHW0230 MSHW0231 MSHW0162; do
 		local matches=("$SYSFS_ROOT"/bus/acpi/devices/${mshw}:*)
 		[ -e "${matches[0]}" ] && touches+=("${matches[@]}")
 	done
-	[ "${#touches[@]}" -eq 1 ] || fail "expected exactly one MSHW0231/MSHW0162 ACPI device"
+	[ "${#touches[@]}" -eq 1 ] || fail "expected exactly one MSHW0230/MSHW0231/MSHW0162 ACPI device"
 	local touch="${touches[0]}"
 	# Note: earlier versions of this check also refused to proceed if any
 	# OTHER "MSHW*" ACPI device existed at all. That's not a meaningful
@@ -1675,7 +1675,7 @@ cmd_logs() {
 		if [ -n "$ts_id" ]; then
 			echo "$ts_id: present"
 		else
-			echo "touchscreen ACPI (MSHW0231/MSHW0162): NOT FOUND"
+			echo "touchscreen ACPI (MSHW0230/MSHW0231/MSHW0162): NOT FOUND"
 		fi
 		acpi_device_present "AMDI0060" && echo "AMDI0060: present" || echo "AMDI0060: NOT FOUND"
 		[ -r "$DMI_ROOT/product_name" ] && echo "DMI product: $(tr -d '\n' < "$DMI_ROOT/product_name")"
@@ -1830,7 +1830,7 @@ cmd_logs() {
 		run_host_self_tests
 		echo ""
 		echo "--- dmesg (driver-related lines, last 1000) ---"
-		dmesg | grep -iE "sl4a|spi-amd|MSHW0231|MSHW0162|AMDI0060" | tail -1000
+		dmesg | grep -iE "sl4a|spi-amd|MSHW0230|MSHW0231|MSHW0162|AMDI0060" | tail -1000
 	} > "$OUT"
 	bundle_status=$?
 	set -e -o pipefail
