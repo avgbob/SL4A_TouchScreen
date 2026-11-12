@@ -1035,7 +1035,8 @@ options sl4a_spi_hid raw_mode=N raw_input_beta=Y wire_double_opcode=1 gate3_obse
 EOF
 		else
 			cat > "$tmp_config" <<'EOF'
-# SL4A_TouchScreen conservative standard HID profile (SL4 AMD MSHW0230 / SL3 AMD MSHW0162)
+# SL4A_TouchScreen standard HID profile (Surface Laptop 3 AMD)
+# Also used conservatively for Surface Laptop 4 AMD MSHW0230.
 options sl4a_spi_hid raw_mode=N wire_double_opcode=1
 EOF
 		fi
